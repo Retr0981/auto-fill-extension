@@ -2,19 +2,43 @@
 <html>
 <head>
   <style>
-    body { width: 300px; padding: 15px; font-family: Arial, sans-serif; }
-    button { width: 100%; padding: 10px; margin: 5px 0; background: #4285F4; color: white; border: none; border-radius: 5px; cursor: pointer; }
-    button:hover { background: #357ABD; }
-    .status { margin-top: 10px; padding: 8px; border-radius: 3px; text-align: center; }
+    body { width: 320px; padding: 15px; font-family: 'Segoe UI', sans-serif; }
+    .section { margin: 15px 0; padding: 10px; background: #f5f5f5; border-radius: 5px; }
+    button { width: 100%; padding: 12px; margin: 5px 0; background: #4285F4; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+    button:hover { background: #357ABD; transform: scale(1.02); }
+    button.danger { background: #ea4335; }
+    button.danger:hover { background: #d33426; }
+    input[type="file"] { display: none; }
+    .file-label { display: block; padding: 10px; background: #34A853; color: white; text-align: center; border-radius: 5px; cursor: pointer; margin: 10px 0; }
+    .file-label:hover { background: #2d8e47; }
+    .status { margin-top: 10px; padding: 10px; border-radius: 5px; text-align: center; font-size: 12px; }
     .success { background: #d4edda; color: #155724; }
+    .info { background: #d1ecf1; color: #0c5460; }
+    .warning { background: #fff3cd; color: #856404; }
+    .cv-status { font-size: 11px; color: #666; margin: 5px 0; text-align: center; }
   </style>
 </head>
 <body>
-  <h3>🤖 Smart Form Filler</h3>
-  <button id="fillForm">Fill Current Form</button>
-  <button id="fillAndUploadCV">Fill & Upload CV</button>
-  <button id="saveData">Save My Data</button>
+  <h3>🎯 Smart Form Filler Pro</h3>
+  
+  <div class="section">
+    <label class="file-label" for="cvFile">
+      📎 Select CV (PDF/DOC)
+    </label>
+    <input type="file" id="cvFile" accept=".pdf,.doc,.docx">
+    <div id="cvStatus" class="cv-status">No CV stored</div>
+  </div>
+
+  <button id="fillForm">📝 Fill Forms Only</button>
+  <button id="fillAndUploadCV">🚀 Fill & Auto-Upload CV</button>
+  
+  <div class="section">
+    <button id="saveData" class="danger">💾 Save My Data</button>
+    <button id="clearCV" class="danger">🗑️ Clear Stored CV</button>
+  </div>
+  
   <div id="status" class="status" style="display:none;"></div>
+  
   <script src="popup.js"></script>
 </body>
 </html>
