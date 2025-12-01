@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Smart Form Filler & CV Uploader",
-  "version": "1.0",
-  "description": "One-click form filling with CV upload support",
+  "name": "Smart Form Filler Pro",
+  "version": "2.0",
+  "description": "One-click form filling with automatic CV upload",
   "permissions": [
     "storage",
     "activeTab",
