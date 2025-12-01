@@ -26,7 +26,7 @@ function extractAllData() {
     const name = field.name?.toLowerCase() || '';
     const label = getLabel(field).toLowerCase();
     
-    // Map all possible fields
+    // Map fields comprehensively
     if (name.includes('first') && name.includes('name')) data.firstName = value;
     else if (name.includes('last') && name.includes('name')) data.lastName = value;
     else if (name.includes('email')) data.email = value;
@@ -43,18 +43,21 @@ function extractAllData() {
 }
 
 async function fillEverything(data, cvData, cvFileName, cvFileType) {
-  console.log('🚀 Processing ALL form elements...');
+  console.log('🚀 Filling ALL form elements...');
   
-  // Fill everything in sequence
+  // Fill all field types
   fillTextFields(data);
   fillDropdowns(data);
   fillRadioButtons();
   fillCheckboxes();
   fillDateFields(data);
   
+  // Upload CV if available
   if (cvData && cvFileName) {
     await uploadCV(cvData, cvFileName, cvFileType);
   }
+  
+  console.log('✅ ALL elements processed');
 }
 
 function fillTextFields(data) {
@@ -69,7 +72,7 @@ function fillTextFields(data) {
     
     let value = '';
     
-    // Comprehensive mapping
+    // Fill based on name/label
     if (name.includes('first') && name.includes('name')) value = data.firstName;
     else if (name.includes('last') && name.includes('name')) value = data.lastName;
     else if (name.includes('email')) value = data.email;
@@ -87,12 +90,14 @@ function fillTextFields(data) {
     else if (name.includes('company')) value = data.company;
     else if (name.includes('position')) value = data.position;
     else if (name.includes('skill')) value = data.skills;
+    else if (name.includes('salary')) value = data.salary || '90000';
+    else if (name.includes('experience')) value = data.experience || '5';
     
     if (value) {
       field.value = value;
       field.dispatchEvent(new Event('input', { bubbles: true }));
       field.dispatchEvent(new Event('change', { bubbles: true }));
-      field.style.border = '2px solid #34A853';
+      field.style.border = '2px solid #34A853'; // Visual confirmation
     }
   });
 }
@@ -107,7 +112,7 @@ function fillDropdowns(data) {
     if (name.includes('country')) {
       const option = options.find(opt => opt.text.includes('United States'));
       if (option) valueToSelect = option.value;
-    } else if (name.includes('year')) {
+    } else if (name.includes('year') || name.includes('experience')) {
       const option = options.find(opt => opt.text.includes('5'));
       if (option) valueToSelect = option.value;
     } else if (options.length > 1) {
@@ -133,7 +138,11 @@ function fillRadioButtons() {
   });
   
   Object.values(groups).forEach(group => {
-    const positive = group.find(r => r.value.toLowerCase().includes('yes'));
+    // Find positive option (yes/true/remote) or default to last
+    const positive = group.find(r => {
+      const val = r.value.toLowerCase();
+      return val === 'yes' || val === 'true' || val === '1' || r.id.toLowerCase().includes('yes');
+    });
     const toCheck = positive || group[group.length - 1];
     
     if (toCheck) {
@@ -147,14 +156,22 @@ function fillRadioButtons() {
 function fillCheckboxes() {
   document.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
     const name = checkbox.name?.toLowerCase() || '';
+    const label = getLabel(checkbox).toLowerCase();
     
-    const shouldCheck = name.includes('term') || name.includes('agree') || name.includes('remote');
-    const shouldUncheck = name.includes('newsletter');
+    // Check agreement/remote boxes
+    const shouldCheck = name.includes('term') || name.includes('agree') || 
+                       name.includes('consent') || name.includes('remote') ||
+                       label.includes('agree');
+    
+    // Uncheck newsletter/spam
+    const shouldUncheck = name.includes('newsletter') || name.includes('spam') ||
+                          label.includes('newsletter');
     
     if (shouldCheck) checkbox.checked = true;
     else if (shouldUncheck) checkbox.checked = false;
     
     checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+    if (shouldCheck) checkbox.style.outline = '3px solid #34A853';
   });
 }
 
@@ -169,35 +186,33 @@ function fillDateFields(data) {
   });
 }
 
-function uploadCV(cvData, cvFileName, cvFileType) {
-  return new Promise(resolve => {
-    const uint8Array = new Uint8Array(cvData);
-    const blob = new Blob([uint8Array], { type: cvFileType || 'application/pdf' });
-    const file = new File([blob], cvFileName, { type: cvFileType || 'application/pdf' });
+async function uploadCV(cvData, cvFileName, cvFileType) {
+  const uint8Array = new Uint8Array(cvData);
+  const blob = new Blob([uint8Array], { type: cvFileType || 'application/pdf' });
+  const file = new File([blob], cvFileName, { type: cvFileType || 'application/pdf' });
+  
+  const fileInputs = document.querySelectorAll('input[type="file"]');
+  let uploaded = false;
+  
+  fileInputs.forEach(input => {
+    const label = getLabel(input).toLowerCase();
+    const name = input.name?.toLowerCase() || '';
+    const isCVField = label.includes('cv') || label.includes('resume') || name.includes('cv') || name.includes('resume');
+    const shouldUpload = isCVField || fileInputs.length === 1;
     
-    const fileInputs = document.querySelectorAll('input[type="file"]');
-    let uploaded = false;
-    
-    fileInputs.forEach(input => {
-      const label = getLabel(input).toLowerCase();
-      const name = input.name?.toLowerCase() || '';
-      const isCVField = label.includes('cv') || label.includes('resume') || name.includes('cv');
-      const shouldUpload = isCVField || fileInputs.length === 1;
+    if (shouldUpload) {
+      const dataTransfer = new DataTransfer();
+      dataTransfer.items.add(file);
+      input.files = dataTransfer.files;
       
-      if (shouldUpload) {
-        const dataTransfer = new DataTransfer();
-        dataTransfer.items.add(file);
-        input.files = dataTransfer.files;
-        
-        input.dispatchEvent(new Event('change', { bubbles: true }));
-        input.style.border = '3px solid #34A853';
-        input.title = `✅ CV: ${cvFileName}`;
-        uploaded = true;
-      }
-    });
-    
-    setTimeout(() => resolve(uploaded), 500);
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      input.style.border = '3px solid #34A853';
+      input.title = `✅ CV: ${cvFileName}`;
+      uploaded = true;
+    }
   });
+  
+  return uploaded;
 }
 
 function clickAllButtons() {
@@ -213,23 +228,32 @@ function clickAllButtons() {
     }
   });
   
-  console.log(`👆 Clicked ${count} buttons`);
+  console.log(`👆 Clicked ${count} actionable elements`);
 }
 
 function verifyAllFields() {
-  const inputs = document.querySelectorAll(`
-    input[type="text"], input[type="email"], input[type="tel"], 
-    input[type="url"], input[type="number"], input[type="date"],
-    textarea, select
+  const allInputs = document.querySelectorAll(`
+    input[type="text"], input[type="email"], input[type="tel"], input[type="url"], 
+    input[type="number"], input[type="date"], textarea, select, 
+    input[type="radio"], input[type="checkbox"]
   `);
   
   let filled = 0, total = 0;
   
-  inputs.forEach(input => {
-    if (input.offsetParent === null) return; // Skip hidden
+  allInputs.forEach(input => {
+    if (input.offsetParent === null && input.type !== 'radio' && input.type !== 'checkbox') return;
     
     total++;
-    if (input.value && input.value.trim() !== '') {
+    
+    // Check based on input type
+    let isFilled = false;
+    if (input.type === 'radio' || input.type === 'checkbox') {
+      isFilled = input.checked; // Radio/checkbox is "filled" if checked
+    } else {
+      isFilled = input.value && input.value.trim() !== '';
+    }
+    
+    if (isFilled) {
       filled++;
       input.style.border = '2px solid #34A853';
     } else {
@@ -237,11 +261,11 @@ function verifyAllFields() {
     }
   });
   
-  console.log(`📊 ${filled}/${total} fields filled (${Math.round((filled/total)*100)}%)`);
+  console.log(`📊 Field completion: ${filled}/${total} (${Math.round((filled/total)*100)}%)`);
   return { filled, total };
 }
 
 function getLabel(field) {
   const label = document.querySelector(`label[for="${field.id}"]`) || field.closest('label');
-  return label ? label.textContent : '';
+  return label ? label.textContent.trim() : '';
 }

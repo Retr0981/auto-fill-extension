@@ -1,8 +1,7 @@
-// Extension installation
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('🎯 AutoFill Pro v3.0 installed successfully');
+  console.log('🎯 AutoFill Pro v4.0 with OCR installed');
   
-  // Initialize storage with defaults
+  // Initialize default data
   chrome.storage.sync.get(['userData'], (result) => {
     if (!result.userData) {
       chrome.storage.sync.set({
@@ -19,46 +18,46 @@ chrome.runtime.onInstalled.addListener(() => {
   });
 });
 
-// Keyboard shortcut handler
+// Keyboard shortcuts
 chrome.commands.onCommand.addListener((command) => {
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     const tabId = tabs[0].id;
     
     if (command === 'smart-fill') {
-      // Trigger smart fill
-      chrome.storage.local.get(['cvFile', 'cvFileName', 'cvFileType'], (result) => {
-        chrome.storage.sync.get(['userData'], (syncResult) => {
+      chrome.storage.sync.get(['userData'], (syncResult) => {
+        chrome.storage.local.get(['cvFile', 'cvFileName', 'cvFileType'], (localResult) => {
+          const data = syncResult.userData || {};
+          
+          if (!data.email && !data.firstName) {
+            console.warn('No user data available for smart fill');
+            return;
+          }
+          
           chrome.tabs.sendMessage(tabId, {
             action: "smartFill",
-            data: syncResult.userData || {},
-            cvData: result.cvFile,
-            cvFileName: result.cvFileName,
-            cvFileType: result.cvFileType
+            data: data,
+            cvData: localResult.cvFile,
+            cvFileName: localResult.cvFileName,
+            cvFileType: localResult.cvFileType
           });
         });
       });
       
-      console.log('⌨️ Smart Fill triggered via keyboard shortcut');
-      
     } else if (command === 'verify-fields') {
-      // Trigger verification
       chrome.tabs.sendMessage(tabId, { action: "verifyFill" });
-      console.log('⌨️ Verify Fields triggered via keyboard shortcut');
     }
   });
 });
 
-// Handle messages from content script (if needed)
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === "log") {
-    console.log(`[Content Script] ${request.message}`);
-  }
-  return true; // Keep connection open for async
+// Keep service worker alive
+chrome.runtime.onStartup.addListener(() => {
+  console.log('AutoFill Pro service worker started');
 });
 
-// Handle tab updates - re-inject content script if needed
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.status === 'complete' && tab.url) {
-    // Optional: Could re-initialize here if needed
+// Handle messages
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === "log") {
+    console.log(`[Content] ${request.message}`);
   }
+  return true;
 });
