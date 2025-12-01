@@ -1,8 +1,69 @@
+// Field alias mappings - defines all known variations for each field
+const fieldAliases = {
+  firstName: ['firstName', 'first_name', 'firstname', 'forename', 'givenName', 'given_name', 'fname', 'first'],
+  lastName: ['lastName', 'last_name', 'lastname', 'surname', 'familyName', 'family_name', 'lname', 'last'],
+  email: ['email', 'e-mail', 'emailAddress', 'email_address', 'e_mail', 'mail'],
+  phone: ['phone', 'phoneNumber', 'phone_number', 'telephone', 'mobile', 'cell', 'cellphone'],
+  address: ['address', 'streetAddress', 'street_address', 'addr'],
+  city: ['city', 'town'],
+  country: ['country', 'nation'],
+  zip: ['zip', 'zipCode', 'zip_code', 'postalCode', 'postal_code', 'postcode'],
+  linkedin: ['linkedin', 'linkedIn', 'linkedinUrl'],
+  portfolio: ['portfolio', 'website', 'github', 'gitlab', 'personalWebsite'],
+  summary: ['summary', 'about', 'description', 'bio'],
+  degree: ['degree', 'education', 'qualification'],
+  university: ['university', 'college', 'school', 'institution'],
+  graduationYear: ['graduationYear', 'graduation_year', 'graduation', 'yearGraduated'],
+  company: ['company', 'employer', 'organisation', 'organization'],
+  position: ['position', 'jobTitle', 'job_title', 'title', 'role'],
+  workStartDate: ['workStartDate', 'work_start_date', 'startDate', 'start_date'],
+  workEndDate: ['workEndDate', 'work_end_date', 'endDate', 'end_date'],
+  experience: ['experience', 'yearsExperience', 'years_experience', 'exp'],
+  skills: ['skills', 'skill', 'abilities', 'competencies'],
+  salary: ['salary', 'expectedSalary', 'expected_salary', 'compensation'],
+  birthDate: ['birthDate', 'birth_date', 'dateOfBirth', 'date_of_birth', 'dob']
+};
+
+// Normalize any field name variation to standard key
+function normalizeFieldName(name) {
+  if (!name) return '';
+  const lowerName = name.toLowerCase().replace(/[\s_-]/g, '');
+  for (const [standard, aliases] of Object.entries(fieldAliases)) {
+    if (standard.toLowerCase() === lowerName || 
+        aliases.some(alias => alias.toLowerCase() === lowerName)) {
+      return standard;
+    }
+  }
+  return name; // Return original if no match found
+}
+
+// Normalize entire data object to use standard keys
+function normalizeData(data) {
+  const normalized = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (value && value.toString().trim()) {
+      const normalizedKey = normalizeFieldName(key);
+      normalized[normalizedKey] = value.toString().trim();
+    }
+  }
+  return normalized;
+}
+
+// Check if a field matches any alias for a standard key
+function matchesFieldAlias(fieldName, standardKey) {
+  if (!fieldName || !standardKey) return false;
+  const aliases = fieldAliases[standardKey] || [standardKey];
+  const fieldNameClean = fieldName.toLowerCase().replace(/[\s_-]/g, '');
+  return aliases.some(alias => alias.toLowerCase().replace(/[\s_-]/g, '') === fieldNameClean);
+}
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "extractAutofill") {
     sendResponse({ autofillData: extractAllData() });
   } else if (request.action === "smartFill") {
-    fillEverything(request.data, request.cvData, request.cvFileName, request.cvFileType);
+    // Use provided fieldMappings or fall back to local fieldAliases
+    const mappings = request.fieldMappings || fieldAliases;
+    fillEverything(request.data, request.cvData, request.cvFileName, request.cvFileType, mappings);
     sendResponse({ success: true });
   } else if (request.action === "clickButtons") {
     clickAllButtons();
@@ -23,33 +84,42 @@ function extractAllData() {
     const value = field.value?.trim();
     if (!value) return;
     
-    const name = field.name?.toLowerCase() || '';
-    const label = getLabel(field).toLowerCase();
+    const name = field.name || '';
+    const id = field.id || '';
+    const label = getLabel(field);
     
-    if (name.includes('first') && name.includes('name')) data.firstName = value;
-    else if (name.includes('last') && name.includes('name')) data.lastName = value;
-    else if (name.includes('email')) data.email = value;
-    else if (name.includes('phone')) data.phone = value;
-    else if (name.includes('address')) data.address = value;
-    else if (name.includes('city')) data.city = value;
-    else if (name.includes('country')) data.country = value;
-    else if (name.includes('zip')) data.zip = value;
-    else if (label.includes('linkedin') || name.includes('linkedin')) data.linkedin = value;
-    else if (label.includes('github') || name.includes('github')) data.portfolio = value;
+    // Check all possible field mappings
+    for (const [standardKey, aliases] of Object.entries(fieldAliases)) {
+      // Check name attribute
+      if (aliases.some(alias => name.toLowerCase() === alias.toLowerCase())) {
+        data[standardKey] = value;
+        break;
+      }
+      // Check id attribute
+      if (aliases.some(alias => id.toLowerCase() === alias.toLowerCase())) {
+        data[standardKey] = value;
+        break;
+      }
+      // Check label text
+      if (aliases.some(alias => label.toLowerCase().includes(alias.toLowerCase()))) {
+        data[standardKey] = value;
+        break;
+      }
+    }
   });
   
-  return data;
+  return normalizeData(data);
 }
 
-async function fillEverything(data, cvData, cvFileName, cvFileType) {
+async function fillEverything(data, cvData, cvFileName, cvFileType, fieldMappings = fieldAliases) {
   console.log('🚀 Filling ALL form elements...');
   
   // Fill all field types
-  fillTextFields(data);
-  fillDropdowns(data);
+  fillTextFields(data, fieldMappings);
+  fillDropdowns(data, fieldMappings);
   fillRadioButtons();
   fillCheckboxes();
-  fillDateFields(data);
+  fillDateFields(data, fieldMappings);
   
   // Upload CV if available
   if (cvData && cvFileName) {
@@ -60,7 +130,7 @@ async function fillEverything(data, cvData, cvFileName, cvFileType) {
   console.log('✅ ALL elements processed');
 }
 
-function fillTextFields(data) {
+function fillTextFields(data, fieldMappings = fieldAliases) {
   const fields = document.querySelectorAll(`
     input[type="text"], input[type="email"], input[type="tel"], 
     input[type="url"], input[type="number"], textarea
@@ -68,29 +138,26 @@ function fillTextFields(data) {
   
   fields.forEach(field => {
     const name = field.name?.toLowerCase() || '';
+    const id = field.id?.toLowerCase() || '';
     const label = getLabel(field).toLowerCase();
     let value = '';
     
-    // Map ALL possible fields from manual/OCR/browser data
-    if (name.includes('first') && name.includes('name')) value = data.firstName;
-    else if (name.includes('last') && name.includes('name')) value = data.lastName;
-    else if (name.includes('email')) value = data.email;
-    else if (name.includes('phone')) value = data.phone;
-    else if (name.includes('address')) value = data.address;
-    else if (name.includes('city')) value = data.city || 'New York';
-    else if (name.includes('country')) value = data.country || 'United States';
-    else if (name.includes('zip')) value = data.zip || '10001';
-    else if (label.includes('linkedin') || name.includes('linkedin')) value = data.linkedin;
-    else if (label.includes('github') || name.includes('github')) value = data.portfolio;
-    else if (field.tagName === 'TEXTAREA') value = data.summary;
-    else if (name.includes('degree')) value = data.degree;
-    else if (name.includes('university')) value = data.university;
-    else if (name.includes('graduation')) value = data.graduationYear;
-    else if (name.includes('company')) value = data.company;
-    else if (name.includes('position')) value = data.position;
-    else if (name.includes('skill')) value = data.skills;
-    else if (name.includes('salary')) value = data.salary || '90000';
-    else if (name.includes('experience')) value = data.experience || '5';
+    // Map ALL possible fields from manual/OCR/browser data using alias matching
+    for (const [standardKey, standardValue] of Object.entries(data)) {
+      if (!standardValue) continue;
+      
+      const aliases = fieldMappings[standardKey] || [standardKey];
+      
+      // Check if field matches any alias (name, id, or label)
+      const matchesName = aliases.some(alias => name.includes(alias.toLowerCase()));
+      const matchesId = aliases.some(alias => id.includes(alias.toLowerCase()));
+      const matchesLabel = aliases.some(alias => label.includes(alias.toLowerCase()));
+      
+      if (matchesName || matchesId || matchesLabel) {
+        value = standardValue;
+        break;
+      }
+    }
     
     if (value) {
       field.value = value;
@@ -101,22 +168,49 @@ function fillTextFields(data) {
   });
 }
 
-function fillDropdowns(data) {
+function fillDropdowns(data, fieldMappings = fieldAliases) {
   document.querySelectorAll('select').forEach(select => {
     const name = select.name?.toLowerCase() || '';
+    const id = select.id?.toLowerCase() || '';
+    const label = getLabel(select).toLowerCase();
     const options = Array.from(select.options);
     
     let valueToSelect = '';
     
-    if (name.includes('country')) {
-      const option = options.find(opt => opt.text.includes('United States') || opt.value.includes('US'));
-      if (option) valueToSelect = option.value;
-    } else if (name.includes('year') || name.includes('experience')) {
-      const option = options.find(opt => opt.text.includes('5') || opt.value.includes('5'));
-      if (option) valueToSelect = option.value;
-    } else if (options.length > 1) {
-      const realOptions = options.filter(opt => !opt.text.toLowerCase().includes('select'));
-      if (realOptions.length > 0) valueToSelect = realOptions[0].value;
+    // Check if we have specific data for this field
+    for (const [standardKey, standardValue] of Object.entries(data)) {
+      if (!standardValue) continue;
+      
+      const aliases = fieldMappings[standardKey] || [standardKey];
+      const matchesName = aliases.some(alias => name.includes(alias.toLowerCase()));
+      const matchesId = aliases.some(alias => id.includes(alias.toLowerCase()));
+      const matchesLabel = aliases.some(alias => label.includes(alias.toLowerCase()));
+      
+      if (matchesName || matchesId || matchesLabel) {
+        // Try to find matching option
+        const matchingOption = options.find(opt => 
+          opt.text.toLowerCase().includes(standardValue.toLowerCase()) ||
+          opt.value.toLowerCase().includes(standardValue.toLowerCase())
+        );
+        if (matchingOption) {
+          valueToSelect = matchingOption.value;
+          break;
+        }
+      }
+    }
+    
+    // Fallback to default logic if no specific match
+    if (!valueToSelect) {
+      if (name.includes('country')) {
+        const option = options.find(opt => opt.text.includes('United States') || opt.value.includes('US'));
+        if (option) valueToSelect = option.value;
+      } else if (name.includes('year') || name.includes('experience')) {
+        const option = options.find(opt => opt.text.includes('5') || opt.value.includes('5'));
+        if (option) valueToSelect = option.value;
+      } else if (options.length > 1) {
+        const realOptions = options.filter(opt => !opt.text.toLowerCase().includes('select'));
+        if (realOptions.length > 0) valueToSelect = realOptions[0].value;
+      }
     }
     
     if (valueToSelect) {
@@ -176,14 +270,41 @@ function fillCheckboxes() {
   });
 }
 
-function fillDateFields(data) {
+function fillDateFields(data, fieldMappings = fieldAliases) {
   document.querySelectorAll('input[type="date"]').forEach(input => {
     const name = input.name?.toLowerCase() || '';
-    if (name.includes('birth')) input.value = data.birthDate || '1990-01-01';
-    else if (name.includes('start')) input.value = data.workStartDate || '2020-01-01';
-    else if (name.includes('end')) input.value = data.workEndDate || '2023-12-31';
-    input.dispatchEvent(new Event('change', { bubbles: true }));
-    input.style.border = '2px solid #34A853';
+    const id = input.id?.toLowerCase() || '';
+    const label = getLabel(input).toLowerCase();
+    
+    let dateValue = '';
+    
+    // Check for specific date field matches
+    for (const [standardKey, standardValue] of Object.entries(data)) {
+      if (!standardValue) continue;
+      
+      const aliases = fieldMappings[standardKey] || [standardKey];
+      const matchesName = aliases.some(alias => name.includes(alias.toLowerCase()));
+      const matchesId = aliases.some(alias => id.includes(alias.toLowerCase()));
+      const matchesLabel = aliases.some(alias => label.includes(alias.toLowerCase()));
+      
+      if (matchesName || matchesId || matchesLabel) {
+        dateValue = standardValue;
+        break;
+      }
+    }
+    
+    // Fallback to default logic
+    if (!dateValue) {
+      if (name.includes('birth')) dateValue = data.birthDate || '1990-01-01';
+      else if (name.includes('start')) dateValue = data.workStartDate || '2020-01-01';
+      else if (name.includes('end')) dateValue = data.workEndDate || '2023-12-31';
+    }
+    
+    if (dateValue) {
+      input.value = dateValue;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      input.style.border = '2px solid #34A853';
+    }
   });
 }
 

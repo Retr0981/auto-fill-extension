@@ -11,11 +11,62 @@ let hasManualData = false;
 let hasOCRData = false;
 let hasBrowserData = false;
 
+// Field alias mappings - maps standard keys to all known variations
+const fieldAliases = {
+  firstName: ['firstName', 'first_name', 'firstname', 'forename', 'givenName', 'given_name', 'fname', 'first'],
+  lastName: ['lastName', 'last_name', 'lastname', 'surname', 'familyName', 'family_name', 'lname', 'last'],
+  email: ['email', 'e-mail', 'emailAddress', 'email_address', 'e_mail', 'mail'],
+  phone: ['phone', 'phoneNumber', 'phone_number', 'telephone', 'mobile', 'cell', 'cellphone'],
+  address: ['address', 'streetAddress', 'street_address', 'addr'],
+  city: ['city', 'town'],
+  country: ['country', 'nation'],
+  zip: ['zip', 'zipCode', 'zip_code', 'postalCode', 'postal_code', 'postcode'],
+  linkedin: ['linkedin', 'linkedIn', 'linkedinUrl'],
+  portfolio: ['portfolio', 'website', 'github', 'gitlab', 'personalWebsite'],
+  summary: ['summary', 'about', 'description', 'bio'],
+  degree: ['degree', 'education', 'qualification'],
+  university: ['university', 'college', 'school', 'institution'],
+  graduationYear: ['graduationYear', 'graduation_year', 'graduation', 'yearGraduated'],
+  company: ['company', 'employer', 'organisation', 'organization'],
+  position: ['position', 'jobTitle', 'job_title', 'title', 'role'],
+  workStartDate: ['workStartDate', 'work_start_date', 'startDate', 'start_date'],
+  workEndDate: ['workEndDate', 'work_end_date', 'endDate', 'end_date'],
+  experience: ['experience', 'yearsExperience', 'years_experience', 'exp'],
+  skills: ['skills', 'skill', 'abilities', 'competencies'],
+  salary: ['salary', 'expectedSalary', 'expected_salary', 'compensation'],
+  birthDate: ['birthDate', 'birth_date', 'dateOfBirth', 'date_of_birth', 'dob']
+};
+
+// Normalize any field name variation to standard key
+function normalizeFieldName(name) {
+  const lowerName = name.toLowerCase().replace(/[\s_-]/g, '');
+  for (const [standard, aliases] of Object.entries(fieldAliases)) {
+    if (standard.toLowerCase() === lowerName || 
+        aliases.some(alias => alias.toLowerCase() === lowerName)) {
+      return standard;
+    }
+  }
+  return name; // Return original if no match found
+}
+
+// Normalize entire data object to use standard keys
+function normalizeData(data) {
+  const normalized = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (value && value.toString().trim()) {
+      const normalizedKey = normalizeFieldName(key);
+      normalized[normalizedKey] = value.toString().trim();
+    }
+  }
+  return normalized;
+}
+
 // Load ALL data sources on startup
 chrome.storage.sync.get(['userData'], (syncResult) => {
   if (syncResult.userData) {
-    userData = { ...userData, ...syncResult.userData };
-    hasManualData = Object.keys(syncResult.userData).length > 0;
+    const normalized = normalizeData(syncResult.userData);
+    userData = { ...userData, ...normalized };
+    hasManualData = Object.keys(normalized).length > 0;
   }
   
   chrome.storage.local.get(['cvFileName', 'cvDataExtracted'], (localResult) => {
@@ -25,10 +76,11 @@ chrome.storage.sync.get(['userData'], (syncResult) => {
     }
     
     if (localResult.cvDataExtracted) {
-      userData = { ...userData, ...localResult.cvDataExtracted };
+      const normalized = normalizeData(localResult.cvDataExtracted);
+      userData = { ...userData, ...normalized };
       hasOCRData = true;
-      displayExtractedData(localResult.cvDataExtracted);
-      populateManualForm(localResult.cvDataExtracted);
+      displayExtractedData(normalized);
+      populateManualForm(normalized);
     }
     
     // Check browser data
@@ -36,8 +88,9 @@ chrome.storage.sync.get(['userData'], (syncResult) => {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       chrome.tabs.sendMessage(tab.id, { action: "extractAutofill" }, (response) => {
         if (response?.autofillData && Object.keys(response.autofillData).length > 0) {
-          hasBrowserData = true;
-          userData = { ...userData, ...response.autofillData };
+          const normalized = normalizeData(response.autofillData);
+          hasBrowserData = Object.keys(normalized).length > 0;
+          userData = { ...userData, ...normalized };
         }
         updateDataSourcesIndicator();
       });
@@ -127,7 +180,7 @@ function populateManualForm(data) {
 document.getElementById('extractCVData').addEventListener('click', async () => {
   if (typeof Tesseract === 'undefined') {
     showStatus('❌ tesseract.min.js missing! Download it.', 'warning');
-    console.error('ERROR: tesseract.min.js not found. Download from https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js');
+    console.error('ERROR: tesseract.min.js not found. Download from https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js ');
     return;
   }
   
@@ -158,14 +211,15 @@ document.getElementById('extractCVData').addEventListener('click', async () => {
       document.getElementById('ocrStatus').textContent = 'Extraction complete!';
       
       const extracted = parseCVText(text);
-      userData = { ...userData, ...extracted };
+      const normalized = normalizeData(extracted);
+      userData = { ...userData, ...normalized };
       hasOCRData = true;
-      chrome.storage.local.set({ cvDataExtracted: extracted });
-      displayExtractedData(extracted);
-      populateManualForm(extracted);
+      chrome.storage.local.set({ cvDataExtracted: normalized });
+      displayExtractedData(normalized);
+      populateManualForm(normalized);
       updateDataSourcesIndicator();
       
-      showStatus(`✅ OCR: ${Object.keys(extracted).length} fields ready`, 'success');
+      showStatus(`✅ OCR: ${Object.keys(normalized).length} fields ready`, 'success');
       
     } catch (error) {
       showStatus(`❌ OCR failed: ${error.message}`, 'warning');
@@ -261,9 +315,10 @@ document.getElementById('extractAutofill').addEventListener('click', async () =>
     }
     
     if (response?.autofillData) {
-      const count = Object.keys(response.autofillData).length;
+      const normalized = normalizeData(response.autofillData);
+      const count = Object.keys(normalized).length;
       if (count > 0) {
-        userData = { ...userData, ...response.autofillData };
+        userData = { ...userData, ...normalized };
         hasBrowserData = true;
         updateDataSourcesIndicator();
         showStatus(`📥 Extracted ${count} browser fields`, 'success');
@@ -298,7 +353,7 @@ document.getElementById('cvFile').addEventListener('change', (e) => {
   reader.readAsArrayBuffer(file);
 });
 
-// Smart fill ALL (MANUAL DATA WORKS HERE!)
+// Smart fill ALL (now with field alias support!)
 document.getElementById('smartFill').addEventListener('click', async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   
@@ -317,6 +372,7 @@ document.getElementById('smartFill').addEventListener('click', async () => {
     const fill = () => chrome.tabs.sendMessage(tab.id, {
       action: "smartFill",
       data: userData,
+      fieldMappings: fieldAliases, // Send mappings to content script
       cvData: result.cvFile,
       cvFileName: result.cvFileName,
       cvFileType: result.cvFileType
