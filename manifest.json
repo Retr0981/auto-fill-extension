@@ -1,14 +1,15 @@
 {
   "manifest_version": 3,
-  "name": "AutoFill Pro - Form Filler",
-  "version": "4.2",
-  "description": "Intelligently fills forms with CV upload. Supports all field name variations.",
+  "name": "🎯 AutoFill Pro - Smart Form Filler",
+  "version": "5.0",
+  "description": "Intelligently fills forms & auto-uploads CVs. Handles text, dropdowns, checkboxes & radios.",
   
   "permissions": [
     "storage",
     "activeTab",
     "scripting",
-    "unlimitedStorage"
+    "unlimitedStorage",
+    "clipboardRead"
   ],
   
   "host_permissions": [
@@ -27,32 +28,12 @@
       "matches": ["<all_urls>"],
       "js": ["content.js"],
       "run_at": "document_end",
-      "all_frames": true
+      "all_frames": true,
+      "match_about_blank": true
     }
   ],
   
   "background": {
     "service_worker": "background.js"
-  },
-  
-  "commands": {
-    "smart-fill": {
-      "suggested_key": {
-        "default": "Ctrl+Shift+F",
-        "mac": "Command+Shift+F"
-      },
-      "description": "Smart Fill All Fields + Upload CV"
-    },
-    "verify-fields": {
-      "suggested_key": {
-        "default": "Ctrl+Shift+V",
-        "mac": "Command+Shift+V"
-      },
-      "description": "Verify All Fields Are Filled"
-    }
-  },
-  
-  "icons": {
-    "48": "icons/icon48.png"
   }
 }

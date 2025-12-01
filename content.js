@@ -1,158 +1,27 @@
-// Global field mappings
+// === AUTOFORM MASTER - Handles ALL Form Controls ===
+
 let fieldMappings = {};
 
 // Debug logger
 function log(message, data = '') {
-  console.log(`[AutoFill Pro] ${message}`, data);
-  // Also send to background for unified logging
-  chrome.runtime.sendMessage({
-    action: "log",
-    message: message,
-    data: data
-  });
+  console.log(`[AutoForm] ${message}`, data);
 }
 
-// Enhanced field matching
-function getMatchingValue(element, data) {
-  const name = (element.name || '').toLowerCase();
-  const id = (element.id || '').toLowerCase();
-  const label = getLabel(element).toLowerCase();
-  const placeholder = (element.placeholder || '').toLowerCase();
-  
-  // Try exact matches first
-  for (const [standardKey, standardValue] of Object.entries(data)) {
-    if (!standardValue) continue;
-    
-    const aliases = fieldMappings[standardKey] || [standardKey];
-    for (const alias of aliases) {
-      const cleanAlias = alias.toLowerCase().replace(/[\s_-]/g, '');
-      
-      if (name === cleanAlias || id === cleanAlias) {
-        return standardValue;
-      }
-    }
-  }
-  
-  // Try partial matches
-  for (const [standardKey, standardValue] of Object.entries(data)) {
-    if (!standardValue) continue;
-    
-    const aliases = fieldMappings[standardKey] || [standardKey];
-    for (const alias of aliases) {
-      const cleanAlias = alias.toLowerCase().replace(/[\s_-]/g, '');
-      
-      if (name.includes(cleanAlias) || 
-          id.includes(cleanAlias) || 
-          label.includes(cleanAlias) ||
-          placeholder.includes(cleanAlias)) {
-        return standardValue;
-      }
-    }
-  }
-  
-  return null;
-}
-
-// Trigger events properly
+// Trigger ALL events for maximum compatibility
 function triggerEvents(element) {
-  element.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
-  element.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
-  element.dispatchEvent(new Event('blur', { bubbles: true, cancelable: true }));
-}
-
-// Message listener
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  log('Message received', request.action);
-  fieldMappings = request.fieldMappings || {};
-  
-  try {
-    switch(request.action) {
-      case "extractAutofill":
-        sendResponse({ autofillData: extractAllData() });
-        break;
-      
-      case "smartFill":
-        fillEverything(request.data, request.cvData, request.cvFileName, request.cvFileType)
-          .then(() => sendResponse({ success: true }))
-          .catch(err => sendResponse({ error: err.message }));
-        return true; // Async response
-      
-      case "verifyFill":
-        sendResponse(verifyAllFields());
-        break;
-      
-      case "clickButtons":
-        clickAllButtons();
-        sendResponse({ success: true });
-        break;
-    }
-  } catch (error) {
-    log('ERROR in message handler', error);
-    sendResponse({ error: error.message });
-  }
-  
-  return true;
-});
-
-// Extract all form data
-function extractAllData() {
-  const data = {};
-  const fields = document.querySelectorAll(`
-    input[type="text"], input[type="email"], input[type="tel"], input[type="url"], 
-    input[type="number"], input[type="date"], textarea, select
-  `);
-  
-  log(`Extracting from ${fields.length} fields`);
-  
-  fields.forEach(field => {
-    const value = field.value?.trim();
-    if (!value) return;
-    
-    const name = field.name || '';
-    const id = field.id || '';
-    const label = getLabel(field);
-    
-    for (const [standardKey, aliases] of Object.entries(fieldMappings)) {
-      const matches = aliases.some(alias => {
-        const clean = alias.toLowerCase().replace(/[\s_-]/g, '');
-        return name.toLowerCase().includes(clean) || 
-               id.toLowerCase().includes(clean) || 
-               label.toLowerCase().includes(clean);
-      });
-      
-      if (matches) {
-        data[standardKey] = value;
-        break;
-      }
-    }
+  ['input', 'change', 'blur', 'keyup', 'keydown'].forEach(event => {
+    element.dispatchEvent(new Event(event, { bubbles: true, cancelable: true }));
   });
-  
-  return data;
 }
 
-// Main fill function
-async function fillEverything(data, cvData, cvFileName, cvFileType) {
-  log('🚀 STARTING SMART FILL', Object.keys(data));
-  
-  // Wait for dynamic forms
-  await sleep(500);
-  
-  fillTextFields(data);
-  fillDropdowns(data);
-  fillRadioButtons();
-  fillCheckboxes();
-  fillDateFields(data);
-  
-  if (cvData && cvFileName) {
-    await uploadCVAgent(cvData, cvFileName, cvFileType);
-  }
-  
-  log('✅ SMART FILL COMPLETED');
+// Sleep helper
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// Fill text fields
-function fillTextFields(data) {
-  const fields = document.querySelectorAll(`
+// === TEXT INPUT HANDLER ===
+function fillTextInputs(data) {
+  const textFields = document.querySelectorAll(`
     input[type="text"]:not([disabled]):not([readonly]),
     input[type="email"]:not([disabled]):not([readonly]),
     input[type="tel"]:not([disabled]):not([readonly]),
@@ -161,227 +30,260 @@ function fillTextFields(data) {
     textarea:not([disabled]):not([readonly])
   `);
   
-  log(`Filling ${fields.length} text fields`);
+  log(`🔤 Scanning ${textFields.length} text fields...`);
   
-  fields.forEach(field => {
+  textFields.forEach(field => {
     const value = getMatchingValue(field, data);
     if (value) {
       field.value = value;
       triggerEvents(field);
-      field.style.border = '2px solid #34A853';
-      log(`  ✅ ${field.name || field.id} = ${value}`);
+      field.style.border = '3px solid #4CAF50';
+      field.style.background = '#E8F5E9';
+      log(`  ✅ TEXT: ${field.name || field.id} = "${value}"`);
     }
   });
 }
 
-// Fill dropdowns
+// === DROPDOWN HANDLER ===
 function fillDropdowns(data) {
-  const selects = document.querySelectorAll('select:not([disabled])');
-  log(`Filling ${selects.length} dropdowns`);
+  const selectFields = document.querySelectorAll('select:not([disabled])');
+  log(`🔽 Scanning ${selectFields.length} dropdowns...`);
   
-  selects.forEach(select => {
-    const name = select.name?.toLowerCase() || '';
+  selectFields.forEach(select => {
+    const name = (select.name || '').toLowerCase();
     const label = getLabel(select);
-    let valueToSelect = '';
+    const options = Array.from(select.options);
     
-    // Try data match first
-    for (const [key, val] of Object.entries(data)) {
-      if (!val) continue;
+    let targetValue = '';
+    
+    // Try to match with data first
+    for (const [key, value] of Object.entries(data)) {
+      if (!value) continue;
       const aliases = fieldMappings[key] || [key];
-      if (aliases.some(a => name.includes(a.toLowerCase()) || label.includes(a.toLowerCase()))) {
-        const option = Array.from(select.options).find(opt => 
-          opt.text.toLowerCase().includes(val.toLowerCase()) ||
-          opt.value.toLowerCase().includes(val.toLowerCase())
+      
+      if (aliases.some(alias => name.includes(alias.toLowerCase()) || label.includes(alias.toLowerCase()))) {
+        const matchingOption = options.find(opt => 
+          opt.text.toLowerCase().includes(value.toLowerCase()) ||
+          opt.value.toLowerCase().includes(value.toLowerCase())
         );
-        if (option) valueToSelect = option.value;
+        if (matchingOption) {
+          targetValue = matchingOption.value;
+          break;
+        }
+      }
+    }
+    
+    // Fallback to smart selection
+    if (!targetValue) {
+      if (name.includes('country')) {
+        targetValue = options.find(opt => opt.text.includes('United States') || opt.value.includes('US'))?.value;
+      } else if (name.includes('year') || name.includes('experience')) {
+        targetValue = options.find(opt => opt.text.includes('5') || opt.value.includes('5'))?.value;
+      } else if (options.length > 1) {
+        // Select first non-placeholder option
+        targetValue = options.find(opt => !opt.text.toLowerCase().includes('select'))?.value;
+      }
+    }
+    
+    if (targetValue) {
+      select.value = targetValue;
+      triggerEvents(select);
+      select.style.border = '3px solid #2196F3';
+      select.style.background = '#E3F2FD';
+      log(`  ✅ DROPDOWN: ${select.name || select.id} = "${targetValue}"`);
+    }
+  });
+}
+
+// === CHECKBOX HANDLER ===
+function fillCheckboxes(data) {
+  const checkboxFields = document.querySelectorAll('input[type="checkbox"]:not([disabled])');
+  log(`☑️  Scanning ${checkboxFields.length} checkboxes...`);
+  
+  checkboxFields.forEach(checkbox => {
+    const name = (checkbox.name || '').toLowerCase();
+    const label = getLabel(checkbox);
+    
+    // Determine if should be checked or unchecked
+    let shouldCheck = false;
+    
+    // Check if data explicitly says to check it
+    for (const [key, value] of Object.entries(data)) {
+      if (value && [name, label].some(n => n.includes(key.toLowerCase()))) {
+        shouldCheck = ['yes', 'true', '1', 'agree', 'accept', 'on'].includes(value.toLowerCase());
         break;
       }
     }
     
-    // Fallbacks
-    if (!valueToSelect && name.includes('country')) {
-      const option = Array.from(select.options).find(opt => 
-        opt.text.includes('United States') || opt.value.includes('US')
+    // Heuristic rules
+    if (!shouldCheck) {
+      shouldCheck = ['term', 'agree', 'consent', 'remote', 'policy', 'condition', 'certify'].some(k => 
+        name.includes(k) || label.includes(k)
       );
-      if (option) valueToSelect = option.value;
     }
     
-    if (valueToSelect) {
-      select.value = valueToSelect;
-      triggerEvents(select);
-      select.style.border = '2px solid #34A853';
-      log(`  ✅ ${select.name || select.id} = ${valueToSelect}`);
+    // Negative rules
+    const shouldUncheck = ['newsletter', 'spam', 'marketing', 'promo', 'offer', 'advert'].some(k => 
+      name.includes(k) || label.includes(k)
+    );
+    
+    if (shouldUncheck) {
+      checkbox.checked = false;
+      checkbox.style.outline = '3px solid #f44336';
+      log(`  ❌ UNCHECK: ${name || label}`);
+    } else if (shouldCheck) {
+      checkbox.checked = true;
+      triggerEvents(checkbox);
+      checkbox.style.outline = '3px solid #4CAF50';
+      checkbox.style.background = '#E8F5E9';
+      log(`  ✅ CHECKBOX: ${name || label} = CHECKED`);
     }
   });
 }
 
-// Fill radio buttons
-function fillRadioButtons() {
-  const groups = {};
+// === RADIO BUTTON HANDLER ===
+function fillRadioButtons(data) {
+  const radioGroups = {};
+  
   document.querySelectorAll('input[type="radio"]:not([disabled])').forEach(radio => {
     if (radio.name) {
-      groups[radio.name] = groups[radio.name] || [];
-      groups[radio.name].push(radio);
+      radioGroups[radio.name] = radioGroups[radio.name] || [];
+      radioGroups[radio.name].push(radio);
     }
   });
   
-  log(`Filling ${Object.keys(groups).length} radio groups`);
+  log(`⭕ Scanning ${Object.keys(radioGroups).length} radio groups...`);
   
-  Object.values(groups).forEach(group => {
-    const priority = ['yes', 'true', '1', 'male', 'full-time', 'remote'];
-    const toCheck = group.find(r => priority.some(p => r.value.toLowerCase().includes(p))) || group[0];
+  Object.entries(radioGroups).forEach(([groupName, radios]) => {
+    // Try to find a matching value in data
+    let selectedRadio = null;
     
-    if (toCheck) {
-      toCheck.checked = true;
-      triggerEvents(toCheck);
-      toCheck.style.outline = '3px solid #34A853';
-      log(`  ✅ Radio: ${toCheck.name} = ${toCheck.value}`);
+    for (const [key, value] of Object.entries(data)) {
+      if (!value) continue;
+      
+      const matchingRadio = radios.find(r => 
+        r.value.toLowerCase() === value.toLowerCase() ||
+        (['yes', 'true', '1'].includes(value.toLowerCase()) && 
+         ['yes', 'true', '1', 'agree', 'accept'].some(v => r.value.toLowerCase().includes(v)))
+      );
+      
+      if (matchingRadio) {
+        selectedRadio = matchingRadio;
+        break;
+      }
     }
-  });
-}
-
-// Fill checkboxes
-function fillCheckboxes() {
-  const checkboxes = document.querySelectorAll('input[type="checkbox"]:not([disabled])');
-  log(`Filling ${checkboxes.length} checkboxes`);
-  
-  checkboxes.forEach(box => {
-    const name = box.name?.toLowerCase() || '';
-    const label = getLabel(box);
     
-    const shouldCheck = ['term', 'agree', 'consent', 'remote', 'policy'].some(k => 
-      name.includes(k) || label.includes(k)
-    );
-    const shouldUncheck = ['newsletter', 'spam', 'marketing'].some(k => 
-      name.includes(k) || label.includes(k)
-    );
+    // Default selection if no match
+    if (!selectedRadio) {
+      const priorityValues = ['yes', 'true', '1', 'agree', 'accept', 'male', 'full-time', 'remote'];
+      selectedRadio = radios.find(r => 
+        priorityValues.some(v => r.value.toLowerCase().includes(v))
+      ) || radios[0];
+    }
     
-    if (shouldCheck) {
-      box.checked = true;
-      triggerEvents(box);
-      box.style.outline = '3px solid #34A853';
-      log(`  ✅ Checked: ${name || label}`);
-    } else if (shouldUncheck) {
-      box.checked = false;
-      triggerEvents(box);
-      log(`  ❌ Unchecked: ${name || label}`);
+    if (selectedRadio) {
+      selectedRadio.checked = true;
+      triggerEvents(selectedRadio);
+      selectedRadio.style.outline = '3px solid #FF9800';
+      selectedRadio.style.background = '#FFF3E0';
+      log(`  ✅ RADIO: ${groupName} = "${selectedRadio.value}"`);
     }
   });
 }
 
-// Fill date fields
-function fillDateFields(data) {
-  const dateInputs = document.querySelectorAll('input[type="date"]:not([disabled])');
-  log(`Filling ${dateInputs.length} date fields`);
+// === MASTER FILL FUNCTION ===
+async function fillEverything(data, cvData, cvFileName, cvFileType) {
+  log('🚀 STARTING UNIVERSAL FILL');
+  log('Available data:', Object.keys(data));
   
-  dateInputs.forEach(input => {
-    const name = input.name?.toLowerCase() || '';
-    const label = getLabel(input);
-    let dateValue = '';
+  // **THREE PASSES** to catch dynamic forms
+  for (let pass = 1; pass <= 3; pass++) {
+    log(`\n📌 PASS ${pass}/3`);
     
-    if (name.includes('birth') || label.includes('birth')) {
-      dateValue = data.birthDate || '1990-01-01';
-    } else if (name.includes('start') || label.includes('start')) {
-      dateValue = data.workStartDate || '2020-01-01';
-    } else if (name.includes('end') || label.includes('end')) {
-      dateValue = data.workEndDate || '2023-12-31';
-    }
+    fillTextInputs(data);
+    fillDropdowns(data);
+    fillCheckboxes(data);
+    fillRadioButtons(data);
     
-    if (dateValue) {
+    // Fill date fields
+    const dateInputs = document.querySelectorAll('input[type="date"]:not([disabled])');
+    dateInputs.forEach(input => {
+      const name = input.name?.toLowerCase() || '';
+      let dateValue = '';
+      
+      if (name.includes('birth')) dateValue = data.birthDate || '1990-01-01';
+      else if (name.includes('start')) dateValue = data.workStartDate || '2020-01-01';
+      else if (name.includes('end')) dateValue = data.workEndDate || '2023-12-31';
+      else dateValue = '2024-01-01';
+      
       input.value = dateValue;
       triggerEvents(input);
-      input.style.border = '2px solid #34A853';
-      log(`  ✅ Date: ${input.name || input.id} = ${dateValue}`);
-    }
-  });
+      input.style.border = '3px solid #9C27B0';
+      log(`  📅 DATE: ${input.name || input.id} = ${dateValue}`);
+    });
+    
+    await sleep(800); // Wait for dynamic content
+  }
+  
+  // CV Upload
+  if (cvData && cvFileName) {
+    await uploadCVAgent(cvData, cvFileName, cvFileType);
+  }
+  
+  log('🏆 UNIVERSAL FILL COMPLETED');
 }
 
 // CV Upload Agent
 async function uploadCVAgent(cvData, cvFileName, cvFileType) {
-  log('🤖 CV Agent: Scanning for upload fields...');
+  log('📎 Uploading CV...');
   
   const uint8Array = new Uint8Array(cvData);
   const blob = new Blob([uint8Array], { type: cvFileType || 'application/pdf' });
   const file = new File([blob], cvFileName, { type: cvFileType || 'application/pdf' });
   
   const fileInputs = document.querySelectorAll('input[type="file"]:not([disabled])');
-  log(`Found ${fileInputs.length} file inputs`);
   
   for (const input of fileInputs) {
-    const label = getLabel(input);
     const name = input.name?.toLowerCase() || '';
+    const label = getLabel(input);
     
-    const isCVField = ['cv', 'resume', 'curriculum'].some(k => 
-      label.includes(k) || name.includes(k)
-    );
+    const isCVField = ['cv', 'resume'].some(k => name.includes(k) || label.includes(k));
     
     if (isCVField || fileInputs.length === 1) {
       const dataTransfer = new DataTransfer();
       dataTransfer.items.add(file);
       input.files = dataTransfer.files;
-      
       triggerEvents(input);
       
-      input.style.border = '3px solid #34A853';
-      input.style.background = '#d4edda';
-      
-      log(`  ✅ CV uploaded: ${name || 'unnamed'}`);
+      input.style.border = '3px solid #FF9800';
+      input.style.background = '#FFE0B2';
+      log(`  ✅ CV UPLOADED: ${cvFileName}`);
       return true;
     }
   }
   
-  log('  ⚠️ No CV field found');
   return false;
 }
 
-// Verify fields
-function verifyAllFields() {
-  const inputs = document.querySelectorAll(`
-    input[type="text"], input[type="email"], input[type="tel"], input[type="url"], 
-    input[type="number"], input[type="date"], textarea, select, 
-    input[type="radio"], input[type="checkbox"]
-  `);
-  
-  let filled = 0, total = 0;
-  
-  inputs.forEach(input => {
-    if (input.offsetParent === null && input.type !== 'radio' && input.type !== 'checkbox') return;
-    total++;
-    
-    const isFilled = input.type === 'radio' || input.type === 'checkbox' 
-      ? input.checked 
-      : (input.value && input.value.trim());
-    
-    if (isFilled) filled++;
-  });
-  
-  log(`📊 Verification: ${filled}/${total} (${Math.round(filled/total*100)}%)`);
-  return { filled, total };
-}
-
-// Click buttons
-function clickAllButtons() {
-  const actions = ['submit', 'apply', 'next', 'continue', 'save', 'send', 'confirm', 'proceed'];
-  let count = 0;
-  
-  document.querySelectorAll('button, input[type="submit"]').forEach(btn => {
-    const text = (btn.textContent || btn.value || '').toLowerCase().trim();
-    if (actions.some(a => text.includes(a)) && text.length < 30) {
-      btn.click();
-      count++;
-      log(`  👆 Clicked: ${text}`);
-    }
-  });
-  
-  log(`Clicked ${count} action buttons`);
-}
-
-// Helper
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
+// Get label text
 function getLabel(field) {
   const label = document.querySelector(`label[for="${field.id}"]`) || field.closest('label');
   return label ? label.textContent.trim().toLowerCase() : '';
 }
+
+// Message listener
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  fieldMappings = request.fieldMappings || {};
+  
+  if (request.action === "smartFill") {
+    fillEverything(request.data, request.cvData, request.cvFileName, request.cvFileType)
+      .then(() => sendResponse({ success: true }))
+      .catch(err => sendResponse({ error: err.message }));
+    return true; // Async
+  } else if (request.action === "verifyFill") {
+    // Simple verification - check if fields have values
+    const inputs = document.querySelectorAll('input[type="text"], input[type="email"], textarea, select');
+    const filled = Array.from(inputs).filter(i => i.value && i.value.trim()).length;
+    sendResponse({ filled, total: inputs.length });
+  }
+});

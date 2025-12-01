@@ -1,19 +1,6 @@
-// popup.js - Fixed Minimal Version
+// popup.js - Simple trigger
 
-let userData = {
-  firstName: "", lastName: "", email: "", phone: "",
-  address: "", city: "", country: "", zip: "",
-  linkedin: "", portfolio: "", summary: "",
-  degree: "", university: "", graduationYear: "",
-  company: "", position: "", workStartDate: "", workEndDate: "",
-  experience: "", skills: "", salary: "", birthDate: ""
-};
-
-let hasManualData = false;
-let hasOCRData = false;
-let hasBrowserData = false;
-
-// Field aliases - MUST match background.js
+// Field mappings
 const fieldAliases = {
   firstName: ['firstName', 'first_name', 'firstname', 'forename', 'givenName', 'given_name', 'fname', 'first'],
   lastName: ['lastName', 'last_name', 'lastname', 'surname', 'familyName', 'family_name', 'lname', 'last'],
@@ -39,25 +26,23 @@ const fieldAliases = {
   birthDate: ['birthDate', 'birth_date', 'dateOfBirth', 'date_of_birth', 'dob']
 };
 
-// Load data on startup
-chrome.storage.sync.get(['userData'], (result) => {
-  if (result.userData) {
-    userData = { ...userData, ...result.userData };
-    hasManualData = true;
-  }
-  updateDataSourcesIndicator();
-});
+// Sample data - REPLACE with your real data
+const userData = {
+  firstName: "John", lastName: "Doe", email: "john.doe@example.com", phone: "+1234567890",
+  address: "123 Main Street", city: "New York", country: "United States", zip: "10001",
+  linkedin: "linkedin.com/in/johndoe", portfolio: "github.com/johndoe", summary: "Senior Software Engineer",
+  degree: "Bachelor of Science", university: "State University", graduationYear: "2020",
+  company: "Tech Corp", position: "Senior Developer", workStartDate: "2020-01-01", workEndDate: "2023-12-31",
+  experience: "5", skills: "JavaScript, Python, React, Node.js", salary: "120000", birthDate: "1990-01-01"
+};
 
-// Smart Fill Button - FIXED
+// FILL EVERYTHING button
 document.getElementById('smartFill').addEventListener('click', async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const status = document.getElementById('status');
   
-  if (!userData.email && !userData.firstName) {
-    showStatus('⚠️ No data! Add info first', 'warning');
-    return;
-  }
-  
-  showStatus('🚀 Filling forms... check console', 'info');
+  status.textContent = '🚀 Filling forms... check console (F12)';
+  status.style.display = 'block';
   
   try {
     const result = await chrome.storage.local.get(['cvFile', 'cvFileName', 'cvFileType']);
@@ -73,45 +58,27 @@ document.getElementById('smartFill').addEventListener('click', async () => {
     
     if (response?.error) throw new Error(response.error);
     
-    showStatus('✅ Forms filled! Check console logs', 'success');
+    status.textContent = '✅ SUCCESS! All form controls filled. See console for details.';
+    status.style.background = '#C8E6C9';
+    status.style.color = '#2E7D32';
     
   } catch (error) {
-    console.error('Fill error:', error);
-    showStatus(`❌ Error: ${error.message}`, 'warning');
+    console.error('❌ CRITICAL ERROR:', error);
+    status.textContent = `❌ FAILED: ${error.message}. Open console (F12) to debug.`;
+    status.style.background = '#FFCDD2';
+    status.style.color = '#C62828';
   }
+  
+  setTimeout(() => status.style.display = 'none', 5000);
 });
 
-// Verify Button
+// Verify button
 document.getElementById('verifyFill').addEventListener('click', async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   const response = await chrome.tabs.sendMessage(tab.id, { action: "verifyFill" });
   
   if (response) {
     const percent = Math.round((response.filled / response.total) * 100);
-    showStatus(`📊 ${percent}% Complete`, percent === 100 ? 'success' : 'warning');
+    alert(`📊 Verification: ${response.filled}/${response.total} fields filled (${percent}%)`);
   }
 });
-
-// Status helper
-function showStatus(message, type) {
-  const status = document.getElementById('status');
-  status.textContent = message;
-  status.style.background = type === 'success' ? '#d4edda' : 
-                           type === 'warning' ? '#fff3cd' : '#d1ecf1';
-  status.style.color = type === 'success' ? '#155724' : 
-                       type === 'warning' ? '#856404' : '#0c5460';
-  status.style.display = 'block';
-  setTimeout(() => status.style.display = 'none', 4000);
-}
-
-function updateDataSourcesIndicator() {
-  const sources = [];
-  if (hasManualData) sources.push('Manual');
-  if (hasOCRData) sources.push('CV OCR');
-  if (hasBrowserData) sources.push('Browser');
-  
-  const indicator = document.getElementById('dataSources');
-  indicator.textContent = sources.length ? `✅ Ready: ${sources.join(' + ')}` : '❌ No data loaded';
-  indicator.style.background = sources.length ? '#d4edda' : '#f8d7da';
-  indicator.style.color = sources.length ? '#155724' : '#721c24';
-}
