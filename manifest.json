@@ -1,14 +1,22 @@
 {
   "manifest_version": 3,
-  "name": "AutoFill Pro - Smart Form Filler",
-  "version": "3.0",
-  "description": "One-click form filling with CV auto-upload and comprehensive field coverage",
+  "name": "AutoFill Pro - CV OCR & Smart Filler",
+  "version": "4.0",
+  "description": "Extracts data from your CV using OCR and auto-fills forms completely",
   
   "permissions": [
     "storage",
     "activeTab",
     "scripting"
   ],
+  
+  "host_permissions": [
+    "https://cdn.jsdelivr.net/*"
+  ],
+  
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' https://cdn.jsdelivr.net; object-src 'self'"
+  },
   
   "action": {
     "default_popup": "popup.html",
@@ -37,16 +45,17 @@
         "mac": "Command+Shift+F"
       },
       "description": "Trigger Smart Fill All"
-    },
-    "verify-fields": {
-      "suggested_key": {
-        "default": "Ctrl+Shift+V"
-      },
-      "description": "Verify all fields are filled"
     }
   },
   
   "icons": {
     "48": "icons/icon48.png"
-  }
+  },
+  
+  "web_accessible_resources": [
+    {
+      "resources": ["tesseract.min.js"],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }
