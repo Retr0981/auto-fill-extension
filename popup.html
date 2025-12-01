@@ -2,42 +2,164 @@
 <html>
 <head>
   <style>
-    body { width: 320px; padding: 15px; font-family: 'Segoe UI', sans-serif; }
-    .section { margin: 15px 0; padding: 10px; background: #f5f5f5; border-radius: 5px; }
-    button { width: 100%; padding: 12px; margin: 5px 0; background: #4285F4; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
-    button:hover { background: #357ABD; transform: scale(1.02); }
-    button.danger { background: #ea4335; }
-    button.danger:hover { background: #d33426; }
-    input[type="file"] { display: none; }
-    .file-label { display: block; padding: 10px; background: #34A853; color: white; text-align: center; border-radius: 5px; cursor: pointer; margin: 10px 0; }
-    .file-label:hover { background: #2d8e47; }
-    .status { margin-top: 10px; padding: 10px; border-radius: 5px; text-align: center; font-size: 12px; }
-    .success { background: #d4edda; color: #155724; }
-    .info { background: #d1ecf1; color: #0c5460; }
-    .warning { background: #fff3cd; color: #856404; }
-    .cv-status { font-size: 11px; color: #666; margin: 5px 0; text-align: center; }
+    body { 
+      width: 340px; 
+      padding: 0; 
+      margin: 0; 
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+      background: #f8f9fa; 
+    }
+    .header { 
+      background: #4285F4; 
+      color: white; 
+      padding: 15px; 
+      text-align: center; 
+      font-weight: bold; 
+      font-size: 16px; 
+      border-radius: 8px 8px 0 0; 
+    }
+    .section { 
+      padding: 15px; 
+      border-bottom: 1px solid #e0e0e0; 
+    }
+    .section:last-child { 
+      border-bottom: none; 
+    }
+    button { 
+      width: 100%; 
+      padding: 12px; 
+      margin: 6px 0; 
+      border: none; 
+      border-radius: 6px; 
+      cursor: pointer; 
+      font-weight: 600; 
+      font-size: 14px;
+      transition: all 0.2s ease;
+    }
+    button:hover { 
+      transform: translateY(-2px); 
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1); 
+    }
+    .primary { 
+      background: #4285F4; 
+      color: white; 
+    }
+    .primary:hover { 
+      background: #357ABD; 
+    }
+    .success { 
+      background: #34A853; 
+      color: white; 
+    }
+    .success:hover { 
+      background: #2d8e47; 
+    }
+    .warning { 
+      background: #FBBC05; 
+      color: #333; 
+    }
+    .warning:hover { 
+      background: #e6a806; 
+    }
+    .danger { 
+      background: #EA4335; 
+      color: white; 
+    }
+    .danger:hover { 
+      background: #d33426; 
+    }
+    input[type="file"] { 
+      display: none; 
+    }
+    .file-label { 
+      display: block; 
+      padding: 12px; 
+      background: #34A853; 
+      color: white; 
+      text-align: center; 
+      border-radius: 6px; 
+      cursor: pointer; 
+      font-weight: 600; 
+      margin-bottom: 8px;
+    }
+    .file-label:hover { 
+      background: #2d8e47; 
+    }
+    .status { 
+      padding: 10px; 
+      border-radius: 6px; 
+      text-align: center; 
+      font-size: 13px; 
+      font-weight: 500; 
+      margin-top: 10px;
+      display: none;
+    }
+    .cv-info { 
+      font-size: 11px; 
+      color: #666; 
+      text-align: center; 
+      padding: 8px; 
+      background: #e8f0fe; 
+      border-radius: 4px; 
+      margin-top: 8px;
+    }
+    .emoji { 
+      font-size: 16px; 
+      margin-right: 6px; 
+    }
+    .button-row {
+      display: flex;
+      gap: 8px;
+    }
+    .button-row button {
+      flex: 1;
+    }
   </style>
 </head>
 <body>
-  <h3>🎯 Smart Form Filler Pro</h3>
-  
-  <div class="section">
-    <label class="file-label" for="cvFile">
-      📎 Select CV (PDF/DOC)
-    </label>
-    <input type="file" id="cvFile" accept=".pdf,.doc,.docx">
-    <div id="cvStatus" class="cv-status">No CV stored</div>
+  <div class="header">
+    <span class="emoji">🎯</span>AutoFill Pro
   </div>
 
-  <button id="fillForm">📝 Fill Forms Only</button>
-  <button id="fillAndUploadCV">🚀 Fill & Auto-Upload CV</button>
-  
   <div class="section">
-    <button id="saveData" class="danger">💾 Save My Data</button>
-    <button id="clearCV" class="danger">🗑️ Clear Stored CV</button>
+    <label class="file-label" for="cvFile">
+      <span class="emoji">📎</span>Select CV (PDF/DOC)
+    </label>
+    <input type="file" id="cvFile" accept=".pdf,.doc,.docx">
+    <div id="cvStatus" class="cv-info">❌ No CV stored</div>
+  </div>
+
+  <div class="section">
+    <button id="extractAutofill" class="warning">
+      <span class="emoji">📥</span>Extract Google Autofill
+    </button>
+    <div id="autofillStatus" class="cv-info">Click to capture browser data</div>
+  </div>
+
+  <div class="section">
+    <button id="smartFill" class="primary">
+      <span class="emoji">🚀</span>Smart Fill Everything
+    </button>
+    <div class="button-row">
+      <button id="fillForm" class="success">📝 Fill Only</button>
+      <button id="clickButtons" class="warning">👆 Click Buttons</button>
+    </div>
+    <button id="fillAndUploadCV" class="success">
+      <span class="emoji">📄</span>Fill + Upload CV
+    </button>
+  </div>
+
+  <div class="section">
+    <button id="saveData" class="danger">
+      <span class="emoji">💾</span>Save My Data
+    </button>
+    <div class="button-row">
+      <button id="clearCV" class="danger">🗑️ Clear CV</button>
+      <button id="clearAll" class="danger">🔄 Reset All</button>
+    </div>
   </div>
   
-  <div id="status" class="status" style="display:none;"></div>
+  <div id="status" class="status"></div>
   
   <script src="popup.js"></script>
 </body>

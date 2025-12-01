@@ -1,36 +1,55 @@
-// Default user data
-const userData = {
-  firstName: "John",
-  lastName: "Doe",
-  email: "john.doe@example.com",
-  phone: "+1234567890",
-  linkedin: "linkedin.com/in/johndoe",
-  portfolio: "github.com/johndoe",
-  address: "123 Main St, City, Country",
-  summary: "Experienced software developer with 5+ years...",
-  degree: "Bachelor of Science",
-  university: "Tech University",
-  graduationYear: "2020",
-  company: "ABC Corp",
-  position: "Senior Developer",
-  workStartDate: "2020-01",
-  workEndDate: "2023-12",
-  skills: "JavaScript, Python, React, Node.js"
+// Initialize data
+let userData = {
+  firstName: "", lastName: "", email: "", phone: "",
+  address: "", city: "", country: "", zip: "",
+  linkedin: "", portfolio: "", summary: "",
+  degree: "", university: "", graduationYear: "",
+  company: "", position: "", workStartDate: "", workEndDate: "",
+  experience: "", skills: "", salary: ""
 };
 
-// Load CV status on popup open
-chrome.storage.local.get(['cvFile', 'cvFileName'], (result) => {
+// Load saved data on startup
+chrome.storage.sync.get(['userData'], (result) => {
+  if (result.userData) {
+    userData = { ...userData, ...result.userData };
+    showStatus('✅ Profile loaded from storage', 'success');
+  }
+});
+
+// Load CV status
+chrome.storage.local.get(['cvFileName'], (result) => {
   const cvStatus = document.getElementById('cvStatus');
-  if (result.cvFile && result.cvFileName) {
+  if (result.cvFileName) {
     cvStatus.textContent = `✅ CV Ready: ${result.cvFileName}`;
     cvStatus.style.color = '#34A853';
   } else {
     cvStatus.textContent = '❌ No CV stored';
-    cvStatus.style.color = '#ea4335';
+    cvStatus.style.color = '#EA4335';
   }
 });
 
-// Handle CV file selection
+// Extract Google Autofill data
+document.getElementById('extractAutofill').addEventListener('click', async () => {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  
+  chrome.tabs.sendMessage(tab.id, { action: "extractAutofill" }, (response) => {
+    if (chrome.runtime.lastError) {
+      showStatus('❌ Error: Refresh page and try again', 'warning');
+      return;
+    }
+    
+    if (response && response.autofillData) {
+      userData = { ...userData, ...response.autofillData };
+      showStatus(`📥 Extracted ${Object.keys(response.autofillData).length} fields!`, 'success');
+      
+      const autofillStatus = document.getElementById('autofillStatus');
+      autofillStatus.textContent = `✅ Captured: ${Object.keys(response.autofillData).join(', ')}`;
+      autofillStatus.style.color = '#34A853';
+    }
+  });
+});
+
+// CV file handling
 document.getElementById('cvFile').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
@@ -39,13 +58,11 @@ document.getElementById('cvFile').addEventListener('change', async (e) => {
   
   const reader = new FileReader();
   reader.onload = (event) => {
-    const arrayBuffer = event.target.result;
-    
-    // Store CV in Chrome storage
     chrome.storage.local.set({
-      cvFile: arrayBuffer,
+      cvFile: Array.from(new Uint8Array(event.target.result)),
       cvFileName: file.name,
-      cvFileType: file.type
+      cvFileType: file.type,
+      cvFileSize: file.size
     }, () => {
       showStatus(`✅ CV "${file.name}" stored!`, 'success');
       document.getElementById('cvStatus').textContent = `✅ CV Ready: ${file.name}`;
@@ -53,60 +70,138 @@ document.getElementById('cvFile').addEventListener('change', async (e) => {
     });
   };
   
+  reader.onerror = () => {
+    showStatus('❌ Error reading file', 'warning');
+  };
+  
   reader.readAsArrayBuffer(file);
 });
 
-// Fill forms only
-document.getElementById('fillForm').addEventListener('click', async () => {
+// Smart Fill Everything
+document.getElementById('smartFill').addEventListener('click', async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  chrome.tabs.sendMessage(tab.id, { action: "fillForm", data: userData });
-  showStatus("📝 Filling forms...", 'info');
+  
+  chrome.storage.local.get(['cvFile', 'cvFileName', 'cvFileType'], (result) => {
+    showStatus('🚀 Starting smart fill...', 'info');
+    
+    chrome.tabs.sendMessage(tab.id, {
+      action: "smartFill",
+      data: userData,
+      cvData: result.cvFile,
+      cvFileName: result.cvFileName,
+      cvFileType: result.cvFileType
+    }, (response) => {
+      if (chrome.runtime.lastError) {
+        showStatus('❌ Error: Refresh page', 'warning');
+      } else {
+        showStatus('✅ Smart fill complete!', 'success');
+      }
+    });
+  });
 });
 
-// Fill forms + Auto-upload CV
+// Fill Forms Only
+document.getElementById('fillForm').addEventListener('click', async () => {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  
+  chrome.tabs.sendMessage(tab.id, {
+    action: "fillForm",
+    data: userData
+  }, (response) => {
+    if (chrome.runtime.lastError) {
+      showStatus('❌ Error: Refresh page', 'warning');
+    } else {
+      showStatus('📝 Forms filled!', 'success');
+    }
+  });
+});
+
+// Fill + Upload CV Only
 document.getElementById('fillAndUploadCV').addEventListener('click', async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   
-  // Retrieve stored CV
   chrome.storage.local.get(['cvFile', 'cvFileName', 'cvFileType'], (result) => {
     if (!result.cvFile) {
-      showStatus("❌ No CV stored! Select one first.", 'warning');
+      showStatus('❌ No CV stored! Select one first.', 'warning');
       return;
     }
     
-    showStatus(`🚀 Filling + uploading ${result.cvFileName}...`, 'info');
+    showStatus('📄 Filling + uploading CV...', 'info');
     
-    // Send message with CV data
     chrome.tabs.sendMessage(tab.id, {
       action: "fillAndUploadCV",
       data: userData,
       cvData: result.cvFile,
       cvFileName: result.cvFileName,
       cvFileType: result.cvFileType
+    }, (response) => {
+      if (chrome.runtime.lastError) {
+        showStatus('❌ Error: Refresh page', 'warning');
+      } else {
+        showStatus('✅ Forms filled & CV uploaded!', 'success');
+      }
     });
   });
 });
 
-// Save data to storage
-document.getElementById('saveData').addEventListener('click', () => {
-  chrome.storage.sync.set({ userData: userData }, () => {
-    showStatus("💾 Profile data saved!", 'success');
+// Click Buttons Only
+document.getElementById('clickButtons').addEventListener('click', async () => {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  
+  chrome.tabs.sendMessage(tab.id, { action: "clickButtons" }, (response) => {
+    if (chrome.runtime.lastError) {
+      showStatus('❌ Error: Refresh page', 'warning');
+    } else {
+      showStatus('👆 Buttons clicked!', 'success');
+    }
   });
 });
 
-// Clear stored CV
-document.getElementById('clearCV').addEventListener('click', () => {
-  chrome.storage.local.remove(['cvFile', 'cvFileName', 'cvFileType'], () => {
-    showStatus("🗑️ CV cleared from storage", 'info');
-    document.getElementById('cvStatus').textContent = '❌ No CV stored';
-    document.getElementById('cvStatus').style.color = '#ea4335';
+// Save Data
+document.getElementById('saveData').addEventListener('click', () => {
+  chrome.storage.sync.set({ userData: userData }, () => {
+    showStatus('💾 Profile saved successfully!', 'success');
   });
+});
+
+// Clear CV
+document.getElementById('clearCV').addEventListener('click', () => {
+  chrome.storage.local.remove(['cvFile', 'cvFileName', 'cvFileType', 'cvFileSize'], () => {
+    showStatus('🗑️ CV cleared from storage', 'info');
+    document.getElementById('cvStatus').textContent = '❌ No CV stored';
+    document.getElementById('cvStatus').style.color = '#EA4335';
+  });
+});
+
+// Clear All Data
+document.getElementById('clearAll').addEventListener('click', () => {
+  if (confirm('🚨 Are you sure you want to delete ALL stored data?')) {
+    chrome.storage.local.clear();
+    chrome.storage.sync.clear();
+    showStatus('🔄 All data has been reset!', 'info');
+    setTimeout(() => {
+      chrome.runtime.reload();
+      window.close();
+    }, 1000);
+  }
 });
 
 function showStatus(message, type) {
   const status = document.getElementById('status');
   status.textContent = message;
-  status.className = `status ${type}`;
   status.style.display = 'block';
-  setTimeout(() => status.style.display = 'none', 4000);
+  
+  const colors = {
+    success: { bg: '#d4edda', text: '#155724' },
+    info: { bg: '#d1ecf1', text: '#0c5460' },
+    warning: { bg: '#fff3cd', text: '#856404' }
+  };
+  
+  const color = colors[type] || colors.info;
+  status.style.background = color.bg;
+  status.style.color = color.text;
+  
+  setTimeout(() => {
+    status.style.display = 'none';
+  }, 4000);
 }
