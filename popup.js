@@ -7,7 +7,7 @@ let userData = {
   experience: "", skills: "", salary: "", birthDate: ""
 };
 
-// Load all stored data
+// Load stored data
 chrome.storage.sync.get(['userData'], (result) => {
   if (result.userData) {
     userData = { ...userData, ...result.userData };
@@ -17,11 +17,12 @@ chrome.storage.sync.get(['userData'], (result) => {
 // Load CV status
 chrome.storage.local.get(['cvFileName'], (result) => {
   const cvStatus = document.getElementById('cvStatus');
-  cvStatus.textContent = result.cvFileName ? `✅ ${result.cvFileName}` : '❌ No CV stored';
-  cvStatus.style.color = result.cvFileName ? '#34A853' : '#EA4335';
+  const hasCV = result.cvFileName;
+  cvStatus.textContent = hasCV ? `✅ ${result.cvFileName}` : '❌ No CV stored';
+  cvStatus.style.color = hasCV ? '#34A853' : '#EA4335';
 });
 
-// Extract autofill with validation
+// Extract comprehensive autofill
 document.getElementById('extractAutofill').addEventListener('click', async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   
@@ -33,13 +34,13 @@ document.getElementById('extractAutofill').addEventListener('click', async () =>
     
     if (response?.autofillData) {
       userData = { ...userData, ...response.autofillData };
-      const fieldCount = Object.keys(response.autofillData).length;
-      showStatus(`📥 Extracted ${fieldCount} fields`, fieldCount > 0 ? 'success' : 'warning');
+      const count = Object.keys(response.autofillData).length;
+      showStatus(`📥 Extracted ${count} fields`, count > 0 ? 'success' : 'warning');
     }
   });
 });
 
-// CV upload handler
+// CV file handler
 document.getElementById('cvFile').addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (!file) return;
@@ -62,49 +63,47 @@ document.getElementById('cvFile').addEventListener('change', (e) => {
   reader.readAsArrayBuffer(file);
 });
 
-// Smart fill with verification
+// Smart fill with retry logic
 document.getElementById('smartFill').addEventListener('click', async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   
   chrome.storage.local.get(['cvFile', 'cvFileName', 'cvFileType'], (result) => {
-    showStatus('🚀 Filling all fields...', 'info');
-    
     if (!userData.email) {
       showStatus('⚠️ No data! Extract autofill first', 'warning');
       return;
     }
     
-    chrome.tabs.sendMessage(tab.id, {
-      action: "smartFill",
-      data: userData,
-      cvData: result.cvFile,
-      cvFileName: result.cvFileName,
-      cvFileType: result.cvFileType
-    }, (response) => {
-      if (chrome.runtime.lastError) {
-        showStatus('❌ Error', 'warning');
-      } else {
-        showStatus('✅ All fields filled', 'success');
-      }
-    });
+    showStatus('🚀 Filling all fields...', 'info');
+    
+    // Fill with retry for dynamic forms
+    const fillWithRetry = () => {
+      chrome.tabs.sendMessage(tab.id, {
+        action: "smartFill",
+        data: userData,
+        cvData: result.cvFile,
+        cvFileName: result.cvFileName,
+        cvFileType: result.cvFileType
+      }, (response) => {
+        if (!chrome.runtime.lastError) {
+          showStatus('✅ All fields filled', 'success');
+        }
+      });
+    };
+    
+    fillWithRetry();
+    setTimeout(fillWithRetry, 1000); // Retry once for dynamic forms
   });
 });
 
-// Verify all fields are filled
+// Verify ALL fields are filled
 document.getElementById('verifyFill').addEventListener('click', async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   
   chrome.tabs.sendMessage(tab.id, { action: "verifyFill" }, (response) => {
     if (response) {
-      const filled = response.filled;
-      const total = response.total;
-      const percentage = Math.round((filled / total) * 100);
-      
-      if (percentage === 100) {
-        showStatus(`✅ 100% Complete (${filled}/${total} fields)`, 'success');
-      } else {
-        showStatus(`⚠️ ${percentage}% Complete (${filled}/${total} fields)`, 'warning');
-      }
+      const percent = Math.round((response.filled / response.total) * 100);
+      const type = percent === 100 ? 'success' : 'warning';
+      showStatus(`📊 ${percent}% Complete (${response.filled}/${response.total})`, type);
     }
   });
 });
@@ -116,7 +115,7 @@ document.getElementById('clickButtons').addEventListener('click', async () => {
   showStatus('👆 Clicking buttons...', 'info');
 });
 
-// Save data
+// Save with validation
 document.getElementById('saveData').addEventListener('click', () => {
   if (!userData.email) {
     showStatus('❌ No data to save', 'warning');
@@ -130,7 +129,7 @@ document.getElementById('saveData').addEventListener('click', () => {
 
 // Reset all
 document.getElementById('clearAll').addEventListener('click', () => {
-  if (confirm('🚨 Delete ALL data?')) {
+  if (confirm('🚨 Delete ALL stored data?')) {
     chrome.storage.local.clear();
     chrome.storage.sync.clear();
     showStatus('🔄 Reset complete', 'info');
