@@ -11,7 +11,7 @@ let hasManualData = false;
 let hasOCRData = false;
 let hasBrowserData = false;
 
-// Field alias mappings - maps standard keys to all known variations
+// Field alias mappings - defines all known variations for each field
 const fieldAliases = {
   firstName: ['firstName', 'first_name', 'firstname', 'forename', 'givenName', 'given_name', 'fname', 'first'],
   lastName: ['lastName', 'last_name', 'lastname', 'surname', 'familyName', 'family_name', 'lname', 'last'],
@@ -39,6 +39,7 @@ const fieldAliases = {
 
 // Normalize any field name variation to standard key
 function normalizeFieldName(name) {
+  if (!name) return '';
   const lowerName = name.toLowerCase().replace(/[\s_-]/g, '');
   for (const [standard, aliases] of Object.entries(fieldAliases)) {
     if (standard.toLowerCase() === lowerName || 

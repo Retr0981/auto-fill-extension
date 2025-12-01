@@ -1,164 +1,197 @@
-// Field alias mappings - defines all known variations for each field
-const fieldAliases = {
-  firstName: ['firstName', 'first_name', 'firstname', 'forename', 'givenName', 'given_name', 'fname', 'first'],
-  lastName: ['lastName', 'last_name', 'lastname', 'surname', 'familyName', 'family_name', 'lname', 'last'],
-  email: ['email', 'e-mail', 'emailAddress', 'email_address', 'e_mail', 'mail'],
-  phone: ['phone', 'phoneNumber', 'phone_number', 'telephone', 'mobile', 'cell', 'cellphone'],
-  address: ['address', 'streetAddress', 'street_address', 'addr'],
-  city: ['city', 'town'],
-  country: ['country', 'nation'],
-  zip: ['zip', 'zipCode', 'zip_code', 'postalCode', 'postal_code', 'postcode'],
-  linkedin: ['linkedin', 'linkedIn', 'linkedinUrl'],
-  portfolio: ['portfolio', 'website', 'github', 'gitlab', 'personalWebsite'],
-  summary: ['summary', 'about', 'description', 'bio'],
-  degree: ['degree', 'education', 'qualification'],
-  university: ['university', 'college', 'school', 'institution'],
-  graduationYear: ['graduationYear', 'graduation_year', 'graduation', 'yearGraduated'],
-  company: ['company', 'employer', 'organisation', 'organization'],
-  position: ['position', 'jobTitle', 'job_title', 'title', 'role'],
-  workStartDate: ['workStartDate', 'work_start_date', 'startDate', 'start_date'],
-  workEndDate: ['workEndDate', 'work_end_date', 'endDate', 'end_date'],
-  experience: ['experience', 'yearsExperience', 'years_experience', 'exp'],
-  skills: ['skills', 'skill', 'abilities', 'competencies'],
-  salary: ['salary', 'expectedSalary', 'expected_salary', 'compensation'],
-  birthDate: ['birthDate', 'birth_date', 'dateOfBirth', 'date_of_birth', 'dob']
-};
+// Field alias mappings - passed from popup.js
+let fieldMappings = {};
 
-// Normalize any field name variation to standard key
-function normalizeFieldName(name) {
-  if (!name) return '';
-  const lowerName = name.toLowerCase().replace(/[\s_-]/g, '');
-  for (const [standard, aliases] of Object.entries(fieldAliases)) {
-    if (standard.toLowerCase() === lowerName || 
-        aliases.some(alias => alias.toLowerCase() === lowerName)) {
-      return standard;
-    }
-  }
-  return name; // Return original if no match found
+// Helper: Check if field matches any alias for a standard key
+function matchesAnyAlias(fieldIdentifier, standardKey) {
+  if (!fieldIdentifier || !standardKey) return false;
+  const aliases = fieldMappings[standardKey] || [standardKey];
+  const cleanIdentifier = fieldIdentifier.toLowerCase().replace(/[\s_-]/g, '');
+  return aliases.some(alias => alias.toLowerCase().replace(/[\s_-]/g, '') === cleanIdentifier);
 }
 
-// Normalize entire data object to use standard keys
-function normalizeData(data) {
-  const normalized = {};
-  for (const [key, value] of Object.entries(data)) {
-    if (value && value.toString().trim()) {
-      const normalizedKey = normalizeFieldName(key);
-      normalized[normalizedKey] = value.toString().trim();
-    }
-  }
-  return normalized;
-}
-
-// Check if a field matches any alias for a standard key
-function matchesFieldAlias(fieldName, standardKey) {
-  if (!fieldName || !standardKey) return false;
-  const aliases = fieldAliases[standardKey] || [standardKey];
-  const fieldNameClean = fieldName.toLowerCase().replace(/[\s_-]/g, '');
-  return aliases.some(alias => alias.toLowerCase().replace(/[\s_-]/g, '') === fieldNameClean);
-}
-
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === "extractAutofill") {
-    sendResponse({ autofillData: extractAllData() });
-  } else if (request.action === "smartFill") {
-    // Use provided fieldMappings or fall back to local fieldAliases
-    const mappings = request.fieldMappings || fieldAliases;
-    fillEverything(request.data, request.cvData, request.cvFileName, request.cvFileType, mappings);
-    sendResponse({ success: true });
-  } else if (request.action === "clickButtons") {
-    clickAllButtons();
-    sendResponse({ success: true });
-  } else if (request.action === "verifyFill") {
-    sendResponse(verifyAllFields());
-  }
-});
-
-function extractAllData() {
-  const data = {};
-  const fields = document.querySelectorAll(`
-    input[type="text"], input[type="email"], input[type="tel"], input[type="url"], 
-    input[type="number"], input[type="date"], textarea, select
-  `);
+// Helper: Get matching value for a field by checking name, id, and label
+function getMatchingFieldValue(element, data) {
+  const name = (element.name || '').toLowerCase();
+  const id = (element.id || '').toLowerCase();
+  const label = getLabel(element).toLowerCase();
   
-  fields.forEach(field => {
-    const value = field.value?.trim();
-    if (!value) return;
+  for (const [standardKey, standardValue] of Object.entries(data)) {
+    if (!standardValue) continue;
     
-    const name = field.name || '';
-    const id = field.id || '';
-    const label = getLabel(field);
+    const aliases = fieldMappings[standardKey] || [standardKey];
+    const matches = aliases.some(alias => 
+      name.includes(alias.toLowerCase()) || 
+      id.includes(alias.toLowerCase()) || 
+      label.includes(alias.toLowerCase())
+    );
     
-    // Check all possible field mappings
-    for (const [standardKey, aliases] of Object.entries(fieldAliases)) {
-      // Check name attribute
-      if (aliases.some(alias => name.toLowerCase() === alias.toLowerCase())) {
-        data[standardKey] = value;
-        break;
-      }
-      // Check id attribute
-      if (aliases.some(alias => id.toLowerCase() === alias.toLowerCase())) {
-        data[standardKey] = value;
-        break;
-      }
-      // Check label text
-      if (aliases.some(alias => label.toLowerCase().includes(alias.toLowerCase()))) {
-        data[standardKey] = value;
-        break;
+    if (matches) return standardValue;
+  }
+  return null;
+}
+
+// CV Upload Agent - Enhanced with multiple strategies
+async function uploadCVAgent(cvData, cvFileName, cvFileType) {
+  console.log('🤖 CV Upload Agent: Scanning page for CV fields...');
+  
+  return new Promise(async (resolve) => {
+    const uint8Array = new Uint8Array(cvData);
+    const blob = new Blob([uint8Array], { type: cvFileType || 'application/pdf' });
+    const file = new File([blob], cvFileName, { type: cvFileType || 'application/pdf' });
+    
+    // Strategy 1: Find file inputs directly
+    const fileInputs = document.querySelectorAll('input[type="file"]');
+    let uploadSuccess = false;
+    
+    for (const input of fileInputs) {
+      const label = getLabel(input).toLowerCase();
+      const name = (input.name || '').toLowerCase();
+      const parentText = input.parentElement?.textContent?.toLowerCase() || '';
+      const placeholder = input.placeholder?.toLowerCase() || '';
+      
+      // CV field indicators
+      const cvKeywords = ['cv', 'resume', 'curriculum', 'vitae', 'résumé', 'uploadfile', 'fileupload'];
+      const isCVField = [...cvKeywords, 'cover', 'letter'].some(keyword => 
+        label.includes(keyword) || 
+        name.includes(keyword) || 
+        parentText.includes(keyword) ||
+        placeholder.includes(keyword)
+      );
+      
+      // Upload to CV fields OR if only one file input exists
+      if (isCVField || fileInputs.length === 1) {
+        try {
+          const dataTransfer = new DataTransfer();
+          dataTransfer.items.add(file);
+          input.files = dataTransfer.files;
+          
+          // Trigger events
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          
+          // Visual feedback
+          input.style.border = '3px solid #34A853';
+          input.style.background = '#d4edda';
+          input.title = `✅ CV uploaded: ${cvFileName}`;
+          
+          // Try to update any associated text/label
+          const associatedLabel = document.querySelector(`label[for="${input.id}"]`);
+          if (associatedLabel) {
+            associatedLabel.textContent = `✅ ${cvFileName}`;
+            associatedLabel.style.color = '#34A853';
+          }
+          
+          console.log(`✅ CV uploaded to field: ${name || id || 'unnamed'}`);
+          uploadSuccess = true;
+          
+          // Don't break - try to upload to multiple CV fields if they exist
+        } catch (error) {
+          console.error(`❌ Failed to upload to field: ${name || id}`, error);
+        }
       }
     }
+    
+    // Strategy 2: Click hidden upload buttons (for custom upload widgets)
+    if (!uploadSuccess) {
+      const uploadButtons = document.querySelectorAll('button, div[role="button"], label');
+      for (const button of uploadButtons) {
+        const text = (button.textContent || button.innerText || '').toLowerCase();
+        if (text.includes('upload') && (text.includes('cv') || text.includes('resume'))) {
+          try {
+            button.click();
+            await sleep(1000); // Wait for file dialog simulation
+            
+            // Some sites use hidden file inputs triggered by buttons
+            const hiddenInput = button.querySelector('input[type="file"]') || 
+                               button.parentElement?.querySelector('input[type="file"]');
+            if (hiddenInput) {
+              const dataTransfer = new DataTransfer();
+              dataTransfer.items.add(file);
+              hiddenInput.files = dataTransfer.files;
+              hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
+              
+              hiddenInput.style.border = '3px solid #34A853';
+              console.log('✅ CV uploaded via hidden input');
+              uploadSuccess = true;
+            }
+          } catch (error) {
+            console.error('❌ Failed to trigger upload button:', error);
+          }
+        }
+      }
+    }
+    
+    // Strategy 3: Find drag-and-drop zones
+    if (!uploadSuccess) {
+      const dropZones = document.querySelectorAll('div[dropzone], .dropzone, [class*="drop"], [class*="upload"]');
+      for (const zone of dropZones) {
+        const text = zone.textContent?.toLowerCase() || '';
+        if (text.includes('drop') && (text.includes('cv') || text.includes('resume'))) {
+          try {
+            // Simulate file drop
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            
+            const dropEvent = new DragEvent('drop', {
+              dataTransfer: dataTransfer,
+              bubbles: true,
+              cancelable: true
+            });
+            
+            zone.dispatchEvent(dropEvent);
+            zone.style.border = '3px solid #34A853';
+            zone.style.background = '#d4edda';
+            
+            console.log('✅ CV uploaded via drag-and-drop simulation');
+            uploadSuccess = true;
+          } catch (error) {
+            console.error('❌ Failed to simulate drop:', error);
+          }
+        }
+      }
+    }
+    
+    setTimeout(() => resolve(uploadSuccess), 500);
   });
-  
-  return normalizeData(data);
 }
 
-async function fillEverything(data, cvData, cvFileName, cvFileType, fieldMappings = fieldAliases) {
-  console.log('🚀 Filling ALL form elements...');
+// Sleep helper
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Enhanced form filling with upload agent integration
+async function fillEverything(data, cvData, cvFileName, cvFileType, fieldMappings = {}) {
+  console.log('🚀 Smart Fill Agent: Starting...');
   
-  // Fill all field types
-  fillTextFields(data, fieldMappings);
-  fillDropdowns(data, fieldMappings);
+  // Store field mappings globally for helper functions
+  window.fieldMappings = fieldMappings;
+  
+  // Fill form fields
+  fillTextFields(data);
+  fillDropdowns(data);
   fillRadioButtons();
   fillCheckboxes();
-  fillDateFields(data, fieldMappings);
+  fillDateFields(data);
   
-  // Upload CV if available
+  // Upload CV using agent
   if (cvData && cvFileName) {
-    const uploaded = await uploadCV(cvData, cvFileName, cvFileType);
-    console.log(uploaded ? '✅ CV uploaded' : '⚠️ No CV field found');
+    const uploaded = await uploadCVAgent(cvData, cvFileName, cvFileType);
+    console.log(uploaded ? '✅ CV upload successful' : '⚠️ No CV field found or upload failed');
   }
   
-  console.log('✅ ALL elements processed');
+  console.log('✅ ALL elements processed by Smart Fill Agent');
 }
 
-function fillTextFields(data, fieldMappings = fieldAliases) {
+// All other functions remain the same as in previous version
+function fillTextFields(data) {
   const fields = document.querySelectorAll(`
     input[type="text"], input[type="email"], input[type="tel"], 
     input[type="url"], input[type="number"], textarea
   `);
   
   fields.forEach(field => {
-    const name = field.name?.toLowerCase() || '';
-    const id = field.id?.toLowerCase() || '';
-    const label = getLabel(field).toLowerCase();
-    let value = '';
-    
-    // Map ALL possible fields from manual/OCR/browser data using alias matching
-    for (const [standardKey, standardValue] of Object.entries(data)) {
-      if (!standardValue) continue;
-      
-      const aliases = fieldMappings[standardKey] || [standardKey];
-      
-      // Check if field matches any alias (name, id, or label)
-      const matchesName = aliases.some(alias => name.includes(alias.toLowerCase()));
-      const matchesId = aliases.some(alias => id.includes(alias.toLowerCase()));
-      const matchesLabel = aliases.some(alias => label.includes(alias.toLowerCase()));
-      
-      if (matchesName || matchesId || matchesLabel) {
-        value = standardValue;
-        break;
-      }
-    }
-    
+    const value = getMatchingFieldValue(field, data);
     if (value) {
       field.value = value;
       field.dispatchEvent(new Event('input', { bubbles: true }));
@@ -168,49 +201,39 @@ function fillTextFields(data, fieldMappings = fieldAliases) {
   });
 }
 
-function fillDropdowns(data, fieldMappings = fieldAliases) {
+function fillDropdowns(data) {
   document.querySelectorAll('select').forEach(select => {
     const name = select.name?.toLowerCase() || '';
-    const id = select.id?.toLowerCase() || '';
     const label = getLabel(select).toLowerCase();
     const options = Array.from(select.options);
     
     let valueToSelect = '';
     
-    // Check if we have specific data for this field
-    for (const [standardKey, standardValue] of Object.entries(data)) {
-      if (!standardValue) continue;
-      
-      const aliases = fieldMappings[standardKey] || [standardKey];
-      const matchesName = aliases.some(alias => name.includes(alias.toLowerCase()));
-      const matchesId = aliases.some(alias => id.includes(alias.toLowerCase()));
-      const matchesLabel = aliases.some(alias => label.includes(alias.toLowerCase()));
-      
-      if (matchesName || matchesId || matchesLabel) {
-        // Try to find matching option
-        const matchingOption = options.find(opt => 
-          opt.text.toLowerCase().includes(standardValue.toLowerCase()) ||
-          opt.value.toLowerCase().includes(standardValue.toLowerCase())
-        );
-        if (matchingOption) {
-          valueToSelect = matchingOption.value;
-          break;
-        }
-      }
+    // Country selection
+    if (name.includes('country') || label.includes('country')) {
+      const option = options.find(opt => 
+        opt.text.includes('United States') || opt.value.includes('US') ||
+        opt.text.includes('USA') || opt.value.includes('USA')
+      );
+      if (option) valueToSelect = option.value;
     }
     
-    // Fallback to default logic if no specific match
-    if (!valueToSelect) {
-      if (name.includes('country')) {
-        const option = options.find(opt => opt.text.includes('United States') || opt.value.includes('US'));
-        if (option) valueToSelect = option.value;
-      } else if (name.includes('year') || name.includes('experience')) {
-        const option = options.find(opt => opt.text.includes('5') || opt.value.includes('5'));
-        if (option) valueToSelect = option.value;
-      } else if (options.length > 1) {
-        const realOptions = options.filter(opt => !opt.text.toLowerCase().includes('select'));
-        if (realOptions.length > 0) valueToSelect = realOptions[0].value;
-      }
+    // Experience/Years
+    else if (name.includes('year') || name.includes('experience')) {
+      const option = options.find(opt => 
+        opt.text.includes('5') || opt.value.includes('5') ||
+        opt.text.toLowerCase().includes('five')
+      );
+      if (option) valueToSelect = option.value;
+    }
+    
+    // Generic selection (avoid "Select..." options)
+    else if (options.length > 1) {
+      const realOptions = options.filter(opt => 
+        !opt.text.toLowerCase().includes('select') && 
+        !opt.value.toLowerCase().includes('select')
+      );
+      if (realOptions.length > 0) valueToSelect = realOptions[0].value;
     }
     
     if (valueToSelect) {
@@ -231,7 +254,7 @@ function fillRadioButtons() {
   });
   
   Object.values(groups).forEach(group => {
-    const priorityValues = ['yes', 'true', '1', 'male', 'full-time', 'remote'];
+    const priorityValues = ['yes', 'true', '1', 'male', 'full-time', 'remote', 'full time'];
     let toCheck = group.find(r => 
       priorityValues.some(val => r.value.toLowerCase().includes(val))
     );
@@ -250,14 +273,18 @@ function fillCheckboxes() {
     const name = checkbox.name?.toLowerCase() || '';
     const label = getLabel(checkbox).toLowerCase();
     
+    // Check these
     const shouldCheck = 
       name.includes('term') || name.includes('agree') || name.includes('consent') || 
       name.includes('remote') || name.includes('eligibility') || name.includes('policy') ||
-      label.includes('agree') || label.includes('terms');
+      name.includes('condition') || name.includes('certify') ||
+      label.includes('agree') || label.includes('terms') || label.includes('condition');
     
+    // Uncheck these
     const shouldUncheck = 
       name.includes('newsletter') || name.includes('spam') || name.includes('marketing') || 
-      name.includes('promo') || label.includes('newsletter');
+      name.includes('promo') || name.includes('advert') || name.includes('offer') ||
+      label.includes('newsletter') || label.includes('marketing');
     
     if (shouldCheck) {
       checkbox.checked = true;
@@ -270,34 +297,18 @@ function fillCheckboxes() {
   });
 }
 
-function fillDateFields(data, fieldMappings = fieldAliases) {
+function fillDateFields(data) {
   document.querySelectorAll('input[type="date"]').forEach(input => {
     const name = input.name?.toLowerCase() || '';
-    const id = input.id?.toLowerCase() || '';
     const label = getLabel(input).toLowerCase();
-    
     let dateValue = '';
     
-    // Check for specific date field matches
-    for (const [standardKey, standardValue] of Object.entries(data)) {
-      if (!standardValue) continue;
-      
-      const aliases = fieldMappings[standardKey] || [standardKey];
-      const matchesName = aliases.some(alias => name.includes(alias.toLowerCase()));
-      const matchesId = aliases.some(alias => id.includes(alias.toLowerCase()));
-      const matchesLabel = aliases.some(alias => label.includes(alias.toLowerCase()));
-      
-      if (matchesName || matchesId || matchesLabel) {
-        dateValue = standardValue;
-        break;
-      }
-    }
-    
-    // Fallback to default logic
-    if (!dateValue) {
-      if (name.includes('birth')) dateValue = data.birthDate || '1990-01-01';
-      else if (name.includes('start')) dateValue = data.workStartDate || '2020-01-01';
-      else if (name.includes('end')) dateValue = data.workEndDate || '2023-12-31';
+    if (name.includes('birth') || label.includes('birth')) {
+      dateValue = data.birthDate || '1990-01-01';
+    } else if (name.includes('start') || label.includes('start')) {
+      dateValue = data.workStartDate || '2020-01-01';
+    } else if (name.includes('end') || label.includes('end')) {
+      dateValue = data.workEndDate || '2023-12-31';
     }
     
     if (dateValue) {
@@ -308,47 +319,17 @@ function fillDateFields(data, fieldMappings = fieldAliases) {
   });
 }
 
-async function uploadCV(cvData, cvFileName, cvFileType) {
-  return new Promise(resolve => {
-    const uint8Array = new Uint8Array(cvData);
-    const blob = new Blob([uint8Array], { type: cvFileType || 'application/pdf' });
-    const file = new File([blob], cvFileName, { type: cvFileType || 'application/pdf' });
-    
-    const fileInputs = document.querySelectorAll('input[type="file"]');
-    let uploaded = false;
-    
-    fileInputs.forEach(input => {
-      const label = getLabel(input).toLowerCase();
-      const name = input.name?.toLowerCase() || '';
-      
-      // Upload to CV/resume fields OR if only one file input exists
-      const isCVField = label.includes('cv') || label.includes('resume') || name.includes('cv') || name.includes('resume');
-      const shouldUpload = isCVField || fileInputs.length === 1;
-      
-      if (shouldUpload) {
-        const dataTransfer = new DataTransfer();
-        dataTransfer.items.add(file);
-        input.files = dataTransfer.files;
-        
-        input.dispatchEvent(new Event('change', { bubbles: true }));
-        input.style.border = '3px solid #34A853';
-        input.style.background = '#d4edda';
-        input.title = `✅ CV uploaded: ${cvFileName}`;
-        uploaded = true;
-      }
-    });
-    
-    setTimeout(() => resolve(uploaded), 500);
-  });
-}
-
 function clickAllButtons() {
-  const actions = ['submit', 'apply', 'next', 'continue', 'save', 'send', 'confirm', 'proceed'];
+  const actions = ['submit', 'apply', 'next', 'continue', 'save', 'send', 'confirm', 'proceed', 'finish'];
   let count = 0;
   
   document.querySelectorAll('button, input[type="submit"], a').forEach(element => {
     const text = (element.textContent || element.value || '').toLowerCase().trim();
-    if (actions.some(action => text.includes(action))) {
+    const isButton = element.tagName === 'BUTTON' || element.type === 'submit';
+    const hasActionText = actions.some(action => text.includes(action));
+    
+    // Only click elements that look like submission buttons
+    if (isButton && hasActionText && text.length < 30) {
       element.click();
       element.style.border = '3px solid #4285F4';
       element.style.background = '#e8f0fe';
@@ -394,5 +375,13 @@ function verifyAllFields() {
 
 function getLabel(field) {
   const label = document.querySelector(`label[for="${field.id}"]`) || field.closest('label');
-  return label ? label.textContent.trim() : '';
+  return label ? label.textContent.trim().toLowerCase() : '';
 }
+
+// Make functions available globally for debugging
+window.autofillPro = {
+  fillEverything,
+  uploadCVAgent,
+  verifyAllFields,
+  extractAllData: () => extractAllData(fieldMappings)
+};
