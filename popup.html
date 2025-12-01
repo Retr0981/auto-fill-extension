@@ -1,19 +1,13 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="popup">
 <head>
-  <!-- Meta & Security -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="script-src 'self';">
   <title>AutoFill Pro - Extension Popup</title>
   
-  <!-- Embedded Styles (Chrome Extension Best Practice) -->
   <style>
-    /* ===================================================
-       CSS CUSTOM PROPERTIES - Design Token System
-       =================================================== */
     :root {
-      /* Colors */
       --color-primary: #667eea;
       --color-secondary: #764ba2;
       --color-success: #34a853;
@@ -21,31 +15,20 @@
       --color-danger: #ea4335;
       --color-white: rgba(255, 255, 255, 0.98);
       --color-black: #333;
-      
-      /* Gradients */
       --gradient-body: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
       --gradient-success: linear-gradient(135deg, #34a853 0%, #0f9d58 100%);
       --gradient-danger: linear-gradient(135deg, var(--color-danger) 0%, #d23f31 100%);
-      
-      /* Spacing */
       --space-xs: 4px;
       --space-sm: 8px;
       --space-md: 12px;
       --space-lg: 15px;
       --space-xl: 20px;
-      
-      /* Shadows */
       --shadow-card: 0 8px 20px rgba(0, 0, 0, 0.12);
       --shadow-button: 0 4px 12px rgba(0, 0, 0, 0.2);
-      
-      /* Transitions */
       --transition-fast: 0.3s ease;
       --transition-bounce: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
 
-    /* ===================================================
-       RESET & BASE STYLES
-       =================================================== */
     *, *::before, *::after {
       margin: 0;
       padding: 0;
@@ -62,9 +45,6 @@
       -webkit-font-smoothing: antialiased;
     }
 
-    /* ===================================================
-       LAYOUT COMPONENTS
-       =================================================== */
     .header {
       text-align: center;
       margin-bottom: var(--space-xl);
@@ -86,9 +66,6 @@
       letter-spacing: 0.5px;
     }
 
-    /* ===================================================
-       TAB NAVIGATION
-       =================================================== */
     .tab-navigation {
       display: flex;
       background: rgba(255, 255, 255, 0.15);
@@ -125,19 +102,10 @@
     }
 
     @keyframes fadeIn {
-      from {
-        opacity: 0;
-        transform: translateY(10px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
     }
 
-    /* ===================================================
-       CARDS
-       =================================================== */
     .card {
       background: var(--color-white);
       border-radius: 16px;
@@ -156,9 +124,6 @@
       gap: var(--space-sm);
     }
 
-    /* ===================================================
-       FORM ELEMENTS
-       =================================================== */
     .form-group {
       margin-bottom: var(--space-md);
     }
@@ -190,9 +155,6 @@
       box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15);
     }
 
-    /* ===================================================
-       BUTTONS
-       =================================================== */
     .btn {
       width: 100%;
       padding: 14px;
@@ -230,9 +192,6 @@
       color: white;
     }
 
-    /* ===================================================
-       STATUS INDICATORS
-       =================================================== */
     .status-indicator {
       padding: var(--space-md);
       border-radius: 10px;
@@ -254,9 +213,6 @@
       border: 1px solid #ef5350;
     }
 
-    /* ===================================================
-       CV TOOLS SPECIFIC
-       =================================================== */
     .file-upload {
       position: relative;
       margin-bottom: var(--space-md);
@@ -285,7 +241,7 @@
       font-size: 12px;
       color: #666;
       text-align: center;
-      margin: var(--space-sm 0);
+      margin: var(--space-sm) 0;
     }
 
     .extracted-data {
@@ -301,9 +257,6 @@
       border-left: 4px solid var(--color-primary);
     }
 
-    /* ===================================================
-       UTILITY CLASSES
-       =================================================== */
     .sr-only {
       position: absolute;
       width: 1px;
@@ -319,21 +272,24 @@
     .hidden {
       display: none !important;
     }
+
+    .shortcut-hint {
+      text-align: center;
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.8);
+      margin-top: var(--space-lg);
+      padding-top: var(--space-lg);
+      border-top: 1px solid rgba(255, 255, 255, 0.2);
+    }
   </style>
 </head>
 
 <body>
-  <!-- ===================================================
-       HEADER
-       =================================================== -->
   <header class="header">
     <h1 class="logo">🎯 AutoFill Pro</h1>
     <p class="tagline">Intelligent Form Filler & CV Uploader</p>
   </header>
 
-  <!-- ===================================================
-       TAB NAVIGATION
-       =================================================== -->
   <nav class="tab-navigation" role="tablist" aria-label="AutoFill Pro Tools">
     <button 
       class="tab-button" 
@@ -341,7 +297,6 @@
       id="profile-tab-btn"
       aria-selected="true" 
       aria-controls="profile-panel"
-      data-js="tab-switcher"
       data-target="profile-panel">
       👤 Profile
     </button>
@@ -351,17 +306,13 @@
       id="cv-tab-btn"
       aria-selected="false" 
       aria-controls="cv-panel"
-      data-js="tab-switcher"
       data-target="cv-panel">
       📎 CV Tools
     </button>
   </nav>
 
-  <!-- ===================================================
-       MAIN CONTENT
-       =================================================== -->
   <main>
-    <!-- Profile Tab Panel -->
+    <!-- Profile Panel -->
     <section 
       id="profile-panel" 
       class="tab-panel" 
@@ -369,137 +320,57 @@
       aria-labelledby="profile-tab-btn"
       aria-hidden="false">
       
-      <!-- Status Indicator -->
-      <div 
-        id="status-indicator" 
-        class="status-indicator status-indicator--empty">
+      <div id="status-indicator" class="status-indicator status-indicator--empty">
         ❌ No profile data saved
       </div>
 
-      <!-- Personal Information Card -->
       <article class="card">
         <h2 class="card__title">👤 Personal Information</h2>
-        
-        <form id="profile-form" data-js="profile-form">
+        <form id="profile-form">
           <div class="form-group">
             <label for="firstName" class="form-label">First Name</label>
-            <input 
-              type="text" 
-              id="firstName" 
-              name="firstName"
-              class="form-input" 
-              placeholder="e.g. David"
-              value="David"
-              autocomplete="given-name"
-              required>
+            <input type="text" id="firstName" class="form-input" placeholder="e.g. David" autocomplete="given-name">
           </div>
-
           <div class="form-group">
             <label for="lastName" class="form-label">Last Name</label>
-            <input 
-              type="text" 
-              id="lastName" 
-              name="lastName"
-              class="form-input" 
-              placeholder="e.g. Armah"
-              value="Armah"
-              autocomplete="family-name"
-              required>
+            <input type="text" id="lastName" class="form-input" placeholder="e.g. Armah" autocomplete="family-name">
           </div>
-
           <div class="form-group">
             <label for="email" class="form-label">Email Address</label>
-            <input 
-              type="email" 
-              id="email" 
-              name="email"
-              class="form-input" 
-              placeholder="e.g. dnafun991@gmail.com"
-              value="dnafun991@gmail.com"
-              autocomplete="email"
-              required>
+            <input type="email" id="email" class="form-input" placeholder="e.g. dnafun991@gmail.com" autocomplete="email">
           </div>
-
           <div class="form-group">
             <label for="phone" class="form-label">Phone Number</label>
-            <input 
-              type="tel" 
-              id="phone" 
-              name="phone"
-              class="form-input" 
-              placeholder="e.g. 07588116743"
-              value="07588116743"
-              autocomplete="tel"
-              pattern="[0-9\s\-\+]*">
+            <input type="tel" id="phone" class="form-input" placeholder="e.g. 07588116743" autocomplete="tel">
           </div>
         </form>
       </article>
 
-      <!-- Address Card -->
       <article class="card">
         <h2 class="card__title">📍 Address</h2>
-        
-        <form id="address-form" data-js="address-form">
+        <form id="address-form">
           <div class="form-group">
             <label for="address" class="form-label">Street Address</label>
-            <input 
-              type="text" 
-              id="address" 
-              name="address"
-              class="form-input" 
-              placeholder="e.g. 26 Goldings Crescent"
-              value="26 Goldings Crescent"
-              autocomplete="street-address">
+            <input type="text" id="address" class="form-input" placeholder="e.g. 26 Goldings Crescent" autocomplete="street-address">
           </div>
-
           <div class="form-group">
             <label for="city" class="form-label">City</label>
-            <input 
-              type="text" 
-              id="city" 
-              name="city"
-              class="form-input" 
-              placeholder="e.g. Hatfield"
-              value="Hatfield"
-              autocomplete="address-level2">
+            <input type="text" id="city" class="form-input" placeholder="e.g. Hatfield" autocomplete="address-level2">
           </div>
-
           <div class="form-group">
             <label for="state" class="form-label">State/Province</label>
-            <input 
-              type="text" 
-              id="state" 
-              name="state"
-              class="form-input" 
-              placeholder="e.g. Hertfordshire"
-              value="Hertfordshire"
-              autocomplete="address-level1">
+            <input type="text" id="state" class="form-input" placeholder="e.g. Hertfordshire" autocomplete="address-level1">
           </div>
-
           <div class="form-group">
             <label for="zipCode" class="form-label">ZIP / Postal Code</label>
-            <input 
-              type="text" 
-              id="zipCode" 
-              name="zipCode"
-              class="form-input" 
-              placeholder="e.g. AL10 0XYZ"
-              autocomplete="postal-code"
-              pattern="[A-Za-z0-9\s\-]*">
+            <input type="text" id="zipCode" class="form-input" placeholder="e.g. AL10 0XYZ" autocomplete="postal-code">
           </div>
-
-          <button 
-            type="button" 
-            id="save-profile-btn"
-            class="btn btn--success"
-            data-js="save-profile">
-            💾 Save Profile
-          </button>
+          <button type="button" id="save-profile-btn" class="btn btn--success">💾 Save Profile</button>
         </form>
       </article>
     </section>
 
-    <!-- CV Tools Tab Panel -->
+    <!-- CV Tools Panel -->
     <section 
       id="cv-panel" 
       class="tab-panel" 
@@ -507,93 +378,28 @@
       aria-labelledby="cv-tab-btn"
       aria-hidden="true">
       
-      <!-- CV Upload Card -->
       <article class="card">
         <h2 class="card__title">📄 CV Upload</h2>
-        
         <div class="file-upload">
-          <label for="cv-file-input" class="file-upload__button">
-            📤 Upload CV (PDF/DOC/PNG)
-          </label>
-          <input 
-            type="file" 
-            id="cv-file-input"
-            class="file-upload__input"
-            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt,.rtf"
-            data-js="cv-upload">
+          <label for="cv-file-input" class="file-upload__button">📤 Upload CV (PDF/DOC/PNG)</label>
+          <input type="file" id="cv-file-input" class="file-upload__input" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt,.rtf">
         </div>
-
         <p id="cv-status" class="file-status">No CV stored</p>
-
-        <div class="button-group">
-          <button 
-            type="button" 
-            id="extract-cv-btn"
-            class="btn btn--primary"
-            data-js="extract-cv">
-            🔍 Extract Data from CV
-          </button>
-
-          <button 
-            type="button" 
-            id="preview-cv-btn"
-            class="btn btn--secondary"
-            data-js="preview-cv">
-            👁️ Preview CV
-          </button>
-        </div>
-
-        <div 
-          id="extracted-data-container" 
-          class="extracted-data"
-          tabindex="0"
-          aria-label="Extracted CV data">
-          <!-- Dynamic content -->
-        </div>
+        <button type="button" id="preview-cv-btn" class="btn btn--secondary">👁️ Preview CV</button>
+        <button type="button" id="extract-cv-btn" class="btn btn--primary">🔍 Extract Data from CV</button>
+        <div id="extracted-data-container" class="extracted-data" tabindex="0" aria-label="Extracted CV data"></div>
       </article>
 
-      <!-- Smart Actions Card -->
       <article class="card">
         <h2 class="card__title">🚀 Smart Actions</h2>
-        
-        <div class="button-group">
-          <button 
-            type="button" 
-            id="smart-fill-btn"
-            class="btn btn--primary"
-            data-js="smart-fill">
-            🎯 Smart Fill Current Form
-          </button>
-
-          <button 
-            type="button" 
-            id="extract-browser-btn"
-            class="btn btn--secondary"
-            data-js="extract-browser">
-            📥 Extract from Browser
-          </button>
-
-          <button 
-            type="button" 
-            id="reset-all-btn"
-            class="btn btn--danger"
-            data-js="reset-all">
-            🔄 Reset All Data
-          </button>
-        </div>
-
-        <p class="shortcut-hint">
-          ⌨️ Shortcut: <strong>Ctrl+Shift+F</strong> to fill any form
-        </p>
+        <button type="button" id="smart-fill-btn" class="btn btn--primary">🎯 Smart Fill Current Form</button>
+        <button type="button" id="extract-browser-btn" class="btn btn--secondary">📥 Extract from Browser</button>
+        <button type="button" id="reset-all-btn" class="btn btn--danger">🔄 Reset All Data</button>
+        <p class="shortcut-hint">⌨️ Shortcut: <strong>Ctrl+Shift+F</strong> to fill any form</p>
       </article>
     </section>
   </main>
 
-  <!-- ===================================================
-       JAVASCRIPT INTEGRATION
-       - External scripts for extension security
-       - DOM selectors use data-js attributes
-       =================================================== -->
   <script src="config.js"></script>
   <script src="popup.js"></script>
 </body>

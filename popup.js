@@ -11,18 +11,20 @@ function initializePopup() {
   checkStoredCV();
 }
 
-// Tab Navigation
+/**
+ * Initialize tab navigation between Profile and CV Tools
+ */
 function initTabs() {
   const tabButtons = document.querySelectorAll('.tab-button');
   tabButtons.forEach(button => {
     button.addEventListener('click', () => {
       const target = button.dataset.target;
       
-      // Update buttons
+      // Update button states
       tabButtons.forEach(btn => btn.setAttribute('aria-selected', 'false'));
       button.setAttribute('aria-selected', 'true');
       
-      // Update panels
+      // Update panel visibility
       document.querySelectorAll('.tab-panel').forEach(panel => {
         panel.setAttribute('aria-hidden', 'true');
       });
@@ -31,21 +33,25 @@ function initTabs() {
   });
 }
 
-// Bind all button events
+/**
+ * Bind click handlers to all action buttons
+ */
 function bindEvents() {
-  // Profile Actions
+  // Profile actions
   document.getElementById('save-profile-btn').addEventListener('click', saveProfile);
   document.getElementById('smart-fill-btn').addEventListener('click', smartFillForm);
   document.getElementById('reset-all-btn').addEventListener('click', resetAll);
   
-  // CV Actions
+  // CV actions
   document.getElementById('cv-file-input').addEventListener('change', handleCVUpload);
   document.getElementById('preview-cv-btn').addEventListener('click', previewCV);
   document.getElementById('extract-cv-btn').addEventListener('click', extractFromCV);
   document.getElementById('extract-browser-btn').addEventListener('click', extractFromBrowser);
 }
 
-// Get profile data from form
+/**
+ * Get current profile data from form fields
+ */
 function getProfileData() {
   return {
     firstName: document.getElementById('firstName')?.value.trim() || '',
@@ -59,7 +65,9 @@ function getProfileData() {
   };
 }
 
-// Save profile to storage
+/**
+ * Save profile data to chrome.storage
+ */
 function saveProfile() {
   const profile = getProfileData();
   
@@ -77,7 +85,9 @@ function saveProfile() {
   });
 }
 
-// Load profile from storage
+/**
+ * Load profile data from chrome.storage into form fields
+ */
 function loadProfile() {
   chrome.storage.local.get(['profile'], (result) => {
     if (result.profile) {
@@ -90,7 +100,9 @@ function loadProfile() {
   });
 }
 
-// Update status indicator
+/**
+ * Update status indicator based on stored data
+ */
 function updateStatusIndicator() {
   chrome.storage.local.get(['profile'], (result) => {
     const indicator = document.getElementById('status-indicator');
@@ -106,7 +118,9 @@ function updateStatusIndicator() {
   });
 }
 
-// Smart fill current form
+/**
+ * Smart fill the current page's form with stored profile data
+ */
 function smartFillForm() {
   chrome.storage.local.get(['profile'], (result) => {
     if (!result.profile || Object.keys(result.profile).length === 0) {
@@ -135,12 +149,14 @@ function smartFillForm() {
   });
 }
 
-// Reset all data
+/**
+ * Reset all stored data and clear UI
+ */
 function resetAll() {
   if (!confirm('⚠️ Delete all saved data?')) return;
   
   chrome.storage.local.clear(() => {
-    // Clear form fields
+    // Clear profile form fields
     document.querySelectorAll('#profile-panel input').forEach(input => {
       input.value = '';
     });
@@ -154,7 +170,9 @@ function resetAll() {
   });
 }
 
-// Handle CV upload
+/**
+ * Handle CV file upload and store in chrome.storage
+ */
 function handleCVUpload(event) {
   const file = event.target.files[0];
   if (!file) return;
@@ -176,7 +194,9 @@ function handleCVUpload(event) {
   reader.readAsDataURL(file);
 }
 
-// Check for stored CV
+/**
+ * Check and display stored CV on popup open
+ */
 function checkStoredCV() {
   chrome.storage.local.get(['cv'], (result) => {
     if (result.cv) {
@@ -185,7 +205,9 @@ function checkStoredCV() {
   });
 }
 
-// Preview CV
+/**
+ * Preview stored CV in a new tab
+ */
 function previewCV() {
   chrome.storage.local.get(['cv'], (result) => {
     if (!result.cv) {
@@ -193,6 +215,7 @@ function previewCV() {
       return;
     }
     
+    // Convert base64 to blob URL
     const base64Data = result.cv.data.split(',')[1];
     const byteString = atob(base64Data);
     const mimeString = result.cv.data.split(',')[0].split(':')[1].split(';')[0];
@@ -213,7 +236,9 @@ function previewCV() {
   });
 }
 
-// Extract data from CV (simulated)
+/**
+ * Extract data from CV (simulated - shows current profile data)
+ */
 function extractFromCV() {
   chrome.storage.local.get(['cv'], (result) => {
     if (!result.cv) {
@@ -238,7 +263,9 @@ function extractFromCV() {
   });
 }
 
-// Extract data from browser
+/**
+ * Extract data from current page's form fields
+ */
 function extractFromBrowser() {
   showStatus('📥 Extracting from browser...', 'loading');
   
@@ -269,7 +296,9 @@ function extractFromBrowser() {
   });
 }
 
-// Show status message
+/**
+ * Show status message with auto-hide
+ */
 function showStatus(message, type) {
   const indicator = document.getElementById('status-indicator');
   indicator.textContent = message;
@@ -285,6 +314,7 @@ function showStatus(message, type) {
     indicator.style.border = '1px solid var(--color-primary)';
   }
   
+  // Auto-revert to default status after 4 seconds
   setTimeout(() => {
     updateStatusIndicator();
     indicator.style.background = '';

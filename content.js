@@ -1,4 +1,5 @@
-// content.js - AutoFill Pro Content Script
+// content.js - Form filling and data extraction
+// NOTE: FIELD_ALIASES is loaded from config.js via manifest ordering
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log('📨 MESSAGE RECEIVED:', request.action);
@@ -11,19 +12,24 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     sendResponse({ data });
   }
   
-  return true; // Keep channel open
+  return true; // Keep message channel open for async response
 });
 
 /**
- * Fill all visible, empty fields with matching data
+ * Main function: Fill all visible, empty form fields with profile data
  */
 function fillAllFields(data) {
-  const selectors = 'input:not([type=button]):not([type=submit]):not([type=reset]):not([type=checkbox]):not([type=radio]):not([disabled]), textarea:not([disabled]), select:not([disabled])';
+  const selectors = `
+    input:not([type=button]):not([type=submit]):not([type=reset])
+    :not([type=checkbox]):not([type=radio]):not([disabled]),
+    textarea:not([disabled]),
+    select:not([disabled])
+  `;
   const inputs = document.querySelectorAll(selectors);
   
   let filled = 0;
   inputs.forEach(input => {
-    if (!isVisible(input) || input.value) return;
+    if (!isVisible(input) || input.value.trim()) return;
     
     const value = findMatch(input, data);
     if (value) {
@@ -47,15 +53,20 @@ function fillAllFields(data) {
 }
 
 /**
- * Extract data from visible form fields
+ * Extract data from visible form fields on the page
  */
 function extractFormData() {
-  const selectors = 'input:not([type=button]):not([type=submit]):not([type=reset]):not([type=checkbox]):not([type=radio]):not([disabled]), textarea:not([disabled]), select:not([disabled])';
+  const selectors = `
+    input:not([type=button]):not([type=submit]):not([type=reset])
+    :not([type=checkbox]):not([type=radio]):not([disabled]),
+    textarea:not([disabled]),
+    select:not([disabled])
+  `;
   const inputs = document.querySelectorAll(selectors);
   
   const extracted = {};
   inputs.forEach(input => {
-    if (!isVisible(input) || !input.value) return;
+    if (!isVisible(input) || !input.value.trim()) return;
     
     const name = (input.name || input.id || '').toLowerCase();
     const label = getLabel(input).toLowerCase();
@@ -72,7 +83,7 @@ function extractFormData() {
       }
     }
     
-    // Type-based detection
+    // Type-based detection as fallback
     if (input.type === 'email' && !extracted.email) {
       extracted.email = input.value;
     } else if (input.type === 'tel' && !extracted.phone) {
@@ -84,7 +95,7 @@ function extractFormData() {
 }
 
 /**
- * Find matching value for a field
+ * Find matching value for a field based on name, label, placeholder
  */
 function findMatch(field, data) {
   const name = (field.name || field.id || '').toLowerCase();
@@ -111,20 +122,20 @@ function findMatch(field, data) {
 }
 
 /**
- * Set field value with event triggers for framework compatibility
+ * Set field value with framework compatibility (React/Vue/Angular)
  */
 function setFieldValue(field, value) {
   // Set value multiple ways
   field.value = value;
   field.setAttribute('value', value);
   
-  // Trigger change events
+  // Trigger events for framework updates
   ['input', 'change', 'blur'].forEach(eventType => {
     const event = new Event(eventType, { bubbles: true });
     field.dispatchEvent(event);
   });
   
-  // React/Vue compatibility
+  // React-specific: trigger setter on prototype
   const prototype = Object.getPrototypeOf(field);
   const descriptor = Object.getOwnPropertyDescriptor(prototype, 'value');
   if (descriptor && descriptor.set) {
@@ -141,10 +152,10 @@ function setFieldValue(field, value) {
 }
 
 /**
- * Get label text for a field
+ * Get label text for a field using multiple strategies
  */
 function getLabel(field) {
-  // Check associated labels
+  // Check associated labels (HTML5)
   if (field.labels && field.labels.length > 0) {
     return field.labels[0].textContent.trim();
   }
@@ -159,21 +170,23 @@ function getLabel(field) {
   const parentLabel = field.closest('label');
   if (parentLabel) return parentLabel.textContent.trim();
   
-  // Fallbacks
+  // Fallback to placeholder or aria-label
   return field.placeholder || field.getAttribute('aria-label') || '';
 }
 
 /**
- * Check if element is visible
+ * Check if element is visible and interactable
  */
 function isVisible(element) {
   return element.offsetParent !== null && 
          !element.disabled && 
-         !element.hidden;
+         !element.hidden &&
+         element.style.display !== 'none' &&
+         element.style.visibility !== 'hidden';
 }
 
 /**
- * Determine if checkbox should be auto-checked
+ * Determine if checkbox should be auto-checked (terms/agreement)
  */
 function shouldAutoCheck(checkbox) {
   const label = getLabel(checkbox).toLowerCase();
@@ -185,11 +198,12 @@ function shouldAutoCheck(checkbox) {
          combined.includes('terms') || 
          combined.includes('consent') ||
          combined.includes('privacy') ||
-         combined.includes('conditions');
+         combined.includes('conditions') ||
+         combined.includes('policy');
 }
 
 /**
- * Trigger events on an element
+ * Trigger all necessary events on an element
  */
 function triggerEvents(element) {
   ['change', 'input', 'blur'].forEach(eventType => {
