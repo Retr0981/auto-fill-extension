@@ -32,7 +32,7 @@ chrome.storage.sync.get(['userData'], (syncResult) => {
     }
     
     // Check browser data
-    setTimeout(() => {
+    setTimeout(async () => {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       chrome.tabs.sendMessage(tab.id, { action: "extractAutofill" }, (response) => {
         if (response?.autofillData && Object.keys(response.autofillData).length > 0) {
