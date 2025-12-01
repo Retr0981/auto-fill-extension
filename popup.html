@@ -2,161 +2,39 @@
 <html>
 <head>
   <style>
-    body { 
-      width: 340px; 
-      padding: 0; 
-      margin: 0; 
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-      background: #f8f9fa; 
-    }
-    .header { 
-      background: #4285F4; 
-      color: white; 
-      padding: 15px; 
-      text-align: center; 
-      font-weight: bold; 
-      font-size: 16px; 
-      border-radius: 8px 8px 0 0; 
-    }
-    .section { 
-      padding: 15px; 
-      border-bottom: 1px solid #e0e0e0; 
-    }
-    .section:last-child { 
-      border-bottom: none; 
-    }
-    button { 
-      width: 100%; 
-      padding: 12px; 
-      margin: 6px 0; 
-      border: none; 
-      border-radius: 6px; 
-      cursor: pointer; 
-      font-weight: 600; 
-      font-size: 14px;
-      transition: all 0.2s ease;
-    }
-    button:hover { 
-      transform: translateY(-2px); 
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1); 
-    }
-    .primary { 
-      background: #4285F4; 
-      color: white; 
-    }
-    .primary:hover { 
-      background: #357ABD; 
-    }
-    .success { 
-      background: #34A853; 
-      color: white; 
-    }
-    .success:hover { 
-      background: #2d8e47; 
-    }
-    .warning { 
-      background: #FBBC05; 
-      color: #333; 
-    }
-    .warning:hover { 
-      background: #e6a806; 
-    }
-    .danger { 
-      background: #EA4335; 
-      color: white; 
-    }
-    .danger:hover { 
-      background: #d33426; 
-    }
-    input[type="file"] { 
-      display: none; 
-    }
-    .file-label { 
-      display: block; 
-      padding: 12px; 
-      background: #34A853; 
-      color: white; 
-      text-align: center; 
-      border-radius: 6px; 
-      cursor: pointer; 
-      font-weight: 600; 
-      margin-bottom: 8px;
-    }
-    .file-label:hover { 
-      background: #2d8e47; 
-    }
-    .status { 
-      padding: 10px; 
-      border-radius: 6px; 
-      text-align: center; 
-      font-size: 13px; 
-      font-weight: 500; 
-      margin-top: 10px;
-      display: none;
-    }
-    .cv-info { 
-      font-size: 11px; 
-      color: #666; 
-      text-align: center; 
-      padding: 8px; 
-      background: #e8f0fe; 
-      border-radius: 4px; 
-      margin-top: 8px;
-    }
-    .emoji { 
-      font-size: 16px; 
-      margin-right: 6px; 
-    }
-    .button-row {
-      display: flex;
-      gap: 8px;
-    }
-    .button-row button {
-      flex: 1;
-    }
+    body { width: 320px; padding: 0; margin: 0; font-family: 'Segoe UI', sans-serif; background: #f8f9fa; }
+    .header { background: #4285F4; color: white; padding: 15px; text-align: center; font-weight: bold; font-size: 16px; }
+    .section { padding: 12px 15px; border-bottom: 1px solid #e0e0e0; }
+    button { width: 100%; padding: 12px; margin: 6px 0; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
+    .primary { background: #4285F4; color: white; }
+    .success { background: #34A853; color: white; }
+    .warning { background: #FBBC05; color: #333; }
+    .danger { background: #EA4335; color: white; }
+    .file-label { display: block; padding: 12px; background: #34A853; color: white; text-align: center; border-radius: 6px; cursor: pointer; }
+    .status { padding: 10px; border-radius: 6px; text-align: center; font-size: 13px; display: none; margin-top: 10px; }
   </style>
 </head>
 <body>
-  <div class="header">
-    <span class="emoji">🎯</span>AutoFill Pro
-  </div>
+  <div class="header">🎯 AutoFill Pro</div>
 
   <div class="section">
-    <label class="file-label" for="cvFile">
-      <span class="emoji">📎</span>Select CV (PDF/DOC)
-    </label>
+    <label class="file-label" for="cvFile">📎 Select CV (PDF/DOC)</label>
     <input type="file" id="cvFile" accept=".pdf,.doc,.docx">
-    <div id="cvStatus" class="cv-info">❌ No CV stored</div>
+    <div id="cvStatus" style="font-size: 11px; color: #666; text-align: center; margin-top: 8px;">No CV stored</div>
   </div>
 
   <div class="section">
-    <button id="extractAutofill" class="warning">
-      <span class="emoji">📥</span>Extract Google Autofill
-    </button>
-    <div id="autofillStatus" class="cv-info">Click to capture browser data</div>
+    <button id="extractAutofill" class="warning">📥 Extract Autofill</button>
   </div>
 
   <div class="section">
-    <button id="smartFill" class="primary">
-      <span class="emoji">🚀</span>Smart Fill Everything
-    </button>
-    <div class="button-row">
-      <button id="fillForm" class="success">📝 Fill Only</button>
-      <button id="clickButtons" class="warning">👆 Click Buttons</button>
-    </div>
-    <button id="fillAndUploadCV" class="success">
-      <span class="emoji">📄</span>Fill + Upload CV
-    </button>
+    <button id="smartFill" class="primary">🚀 Smart Fill All</button>
+    <button id="clickButtons" class="warning">👆 Click Buttons</button>
   </div>
 
   <div class="section">
-    <button id="saveData" class="danger">
-      <span class="emoji">💾</span>Save My Data
-    </button>
-    <div class="button-row">
-      <button id="clearCV" class="danger">🗑️ Clear CV</button>
-      <button id="clearAll" class="danger">🔄 Reset All</button>
-    </div>
+    <button id="saveData" class="success">💾 Save Data</button>
+    <button id="clearAll" class="danger">🔄 Reset</button>
   </div>
   
   <div id="status" class="status"></div>
