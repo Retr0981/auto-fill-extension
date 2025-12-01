@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "Smart Form Filler & CV Uploader",
+  "version": "1.0",
+  "description": "One-click form filling with CV upload support",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "48": "icons/icon48.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  }
+}
