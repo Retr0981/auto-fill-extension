@@ -1,112 +1,141 @@
-// background.js - Fixed Communication & Field Mappings
+// background.js - Enhanced Service Worker with AI Features
 
-// Field aliases - CRITICAL: Must match popup.js exactly
-const fieldAliases = {
-  firstName: ['firstName', 'first_name', 'firstname', 'forename', 'givenName', 'given_name', 'fname', 'first'],
-  lastName: ['lastName', 'last_name', 'lastname', 'surname', 'familyName', 'family_name', 'lname', 'last'],
-  email: ['email', 'e-mail', 'emailAddress', 'email_address', 'e_mail', 'mail'],
-  phone: ['phone', 'phoneNumber', 'phone_number', 'telephone', 'mobile', 'cell', 'cellphone'],
-  address: ['address', 'streetAddress', 'street_address', 'addr'],
-  city: ['city', 'town'],
-  country: ['country', 'nation'],
-  zip: ['zip', 'zipCode', 'zip_code', 'postalCode', 'postal_code', 'postcode'],
-  linkedin: ['linkedin', 'linkedIn', 'linkedinUrl'],
-  portfolio: ['portfolio', 'website', 'github', 'gitlab', 'personalWebsite'],
-  summary: ['summary', 'about', 'description', 'bio'],
-  degree: ['degree', 'education', 'qualification'],
-  university: ['university', 'college', 'school', 'institution'],
-  graduationYear: ['graduationYear', 'graduation_year', 'graduation', 'yearGraduated'],
-  company: ['company', 'employer', 'organisation', 'organization'],
-  position: ['position', 'jobTitle', 'job_title', 'title', 'role'],
-  workStartDate: ['workStartDate', 'work_start_date', 'startDate', 'start_date'],
-  workEndDate: ['workEndDate', 'work_end_date', 'endDate', 'end_date'],
-  experience: ['experience', 'yearsExperience', 'years_experience', 'exp'],
-  skills: ['skills', 'skill', 'abilities', 'competencies'],
-  salary: ['salary', 'expectedSalary', 'expected_salary', 'compensation'],
-  birthDate: ['birthDate', 'birth_date', 'dateOfBirth', 'date_of_birth', 'dob']
-};
+// Import configuration (will be available from config.js)
+let fieldAliases = {};
 
-// Initialize extension
-chrome.runtime.onInstalled.addListener(() => {
-  console.log('🎯 AutoFill Pro v4.2 with CV Upload Agent installed');
+// Initialize
+chrome.runtime.onInstalled.addListener(async () => {
+  console.log('🎯 AutoFill Pro v5.0 - AI Powered');
   
-  // Initialize storage
-  chrome.storage.sync.get(['userData'], (result) => {
-    if (!result.userData) {
-      chrome.storage.sync.set({
-        userData: {
-          firstName: '', lastName: '', email: '', phone: '',
-          address: '', city: '', country: '', zip: '',
-          linkedin: '', portfolio: '', summary: '',
-          degree: '', university: '', graduationYear: '',
-          company: '', position: '', workStartDate: '', workEndDate: '',
-          experience: '', skills: '', salary: '', birthDate: ''
-        }
-      });
+  // Initialize storage with structure
+  await chrome.storage.sync.set({
+    userData: {},
+    dataSources: {
+      manual: false,
+      ocr: false,
+      browser: false,
+      lastUpdated: null
+    },
+    stats: {
+      formsFilled: 0,
+      fieldsFilled: 0,
+      lastFormType: null
+    }
+  });
+  
+  // Create context menu
+  chrome.contextMenus.create({
+    id: "smartFillContext",
+    title: "🎯 Smart Fill Form",
+    contexts: ["all"]
+  });
+  
+  // Inject content script into existing tabs
+  const tabs = await chrome.tabs.query({});
+  tabs.forEach(tab => {
+    if (tab.url && !tab.url.startsWith('chrome://')) {
+      chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ['config.js', 'content.js']
+      }).catch(() => {}); // Ignore errors
     }
   });
 });
 
-// Keyboard shortcuts with injection fallback
-chrome.commands.onCommand.addListener(async (command) => {
-  console.log(`⌨️ Command: ${command}`);
-  
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab || tab.url.startsWith('chrome://')) return;
-  
-  try {
-    // Ensure content script is loaded
-    await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      func: () => window.autofillProLoaded = true
-    });
-    
-    if (command === 'smart-fill') {
-      const [syncResult, localResult] = await Promise.all([
-        chrome.storage.sync.get(['userData']),
-        chrome.storage.local.get(['cvFile', 'cvFileName', 'cvFileType'])
-      ]);
-      
-      const data = syncResult.userData || {};
-      
-      if (!data.email && !data.firstName) {
-        console.warn('⚠️ No user data available');
-        return;
-      }
-      
-      // Send message WITH field mappings
-      await chrome.tabs.sendMessage(tab.id, {
-        action: "smartFill",
-        data: data,
-        fieldMappings: fieldAliases,
-        cvData: localResult.cvFile,
-        cvFileName: localResult.cvFileName,
-        cvFileType: localResult.cvFileType
-      });
-      
-      console.log('✅ Smart fill command sent');
-    }
-    
-  } catch (error) {
-    console.error('❌ Command failed, injecting script...', error);
-    
-    // Inject content script if not present
-    await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      files: ['content.js']
-    });
-    
-    // Retry after injection
-    setTimeout(() => {
-      chrome.commands.onCommand.dispatch(command);
-    }, 500);
+// Context menu handler
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  if (info.menuItemId === "smartFillContext") {
+    await executeSmartFill(tab);
   }
 });
 
-// Keep service worker alive
-chrome.runtime.onStartup.addListener(() => {
-  console.log('🚀 Service worker started');
+// Keyboard shortcuts
+chrome.commands.onCommand.addListener(async (command) => {
+  if (command === 'smart-fill') {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab && !tab.url.startsWith('chrome://')) {
+      await executeSmartFill(tab);
+    }
+  }
 });
+
+// Execute smart fill with error handling
+async function executeSmartFill(tab) {
+  try {
+    // Ensure scripts are injected
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      files: ['config.js', 'content.js']
+    });
+    
+    // Get data from storage
+    const [syncResult, localResult] = await Promise.all([
+      chrome.storage.sync.get(['userData', 'dataSources']),
+      chrome.storage.local.get(['cvFile', 'cvFileName', 'cvFileType'])
+    ]);
+    
+    const data = syncResult.userData || {};
+    
+    if (!data.email && !data.firstName) {
+      chrome.notifications.create({
+        type: 'basic',
+        iconUrl: 'icon.png',
+        title: 'AutoFill Pro',
+        message: 'No profile data! Open extension to add data.'
+      });
+      return;
+    }
+    
+    // Detect form type before sending
+    const response = await chrome.tabs.sendMessage(tab.id, { action: "detectFormType" });
+    const formType = response?.formType;
+    
+    // Send smart fill command
+    await chrome.tabs.sendMessage(tab.id, {
+      action: "smartFill",
+      data: data,
+      fieldMappings: FIELD_ALIASES,
+      cvData: localResult.cvFile,
+      cvFileName: localResult.cvFileName,
+      cvFileType: localResult.cvFileType,
+      formType: formType,
+      intelligentMode: true
+    });
+    
+    // Update stats
+    await updateStats(formType);
+    
+    console.log('✅ Smart fill executed successfully');
+  } catch (error) {
+    console.error('❌ Smart fill failed:', error);
+    
+    // Retry with injection
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: () => {
+          window.location.reload();
+        }
+      });
+      
+      setTimeout(() => executeSmartFill(tab), 1000);
+    } catch (e) {
+      console.error('❌ Recovery failed:', e);
+    }
+  }
+}
+
+// Update statistics
+async function updateStats(formType) {
+  const stats = await chrome.storage.sync.get(['stats']);
+  const currentStats = stats.stats || { formsFilled: 0, fieldsFilled: 0 };
+  
+  currentStats.formsFilled++;
+  currentStats.lastFormType = formType;
+  currentStats.lastFilled = new Date().toISOString();
+  
+  await chrome.storage.sync.set({ stats: currentStats });
+}
 
 // Message router
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -115,7 +144,31 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   } else if (request.action === "error") {
     console.error(`[Content] ${request.message}`, request.data || '');
   } else if (request.action === "getFieldMappings") {
-    sendResponse({ fieldMappings: fieldAliases });
+    sendResponse({ fieldMappings: FIELD_ALIASES });
+  } else if (request.action === "detectFormType") {
+    // Simple detection for background
+    const url = sender.tab.url;
+    if (url.includes('job') || url.includes('career') || url.includes('apply')) {
+      sendResponse({ formType: 'jobApplication' });
+    } else {
+      sendResponse({ formType: null });
+    }
   }
   return true;
+});
+
+// Keep service worker alive
+chrome.runtime.onStartup.addListener(() => {
+  console.log('🚀 AutoFill Pro service worker ready');
+});
+
+// Handle tab updates
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status === 'complete' && tab.url && !tab.url.startsWith('chrome://')) {
+    // Pre-inject for faster response
+    chrome.scripting.executeScript({
+      target: { tabId: tabId },
+      files: ['config.js', 'content.js']
+    }).catch(() => {});
+  }
 });
