@@ -42,9 +42,9 @@ function extractAllData() {
 }
 
 async function fillEverything(data, cvData, cvFileName, cvFileType) {
-  console.log('🚀 Starting complete form fill...');
+  console.log('🚀 Filling ALL form elements...');
   
-  // Fill in order: text -> dropdown -> radio -> checkbox -> date -> file
+  // Fill all field types
   fillTextFields(data);
   fillDropdowns(data);
   fillRadioButtons();
@@ -57,7 +57,7 @@ async function fillEverything(data, cvData, cvFileName, cvFileType) {
     console.log(uploaded ? '✅ CV uploaded' : '⚠️ No CV field found');
   }
   
-  console.log('✅ All form elements processed');
+  console.log('✅ ALL elements processed');
 }
 
 function fillTextFields(data) {
@@ -71,7 +71,7 @@ function fillTextFields(data) {
     const label = getLabel(field).toLowerCase();
     let value = '';
     
-    // Map all possible fields
+    // Map ALL possible fields from manual/OCR/browser data
     if (name.includes('first') && name.includes('name')) value = data.firstName;
     else if (name.includes('last') && name.includes('name')) value = data.lastName;
     else if (name.includes('email')) value = data.email;
@@ -137,19 +137,16 @@ function fillRadioButtons() {
   });
   
   Object.values(groups).forEach(group => {
-    // Prioritize: "yes" > "true" > "1" > "male" > "remote" > last option
-    const priorityValues = ['yes', 'true', '1', 'male', 'remote', 'full-time', 'onsite'];
+    const priorityValues = ['yes', 'true', '1', 'male', 'full-time', 'remote'];
     let toCheck = group.find(r => 
       priorityValues.some(val => r.value.toLowerCase().includes(val))
     );
-    
     if (!toCheck) toCheck = group[group.length - 1];
     
     if (toCheck) {
       toCheck.checked = true;
       toCheck.dispatchEvent(new Event('change', { bubbles: true }));
       toCheck.style.outline = '3px solid #34A853';
-      console.log(`✅ Radio: ${toCheck.name} = ${toCheck.value}`);
     }
   });
 }
@@ -159,13 +156,11 @@ function fillCheckboxes() {
     const name = checkbox.name?.toLowerCase() || '';
     const label = getLabel(checkbox).toLowerCase();
     
-    // Check: terms, agree, consent, remote, eligibility
     const shouldCheck = 
       name.includes('term') || name.includes('agree') || name.includes('consent') || 
       name.includes('remote') || name.includes('eligibility') || name.includes('policy') ||
       label.includes('agree') || label.includes('terms');
     
-    // Uncheck: newsletter, spam, marketing, promo
     const shouldUncheck = 
       name.includes('newsletter') || name.includes('spam') || name.includes('marketing') || 
       name.includes('promo') || label.includes('newsletter');
@@ -205,7 +200,7 @@ async function uploadCV(cvData, cvFileName, cvFileType) {
       const label = getLabel(input).toLowerCase();
       const name = input.name?.toLowerCase() || '';
       
-      // Upload to CV/resume fields OR any single file input
+      // Upload to CV/resume fields OR if only one file input exists
       const isCVField = label.includes('cv') || label.includes('resume') || name.includes('cv') || name.includes('resume');
       const shouldUpload = isCVField || fileInputs.length === 1;
       
@@ -219,7 +214,6 @@ async function uploadCV(cvData, cvFileName, cvFileType) {
         input.style.background = '#d4edda';
         input.title = `✅ CV uploaded: ${cvFileName}`;
         uploaded = true;
-        console.log(`📎 CV uploaded to: ${name || label}`);
       }
     });
     
@@ -238,11 +232,10 @@ function clickAllButtons() {
       element.style.border = '3px solid #4285F4';
       element.style.background = '#e8f0fe';
       count++;
-      console.log(`👆 Clicked: ${element.textContent || element.value}`);
     }
   });
   
-  console.log(`👆 Total buttons clicked: ${count}`);
+  console.log(`👆 Clicked ${count} actionable elements`);
 }
 
 function verifyAllFields() {

@@ -7,25 +7,63 @@ let userData = {
   experience: "", skills: "", salary: "", birthDate: ""
 };
 
-// Load stored data
-chrome.storage.sync.get(['userData'], (result) => {
-  if (result.userData) {
-    userData = { ...userData, ...result.userData };
-    populateManualForm(result.userData); // Fill manual form if data exists
+let hasManualData = false;
+let hasOCRData = false;
+let hasBrowserData = false;
+
+// Load ALL data sources on startup
+chrome.storage.sync.get(['userData'], (syncResult) => {
+  if (syncResult.userData) {
+    userData = { ...userData, ...syncResult.userData };
+    hasManualData = Object.keys(syncResult.userData).length > 0;
   }
+  
+  chrome.storage.local.get(['cvFileName', 'cvDataExtracted'], (localResult) => {
+    if (localResult.cvFileName) {
+      document.getElementById('cvStatus').textContent = `✅ ${localResult.cvFileName}`;
+      document.getElementById('cvStatus').style.color = '#34A853';
+    }
+    
+    if (localResult.cvDataExtracted) {
+      userData = { ...userData, ...localResult.cvDataExtracted };
+      hasOCRData = true;
+      displayExtractedData(localResult.cvDataExtracted);
+      populateManualForm(localResult.cvDataExtracted);
+    }
+    
+    // Check browser data
+    setTimeout(() => {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      chrome.tabs.sendMessage(tab.id, { action: "extractAutofill" }, (response) => {
+        if (response?.autofillData && Object.keys(response.autofillData).length > 0) {
+          hasBrowserData = true;
+          userData = { ...userData, ...response.autofillData };
+        }
+        updateDataSourcesIndicator();
+      });
+    }, 500);
+    
+    updateDataSourcesIndicator();
+  });
 });
 
-// Load CV status
-chrome.storage.local.get(['cvFileName', 'cvDataExtracted'], (result) => {
-  const cvStatus = document.getElementById('cvStatus');
-  cvStatus.textContent = result.cvFileName ? `✅ ${result.cvFileName}` : '❌ No CV stored';
-  cvStatus.style.color = result.cvFileName ? '#34A853' : '#EA4335';
+function updateDataSourcesIndicator() {
+  const sources = [];
+  if (hasManualData) sources.push('Manual');
+  if (hasOCRData) sources.push('CV OCR');
+  if (hasBrowserData) sources.push('Browser');
   
-  if (result.cvDataExtracted) {
-    userData = { ...userData, ...result.cvDataExtracted };
-    displayExtractedData(result.cvDataExtracted);
+  const indicator = document.getElementById('dataSources');
+  if (sources.length > 0) {
+    indicator.textContent = `✅ Ready: ${sources.join(' + ')}`;
+    indicator.style.background = '#d4edda';
+    indicator.style.color = '#155724';
+  } else {
+    indicator.textContent = '❌ No data loaded. Upload CV or enter manually.';
+    indicator.style.background = '#f8d7da';
+    indicator.style.color = '#721c24';
   }
-});
+}
 
 // Toggle manual form
 document.getElementById('toggleManual').addEventListener('click', () => {
@@ -61,18 +99,20 @@ document.getElementById('saveManual').addEventListener('click', () => {
   }
   
   userData = { ...userData, ...manualData };
+  hasManualData = true;
   chrome.storage.local.set({ cvDataExtracted: manualData });
+  chrome.storage.sync.set({ manualData: manualData });
   displayExtractedData(manualData);
+  updateDataSourcesIndicator();
   
-  showStatus(`✅ Saved ${Object.keys(manualData).length} manual fields`, 'success');
+  showStatus(`✅ Saved ${Object.keys(manualData).length} fields. Click '🚀 Smart Fill' to use!`, 'success');
   
-  // Hide form after saving
+  // Hide form
   document.getElementById('manualForm').style.display = 'none';
   document.getElementById('toggleManual').textContent = '✏️ Enter Data Manually';
   document.getElementById('toggleManual').className = 'warning';
 });
 
-// Populate manual form with existing data
 function populateManualForm(data) {
   if (data.firstName) document.getElementById('manualFirstName').value = data.firstName;
   if (data.lastName) document.getElementById('manualLastName').value = data.lastName;
@@ -83,11 +123,11 @@ function populateManualForm(data) {
   if (data.summary) document.getElementById('manualSummary').value = data.summary;
 }
 
-// Extract CV data with OCR (Fixed for images + PDFs)
+// Extract CV data with OCR (Handles images + PDFs)
 document.getElementById('extractCVData').addEventListener('click', async () => {
   if (typeof Tesseract === 'undefined') {
-    showStatus('❌ Missing tesseract.min.js!', 'warning');
-    console.error('ERROR: Download tesseract.min.js from https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js');
+    showStatus('❌ tesseract.min.js missing! Download it.', 'warning');
+    console.error('ERROR: tesseract.min.js not found. Download from https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js');
     return;
   }
   
@@ -99,17 +139,16 @@ document.getElementById('extractCVData').addEventListener('click', async () => {
       return;
     }
     
-    showStatus(`🔍 Reading ${result.cvFileName}...`, 'info');
-    document.getElementById('ocrStatus').textContent = 'Processing... (10-20 seconds)';
+    showStatus(`🔍 OCR: Reading ${result.cvFileName}...`, 'info');
+    document.getElementById('ocrStatus').textContent = 'Processing... (15-30 sec)';
     
     try {
       const uint8Array = new Uint8Array(result.cvFile);
       const blob = new Blob([uint8Array], { type: 'application/pdf' });
       
-      // Create worker with progress
       const worker = await Tesseract.createWorker('eng');
       worker.setParameters({
-        tessedit_char_whitelist: 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.@+-_',
+        tessedit_char_whitelist: 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.@+-_/',
         preserve_interword_spaces: '1'
       });
       
@@ -118,33 +157,33 @@ document.getElementById('extractCVData').addEventListener('click', async () => {
       
       document.getElementById('ocrStatus').textContent = 'Extraction complete!';
       
-      // Parse and store
       const extracted = parseCVText(text);
       userData = { ...userData, ...extracted };
+      hasOCRData = true;
       chrome.storage.local.set({ cvDataExtracted: extracted });
       displayExtractedData(extracted);
+      populateManualForm(extracted);
+      updateDataSourcesIndicator();
       
-      showStatus(`✅ Extracted ${Object.keys(extracted).length} fields`, 'success');
+      showStatus(`✅ OCR: ${Object.keys(extracted).length} fields ready`, 'success');
       
     } catch (error) {
       showStatus(`❌ OCR failed: ${error.message}`, 'warning');
-      document.getElementById('ocrStatus').textContent = 'Extraction failed. Use manual entry.';
-      console.error('OCR Error:', error);
+      document.getElementById('ocrStatus').textContent = 'Failed. Use manual entry.';
     }
   });
 });
 
-// Parse CV text
 function parseCVText(text) {
   const data = {};
   const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 2);
   
   // Name (first 10 lines)
   for (const line of lines.slice(0, 10)) {
-    const nameMatch = line.match(/^([A-Z][a-z]+)\s+([A-Z][a-z]+)$/);
-    if (nameMatch && !line.includes('@') && !line.includes('http')) {
-      data.firstName = nameMatch[1];
-      data.lastName = nameMatch[2];
+    const match = line.match(/^([A-Z][a-z]+)\s+([A-Z][a-z]+)$/);
+    if (match && !line.includes('@') && !line.includes('http')) {
+      data.firstName = match[1];
+      data.lastName = match[2];
       break;
     }
   }
@@ -179,9 +218,9 @@ function parseCVText(text) {
   }
   
   // Skills
-  const skillsSection = text.match(/skills?:?(.+?)(experience|education|project|$)/is);
-  if (skillsSection) {
-    data.skills = skillsSection[1].trim().split('\n').slice(0, 5).join(', ');
+  const skillsMatch = text.match(/skills?:?(.+?)(experience|education|project|$)/is);
+  if (skillsMatch) {
+    data.skills = skillsMatch[1].trim().split('\n').slice(0, 5).join(', ');
   }
   
   // Experience years
@@ -197,7 +236,7 @@ function displayExtractedData(data) {
   container.style.display = 'block';
   
   const title = document.createElement('div');
-  title.innerHTML = '<strong>📊 Extracted:</strong>';
+  title.innerHTML = '<strong>📊 Data Ready:</strong>';
   title.style.marginBottom = '8px';
   container.appendChild(title);
   
@@ -222,13 +261,20 @@ document.getElementById('extractAutofill').addEventListener('click', async () =>
     }
     
     if (response?.autofillData) {
-      userData = { ...userData, ...response.autofillData };
-      showStatus(`📥 Extracted ${Object.keys(response.autofillData).length} browser fields`, 'success');
+      const count = Object.keys(response.autofillData).length;
+      if (count > 0) {
+        userData = { ...userData, ...response.autofillData };
+        hasBrowserData = true;
+        updateDataSourcesIndicator();
+        showStatus(`📥 Extracted ${count} browser fields`, 'success');
+      } else {
+        showStatus('ℹ️ No browser data found', 'info');
+      }
     }
   });
 });
 
-// CV file handler (handles PDF & images)
+// CV file handler
 document.getElementById('cvFile').addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (!file) return;
@@ -243,9 +289,8 @@ document.getElementById('cvFile').addEventListener('change', (e) => {
       cvFileType: file.type
     }, () => {
       showStatus(`✅ CV stored (${(file.size/1024).toFixed(1)} KB)`, 'success');
-      const cvStatus = document.getElementById('cvStatus');
-      cvStatus.textContent = `✅ ${file.name}`;
-      cvStatus.style.color = '#34A853';
+      document.getElementById('cvStatus').textContent = `✅ ${file.name}`;
+      document.getElementById('cvStatus').style.color = '#34A853';
     });
   };
   
@@ -253,19 +298,22 @@ document.getElementById('cvFile').addEventListener('change', (e) => {
   reader.readAsArrayBuffer(file);
 });
 
-// Smart fill
+// Smart fill ALL (MANUAL DATA WORKS HERE!)
 document.getElementById('smartFill').addEventListener('click', async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   
+  // Check if ANY data exists
+  const hasData = hasManualData || hasOCRData || hasBrowserData || 
+                  (userData.firstName && userData.email);
+  
+  if (!hasData) {
+    showStatus('⚠️ No data! Upload CV, extract data, or enter manually', 'warning');
+    return;
+  }
+  
+  showStatus('🚀 Filling ALL fields + uploading CV...', 'info');
+  
   chrome.storage.local.get(['cvFile', 'cvFileName', 'cvFileType'], (result) => {
-    if (!userData.email && !userData.firstName) {
-      showStatus('⚠️ No data! Extract CV or enter manually', 'warning');
-      return;
-    }
-    
-    showStatus('🚀 Filling ALL fields + uploading CV...', 'info');
-    
-    // Retry logic for dynamic forms
     const fill = () => chrome.tabs.sendMessage(tab.id, {
       action: "smartFill",
       data: userData,
@@ -275,11 +323,11 @@ document.getElementById('smartFill').addEventListener('click', async () => {
     });
     
     fill();
-    setTimeout(fill, 1000); // Retry once
+    setTimeout(fill, 1000); // Retry for dynamic forms
   });
 });
 
-// Verify
+// Verify fill
 document.getElementById('verifyFill').addEventListener('click', async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   
@@ -296,10 +344,10 @@ document.getElementById('verifyFill').addEventListener('click', async () => {
 document.getElementById('clickButtons').addEventListener('click', async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   chrome.tabs.sendMessage(tab.id, { action: "clickButtons" });
-  showStatus('👆 Clicking Submit/Apply/Next buttons...', 'info');
+  showStatus('👆 Clicking Submit/Apply/Next...', 'info');
 });
 
-// Save all data
+// Save ALL data to sync storage
 document.getElementById('saveData').addEventListener('click', () => {
   if (!userData.email && !userData.firstName) {
     showStatus('❌ No data to save', 'warning');
@@ -307,13 +355,13 @@ document.getElementById('saveData').addEventListener('click', () => {
   }
   
   chrome.storage.sync.set({ userData: userData }, () => {
-    showStatus('💾 Data saved permanently', 'success');
+    showStatus('💾 All data saved permanently', 'success');
   });
 });
 
 // Reset
 document.getElementById('clearAll').addEventListener('click', () => {
-  if (confirm('🚨 Delete ALL data (CV + OCR + manual)?')) {
+  if (confirm('🚨 Delete ALL stored data?')) {
     chrome.storage.local.clear();
     chrome.storage.sync.clear();
     showStatus('🔄 Reset complete - reloading...', 'info');

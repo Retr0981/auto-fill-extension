@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "AutoFill Pro - CV OCR & Smart Filler",
-  "version": "4.1",
-  "description": "Extracts CV data via OCR or manual entry, auto-fills ALL form fields",
+  "name": "AutoFill Pro - Complete Form Filler",
+  "version": "4.2",
+  "description": "Fill forms using CV OCR, manual entry, or browser autofill. Auto-uploads CV.",
   
   "permissions": [
     "storage",
@@ -36,7 +36,7 @@
         "default": "Ctrl+Shift+F",
         "mac": "Command+Shift+F"
       },
-      "description": "Smart Fill All Fields"
+      "description": "Smart Fill All Fields + Upload CV"
     }
   },
   
