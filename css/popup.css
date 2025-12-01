@@ -1,30 +1,47 @@
+/* Add CSS variables for consistent theming */
+:root {
+  --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --success-gradient: linear-gradient(135deg, #34A853 0%, #0F9D58 100%);
+  --warning-gradient: linear-gradient(135deg, #FBBC05 0%, #EA4335 100%);
+  --danger-gradient: linear-gradient(135deg, #EA4335 0%, #D23F31 100%);
+  --glass-white: rgba(255, 255, 255, 0.95);
+}
+
+/* Base styles with improved box model */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-body {
+html, body {
   width: 400px;
-  min-height: 500px;
-  font-family: 'Segoe UI', sans-serif;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: #333;
+  min-height: 600px;
 }
 
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--primary-gradient);
+  color: #333;
+  line-height: 1.4;
+}
+
+/* Header styles */
 .header {
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--glass-white);
   padding: 20px;
   text-align: center;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .logo {
   font-size: 24px;
   font-weight: 800;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--primary-gradient);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+  letter-spacing: -0.5px;
 }
 
 .tagline {
@@ -33,10 +50,11 @@ body {
   margin-top: 5px;
 }
 
+/* Status cards */
 .status-card {
   margin: 15px;
   padding: 15px;
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--glass-white);
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
@@ -47,6 +65,7 @@ body {
   padding: 12px;
   border-radius: 8px;
   text-align: center;
+  transition: all 0.3s ease;
 }
 
 .data-sources.ready {
@@ -61,36 +80,56 @@ body {
   border: 1px solid #EF5350;
 }
 
+/* Section blocks */
 .section {
   margin: 15px;
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--glass-white);
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   overflow: hidden;
 }
 
 .section-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--primary-gradient);
   color: white;
   padding: 12px 15px;
   font-size: 14px;
   font-weight: 600;
+  letter-spacing: 0.3px;
 }
 
 .section-content {
   padding: 15px;
 }
 
+/* Form inputs */
+.profile-input {
+  width: 100%;
+  padding: 10px;
+  margin: 6px 0;
+  border: 1px solid #DDD;
+  border-radius: 6px;
+  font: inherit;
+  transition: all 0.2s ease;
+}
+
+.profile-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+}
+
+/* Buttons with gradients */
 button {
   width: 100%;
   padding: 12px;
   margin: 8px 0;
   border: none;
   border-radius: 8px;
-  font-size: 14px;
+  font: inherit;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 button:hover {
@@ -98,32 +137,38 @@ button:hover {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
+button:active {
+  transform: translateY(0);
+}
+
+/* Button variants */
 .primary {
   background: linear-gradient(135deg, #4285F4 0%, #34A853 100%);
   color: white;
 }
 
 .secondary {
-  background: linear-gradient(135deg, #FBBC05 0%, #EA4335 100%);
+  background: var(--warning-gradient);
   color: white;
 }
 
 .success {
-  background: linear-gradient(135deg, #34A853 0%, #0F9D58 100%);
+  background: var(--success-gradient);
   color: white;
 }
 
 .danger {
-  background: linear-gradient(135deg, #EA4335 0%, #D23F31 100%);
+  background: var(--danger-gradient);
   color: white;
 }
 
+/* File upload */
 input[type="file"] {
   display: none;
 }
 
 .file-upload-btn {
-  background: linear-gradient(135deg, #34A853 0%, #0F9D58 100%);
+  background: var(--success-gradient);
   color: white;
   padding: 12px;
   border-radius: 8px;
@@ -131,7 +176,7 @@ input[type="file"] {
   text-align: center;
   font-weight: 600;
   margin-bottom: 10px;
-  transition: all 0.3s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .file-upload-btn:hover {
@@ -148,6 +193,7 @@ input[type="file"] {
   margin-bottom: 10px;
 }
 
+/* Extracted data */
 .extracted-data {
   max-height: 150px;
   overflow-y: auto;
@@ -155,11 +201,12 @@ input[type="file"] {
   padding: 10px;
   border-radius: 8px;
   margin-top: 10px;
-  font-size: 12px;
+  font: 12px ui-monospace, monospace;
   border: 1px solid #E0E0E0;
   display: none;
 }
 
+/* Status messages */
 .status {
   padding: 12px;
   border-radius: 8px;
@@ -182,6 +229,7 @@ input[type="file"] {
   border: 1px solid #EF5350;
 }
 
+/* Progress bar */
 .progress-bar {
   width: 100%;
   height: 4px;
@@ -201,4 +249,18 @@ input[type="file"] {
   background: linear-gradient(90deg, #4285F4, #34A853);
   width: 0%;
   transition: width 0.3s ease;
+}
+
+/* Improved scrollbar for extracted data */
+.extracted-data::-webkit-scrollbar {
+  width: 6px;
+}
+
+.extracted-data::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.extracted-data::-webkit-scrollbar-thumb {
+  background: #667eea;
+  border-radius: 3px;
 }
