@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "AutoFill Pro - Complete Form Filler",
+  "name": "AutoFill Pro - Form Filler",
   "version": "4.2",
-  "description": "Fill forms using CV OCR, manual entry, or browser autofill. Auto-uploads CV.",
+  "description": "Intelligently fills forms with CV upload. Supports all field name variations.",
   
   "permissions": [
     "storage",
@@ -26,7 +26,7 @@
     {
       "matches": ["<all_urls>"],
       "js": ["content.js"],
-      "run_at": "document_idle",
+      "run_at": "document_end",
       "all_frames": true
     }
   ],
@@ -42,6 +42,13 @@
         "mac": "Command+Shift+F"
       },
       "description": "Smart Fill All Fields + Upload CV"
+    },
+    "verify-fields": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+V",
+        "mac": "Command+Shift+V"
+      },
+      "description": "Verify All Fields Are Filled"
     }
   },
   
