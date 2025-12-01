@@ -2,7 +2,7 @@
 <html>
 <head>
   <style>
-    body { width: 320px; padding: 0; margin: 0; font-family: 'Segoe UI', sans-serif; background: #f8f9fa; }
+    body { width: 340px; padding: 0; margin: 0; font-family: 'Segoe UI', sans-serif; background: #f8f9fa; }
     .header { background: #4285F4; color: white; padding: 15px; text-align: center; font-weight: bold; font-size: 16px; }
     .section { padding: 12px 15px; border-bottom: 1px solid #e0e0e0; }
     button { width: 100%; padding: 12px; margin: 6px 0; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
@@ -10,6 +10,7 @@
     .success { background: #34A853; color: white; }
     .warning { background: #FBBC05; color: #333; }
     .danger { background: #EA4335; color: white; }
+    input[type="file"] { display: none; }
     .file-label { display: block; padding: 12px; background: #34A853; color: white; text-align: center; border-radius: 6px; cursor: pointer; }
     .status { padding: 10px; border-radius: 6px; text-align: center; font-size: 13px; display: none; margin-top: 10px; }
   </style>
@@ -29,6 +30,7 @@
 
   <div class="section">
     <button id="smartFill" class="primary">🚀 Smart Fill All</button>
+    <button id="verifyFill" class="success">✅ Verify All Filled</button>
     <button id="clickButtons" class="warning">👆 Click Buttons</button>
   </div>
 

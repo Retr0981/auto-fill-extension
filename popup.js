@@ -7,11 +7,10 @@ let userData = {
   experience: "", skills: "", salary: "", birthDate: ""
 };
 
-// Load stored data
+// Load all stored data
 chrome.storage.sync.get(['userData'], (result) => {
   if (result.userData) {
     userData = { ...userData, ...result.userData };
-    showStatus('✅ Data loaded', 'success');
   }
 });
 
@@ -22,24 +21,25 @@ chrome.storage.local.get(['cvFileName'], (result) => {
   cvStatus.style.color = result.cvFileName ? '#34A853' : '#EA4335';
 });
 
-// Extract all autofill data
+// Extract autofill with validation
 document.getElementById('extractAutofill').addEventListener('click', async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   
   chrome.tabs.sendMessage(tab.id, { action: "extractAutofill" }, (response) => {
     if (chrome.runtime.lastError) {
-      showStatus('❌ Refresh page and try again', 'warning');
+      showStatus('❌ Refresh page', 'warning');
       return;
     }
     
     if (response?.autofillData) {
       userData = { ...userData, ...response.autofillData };
-      showStatus(`📥 Extracted ${Object.keys(response.autofillData).length} fields`, 'success');
+      const fieldCount = Object.keys(response.autofillData).length;
+      showStatus(`📥 Extracted ${fieldCount} fields`, fieldCount > 0 ? 'success' : 'warning');
     }
   });
 });
 
-// CV file handler
+// CV upload handler
 document.getElementById('cvFile').addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (!file) return;
@@ -62,16 +62,15 @@ document.getElementById('cvFile').addEventListener('change', (e) => {
   reader.readAsArrayBuffer(file);
 });
 
-// Smart fill with full data checking
+// Smart fill with verification
 document.getElementById('smartFill').addEventListener('click', async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   
   chrome.storage.local.get(['cvFile', 'cvFileName', 'cvFileType'], (result) => {
-    showStatus('🚀 Filling all data...', 'info');
+    showStatus('🚀 Filling all fields...', 'info');
     
-    // Ensure we have all required data
-    if (!userData.firstName || !userData.email) {
-      showStatus('⚠️ Missing data: Extract autofill first', 'warning');
+    if (!userData.email) {
+      showStatus('⚠️ No data! Extract autofill first', 'warning');
       return;
     }
     
@@ -81,33 +80,57 @@ document.getElementById('smartFill').addEventListener('click', async () => {
       cvData: result.cvFile,
       cvFileName: result.cvFileName,
       cvFileType: result.cvFileType
+    }, (response) => {
+      if (chrome.runtime.lastError) {
+        showStatus('❌ Error', 'warning');
+      } else {
+        showStatus('✅ All fields filled', 'success');
+      }
     });
   });
 });
 
-// Click buttons only
+// Verify all fields are filled
+document.getElementById('verifyFill').addEventListener('click', async () => {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  
+  chrome.tabs.sendMessage(tab.id, { action: "verifyFill" }, (response) => {
+    if (response) {
+      const filled = response.filled;
+      const total = response.total;
+      const percentage = Math.round((filled / total) * 100);
+      
+      if (percentage === 100) {
+        showStatus(`✅ 100% Complete (${filled}/${total} fields)`, 'success');
+      } else {
+        showStatus(`⚠️ ${percentage}% Complete (${filled}/${total} fields)`, 'warning');
+      }
+    }
+  });
+});
+
+// Click buttons
 document.getElementById('clickButtons').addEventListener('click', async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   chrome.tabs.sendMessage(tab.id, { action: "clickButtons" });
   showStatus('👆 Clicking buttons...', 'info');
 });
 
-// Save all data
+// Save data
 document.getElementById('saveData').addEventListener('click', () => {
-  // Validate required fields
-  if (!userData.email || userData.email === "") {
-    showStatus('❌ No data to save! Extract autofill first', 'warning');
+  if (!userData.email) {
+    showStatus('❌ No data to save', 'warning');
     return;
   }
   
   chrome.storage.sync.set({ userData: userData }, () => {
-    showStatus('💾 All data saved', 'success');
+    showStatus('💾 Data saved', 'success');
   });
 });
 
 // Reset all
 document.getElementById('clearAll').addEventListener('click', () => {
-  if (confirm('🚨 Delete ALL stored data?')) {
+  if (confirm('🚨 Delete ALL data?')) {
     chrome.storage.local.clear();
     chrome.storage.sync.clear();
     showStatus('🔄 Reset complete', 'info');
