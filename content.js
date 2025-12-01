@@ -26,7 +26,6 @@ function extractAllData() {
     const name = field.name?.toLowerCase() || '';
     const label = getLabel(field).toLowerCase();
     
-    // Map fields comprehensively
     if (name.includes('first') && name.includes('name')) data.firstName = value;
     else if (name.includes('last') && name.includes('name')) data.lastName = value;
     else if (name.includes('email')) data.email = value;
@@ -43,9 +42,9 @@ function extractAllData() {
 }
 
 async function fillEverything(data, cvData, cvFileName, cvFileType) {
-  console.log('🚀 Filling ALL form elements...');
+  console.log('🚀 Starting complete form fill...');
   
-  // Fill all field types
+  // Fill in order: text -> dropdown -> radio -> checkbox -> date -> file
   fillTextFields(data);
   fillDropdowns(data);
   fillRadioButtons();
@@ -54,10 +53,11 @@ async function fillEverything(data, cvData, cvFileName, cvFileType) {
   
   // Upload CV if available
   if (cvData && cvFileName) {
-    await uploadCV(cvData, cvFileName, cvFileType);
+    const uploaded = await uploadCV(cvData, cvFileName, cvFileType);
+    console.log(uploaded ? '✅ CV uploaded' : '⚠️ No CV field found');
   }
   
-  console.log('✅ ALL elements processed');
+  console.log('✅ All form elements processed');
 }
 
 function fillTextFields(data) {
@@ -69,10 +69,9 @@ function fillTextFields(data) {
   fields.forEach(field => {
     const name = field.name?.toLowerCase() || '';
     const label = getLabel(field).toLowerCase();
-    
     let value = '';
     
-    // Fill based on name/label
+    // Map all possible fields
     if (name.includes('first') && name.includes('name')) value = data.firstName;
     else if (name.includes('last') && name.includes('name')) value = data.lastName;
     else if (name.includes('email')) value = data.email;
@@ -97,7 +96,7 @@ function fillTextFields(data) {
       field.value = value;
       field.dispatchEvent(new Event('input', { bubbles: true }));
       field.dispatchEvent(new Event('change', { bubbles: true }));
-      field.style.border = '2px solid #34A853'; // Visual confirmation
+      field.style.border = '2px solid #34A853';
     }
   });
 }
@@ -110,10 +109,10 @@ function fillDropdowns(data) {
     let valueToSelect = '';
     
     if (name.includes('country')) {
-      const option = options.find(opt => opt.text.includes('United States'));
+      const option = options.find(opt => opt.text.includes('United States') || opt.value.includes('US'));
       if (option) valueToSelect = option.value;
     } else if (name.includes('year') || name.includes('experience')) {
-      const option = options.find(opt => opt.text.includes('5'));
+      const option = options.find(opt => opt.text.includes('5') || opt.value.includes('5'));
       if (option) valueToSelect = option.value;
     } else if (options.length > 1) {
       const realOptions = options.filter(opt => !opt.text.toLowerCase().includes('select'));
@@ -138,17 +137,19 @@ function fillRadioButtons() {
   });
   
   Object.values(groups).forEach(group => {
-    // Find positive option (yes/true/remote) or default to last
-    const positive = group.find(r => {
-      const val = r.value.toLowerCase();
-      return val === 'yes' || val === 'true' || val === '1' || r.id.toLowerCase().includes('yes');
-    });
-    const toCheck = positive || group[group.length - 1];
+    // Prioritize: "yes" > "true" > "1" > "male" > "remote" > last option
+    const priorityValues = ['yes', 'true', '1', 'male', 'remote', 'full-time', 'onsite'];
+    let toCheck = group.find(r => 
+      priorityValues.some(val => r.value.toLowerCase().includes(val))
+    );
+    
+    if (!toCheck) toCheck = group[group.length - 1];
     
     if (toCheck) {
       toCheck.checked = true;
       toCheck.dispatchEvent(new Event('change', { bubbles: true }));
       toCheck.style.outline = '3px solid #34A853';
+      console.log(`✅ Radio: ${toCheck.name} = ${toCheck.value}`);
     }
   });
 }
@@ -158,20 +159,25 @@ function fillCheckboxes() {
     const name = checkbox.name?.toLowerCase() || '';
     const label = getLabel(checkbox).toLowerCase();
     
-    // Check agreement/remote boxes
-    const shouldCheck = name.includes('term') || name.includes('agree') || 
-                       name.includes('consent') || name.includes('remote') ||
-                       label.includes('agree');
+    // Check: terms, agree, consent, remote, eligibility
+    const shouldCheck = 
+      name.includes('term') || name.includes('agree') || name.includes('consent') || 
+      name.includes('remote') || name.includes('eligibility') || name.includes('policy') ||
+      label.includes('agree') || label.includes('terms');
     
-    // Uncheck newsletter/spam
-    const shouldUncheck = name.includes('newsletter') || name.includes('spam') ||
-                          label.includes('newsletter');
+    // Uncheck: newsletter, spam, marketing, promo
+    const shouldUncheck = 
+      name.includes('newsletter') || name.includes('spam') || name.includes('marketing') || 
+      name.includes('promo') || label.includes('newsletter');
     
-    if (shouldCheck) checkbox.checked = true;
-    else if (shouldUncheck) checkbox.checked = false;
+    if (shouldCheck) {
+      checkbox.checked = true;
+      checkbox.style.outline = '3px solid #34A853';
+    } else if (shouldUncheck) {
+      checkbox.checked = false;
+    }
     
     checkbox.dispatchEvent(new Event('change', { bubbles: true }));
-    if (shouldCheck) checkbox.style.outline = '3px solid #34A853';
   });
 }
 
@@ -187,48 +193,56 @@ function fillDateFields(data) {
 }
 
 async function uploadCV(cvData, cvFileName, cvFileType) {
-  const uint8Array = new Uint8Array(cvData);
-  const blob = new Blob([uint8Array], { type: cvFileType || 'application/pdf' });
-  const file = new File([blob], cvFileName, { type: cvFileType || 'application/pdf' });
-  
-  const fileInputs = document.querySelectorAll('input[type="file"]');
-  let uploaded = false;
-  
-  fileInputs.forEach(input => {
-    const label = getLabel(input).toLowerCase();
-    const name = input.name?.toLowerCase() || '';
-    const isCVField = label.includes('cv') || label.includes('resume') || name.includes('cv') || name.includes('resume');
-    const shouldUpload = isCVField || fileInputs.length === 1;
+  return new Promise(resolve => {
+    const uint8Array = new Uint8Array(cvData);
+    const blob = new Blob([uint8Array], { type: cvFileType || 'application/pdf' });
+    const file = new File([blob], cvFileName, { type: cvFileType || 'application/pdf' });
     
-    if (shouldUpload) {
-      const dataTransfer = new DataTransfer();
-      dataTransfer.items.add(file);
-      input.files = dataTransfer.files;
+    const fileInputs = document.querySelectorAll('input[type="file"]');
+    let uploaded = false;
+    
+    fileInputs.forEach(input => {
+      const label = getLabel(input).toLowerCase();
+      const name = input.name?.toLowerCase() || '';
       
-      input.dispatchEvent(new Event('change', { bubbles: true }));
-      input.style.border = '3px solid #34A853';
-      input.title = `✅ CV: ${cvFileName}`;
-      uploaded = true;
-    }
+      // Upload to CV/resume fields OR any single file input
+      const isCVField = label.includes('cv') || label.includes('resume') || name.includes('cv') || name.includes('resume');
+      const shouldUpload = isCVField || fileInputs.length === 1;
+      
+      if (shouldUpload) {
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(file);
+        input.files = dataTransfer.files;
+        
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        input.style.border = '3px solid #34A853';
+        input.style.background = '#d4edda';
+        input.title = `✅ CV uploaded: ${cvFileName}`;
+        uploaded = true;
+        console.log(`📎 CV uploaded to: ${name || label}`);
+      }
+    });
+    
+    setTimeout(() => resolve(uploaded), 500);
   });
-  
-  return uploaded;
 }
 
 function clickAllButtons() {
-  const actions = ['submit', 'apply', 'next', 'continue', 'save', 'send', 'confirm'];
+  const actions = ['submit', 'apply', 'next', 'continue', 'save', 'send', 'confirm', 'proceed'];
   let count = 0;
   
   document.querySelectorAll('button, input[type="submit"], a').forEach(element => {
-    const text = (element.textContent || element.value || '').toLowerCase();
+    const text = (element.textContent || element.value || '').toLowerCase().trim();
     if (actions.some(action => text.includes(action))) {
       element.click();
       element.style.border = '3px solid #4285F4';
+      element.style.background = '#e8f0fe';
       count++;
+      console.log(`👆 Clicked: ${element.textContent || element.value}`);
     }
   });
   
-  console.log(`👆 Clicked ${count} actionable elements`);
+  console.log(`👆 Total buttons clicked: ${count}`);
 }
 
 function verifyAllFields() {
@@ -245,10 +259,9 @@ function verifyAllFields() {
     
     total++;
     
-    // Check based on input type
     let isFilled = false;
     if (input.type === 'radio' || input.type === 'checkbox') {
-      isFilled = input.checked; // Radio/checkbox is "filled" if checked
+      isFilled = input.checked;
     } else {
       isFilled = input.value && input.value.trim() !== '';
     }
@@ -261,7 +274,7 @@ function verifyAllFields() {
     }
   });
   
-  console.log(`📊 Field completion: ${filled}/${total} (${Math.round((filled/total)*100)}%)`);
+  console.log(`📊 Verification: ${filled}/${total} (${Math.round((filled/total)*100)}%)`);
   return { filled, total };
 }
 
