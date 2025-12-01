@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "AutoFill Pro - AI Form Filler",
+  "name": "AutoFill Pro",
   "version": "5.0",
-  "description": "Intelligently fill any form with CV data extraction and smart matching",
-  "permissions": ["storage", "tabs", "scripting", "notifications", "contextMenus"],
+  "description": "Beautiful AI form filler with profile & CV tools",
+  "permissions": ["storage", "tabs", "scripting", "contextMenus", "activeTab"],
   "background": {
     "service_worker": "background.js"
   },
@@ -20,7 +20,7 @@
   "commands": {
     "smart-fill": {
       "suggested_key": "Ctrl+Shift+F",
-      "description": "Smart fill current form"
+      "description": "Fill current form"
     }
   },
   "icons": {

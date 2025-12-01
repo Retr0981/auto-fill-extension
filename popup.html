@@ -1,200 +1,600 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="popup">
 <head>
+  <!-- Meta & Security -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AutoFill Pro</title>
+  <meta http-equiv="Content-Security-Policy" content="script-src 'self';">
+  <title>AutoFill Pro - Extension Popup</title>
+  
+  <!-- Embedded Styles (Chrome Extension Best Practice) -->
   <style>
-    /* ===== Global Styles ===== */
-    * { 
-      margin: 0; 
-      padding: 0; 
-      box-sizing: border-box; 
+    /* ===================================================
+       CSS CUSTOM PROPERTIES - Design Token System
+       =================================================== */
+    :root {
+      /* Colors */
+      --color-primary: #667eea;
+      --color-secondary: #764ba2;
+      --color-success: #34a853;
+      --color-warning: #fbbc05;
+      --color-danger: #ea4335;
+      --color-white: rgba(255, 255, 255, 0.98);
+      --color-black: #333;
+      
+      /* Gradients */
+      --gradient-body: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
+      --gradient-success: linear-gradient(135deg, #34a853 0%, #0f9d58 100%);
+      --gradient-danger: linear-gradient(135deg, var(--color-danger) 0%, #d23f31 100%);
+      
+      /* Spacing */
+      --space-xs: 4px;
+      --space-sm: 8px;
+      --space-md: 12px;
+      --space-lg: 15px;
+      --space-xl: 20px;
+      
+      /* Shadows */
+      --shadow-card: 0 8px 20px rgba(0, 0, 0, 0.12);
+      --shadow-button: 0 4px 12px rgba(0, 0, 0, 0.2);
+      
+      /* Transitions */
+      --transition-fast: 0.3s ease;
+      --transition-bounce: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
-    
-    body { 
-      width: 380px; 
-      padding: 15px; 
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+
+    /* ===================================================
+       RESET & BASE STYLES
+       =================================================== */
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
     }
-    
-    /* ===== Section Containers ===== */
-    .section { 
-      background: rgba(255, 255, 255, 0.95); 
-      border-radius: 10px; 
-      padding: 15px; 
-      margin-bottom: 12px; 
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); 
+
+    body {
+      width: 420px;
+      min-height: 580px;
+      font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      background: var(--gradient-body);
+      color: var(--color-black);
+      padding: var(--space-xl);
+      -webkit-font-smoothing: antialiased;
     }
-    
-    .section strong {
-      display: block;
-      margin-bottom: 10px;
-      color: #333;
+
+    /* ===================================================
+       LAYOUT COMPONENTS
+       =================================================== */
+    .header {
+      text-align: center;
+      margin-bottom: var(--space-xl);
     }
-    
-    /* ===== Header ===== */
-    .header { 
-      text-align: center; 
-      font-size: 20px; 
-      font-weight: bold; 
-      color: #667eea; 
-      margin-bottom: 15px; 
+
+    .logo {
+      font-size: 28px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #fff 0%, #f0f0f0 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      margin-bottom: var(--space-xs);
     }
-    
-    /* ===== Status Messages ===== */
-    .status { 
-      padding: 10px; 
-      border-radius: 6px; 
-      text-align: center; 
-      font-weight: 600; 
-      margin-bottom: 12px; 
-      display: none; 
+
+    .tagline {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.85);
+      letter-spacing: 0.5px;
     }
-    
-    .status.success { 
-      background: #E8F5E9; 
-      color: #2E7D32; 
-      border: 1px solid #4CAF50; 
+
+    /* ===================================================
+       TAB NAVIGATION
+       =================================================== */
+    .tab-navigation {
+      display: flex;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      padding: var(--space-xs);
+      margin-bottom: var(--space-xl);
     }
-    
-    .status.error { 
-      background: #FFEBEE; 
-      color: #C62828; 
-      border: 1px solid #EF5350; 
-    }
-    
-    /* ===== Buttons ===== */
-    button { 
-      width: 100%; 
-      padding: 12px; 
-      margin: 6px 0; 
-      border: none; 
-      border-radius: 6px; 
-      font-weight: 600; 
-      cursor: pointer; 
-      transition: 0.3s; 
-    }
-    
-    button:hover { 
-      transform: translateY(-2px); 
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); 
-    }
-    
-    .primary { 
-      background: #4285F4; 
-      color: white; 
-    }
-    
-    .secondary { 
-      background: #34A853; 
-      color: white; 
-    }
-    
-    .danger { 
-      background: #EA4335; 
-      color: white; 
-    }
-    
-    /* ===== File Upload ===== */
-    input[type="file"] { 
-      display: none; 
-    }
-    
-    .file-btn { 
-      background: #FBBC05; 
-      color: white; 
-      padding: 10px; 
-      border-radius: 6px; 
-      cursor: pointer; 
-      text-align: center; 
-      margin-bottom: 8px; 
-      display: block;
+
+    .tab-button {
+      flex: 1;
+      padding: var(--space-md);
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.8);
       font-weight: 600;
-      transition: 0.3s;
+      cursor: pointer;
+      transition: var(--transition-bounce);
     }
-    
-    .file-btn:hover {
+
+    .tab-button[aria-selected="true"] {
+      background: var(--color-white);
+      color: var(--color-primary);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .tab-panel {
+      display: none;
+      animation: fadeIn 0.4s ease;
+    }
+
+    .tab-panel[aria-hidden="false"] {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* ===================================================
+       CARDS
+       =================================================== */
+    .card {
+      background: var(--color-white);
+      border-radius: 16px;
+      padding: var(--space-xl);
+      margin-bottom: var(--space-lg);
+      box-shadow: var(--shadow-card);
+    }
+
+    .card__title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--color-primary);
+      margin-bottom: var(--space-lg);
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+    }
+
+    /* ===================================================
+       FORM ELEMENTS
+       =================================================== */
+    .form-group {
+      margin-bottom: var(--space-md);
+    }
+
+    .form-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: #666;
+      margin-bottom: var(--space-xs);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: var(--space-md);
+      border: 2px solid #e0e0e0;
+      border-radius: 10px;
+      font-size: 14px;
+      transition: var(--transition-fast);
+      background: #fafafa;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: var(--color-primary);
+      background: #fff;
+      box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15);
+    }
+
+    /* ===================================================
+       BUTTONS
+       =================================================== */
+    .btn {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: var(--space-md);
+      transition: var(--transition-bounce);
+    }
+
+    .btn:hover {
       transform: translateY(-2px);
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      box-shadow: var(--shadow-button);
     }
-    
-    .file-status { 
-      font-size: 12px; 
-      color: #666; 
-      text-align: center; 
-      margin: 8px 0; 
+
+    .btn--primary {
+      background: linear-gradient(135deg, #4285f4 0%, var(--color-success) 100%);
+      color: white;
     }
-    
-    /* ===== Extracted Data ===== */
-    .extracted { 
-      max-height: 100px; 
-      overflow-y: auto; 
-      background: #F5F5F5; 
-      padding: 8px; 
-      border-radius: 6px; 
-      margin-top: 8px; 
-      font-size: 11px; 
-      display: none; 
+
+    .btn--secondary {
+      background: linear-gradient(135deg, var(--color-warning) 0%, var(--color-danger) 100%);
+      color: white;
     }
-    
-    /* ===== Form Inputs ===== */
-    .profile-input { 
-      width: 100%; 
-      padding: 8px; 
-      margin: 4px 0; 
-      border: 1px solid #DDD; 
-      border-radius: 4px; 
-      font-size: 13px; 
+
+    .btn--success {
+      background: var(--gradient-success);
+      color: white;
     }
-    
-    .profile-input:focus { 
-      outline: none; 
-      border-color: #667eea; 
+
+    .btn--danger {
+      background: var(--gradient-danger);
+      color: white;
+    }
+
+    /* ===================================================
+       STATUS INDICATORS
+       =================================================== */
+    .status-indicator {
+      padding: var(--space-md);
+      border-radius: 10px;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: var(--space-lg);
+    }
+
+    .status-indicator--ready {
+      background: rgba(232, 245, 233, 0.9);
+      color: #2e7d32;
+      border: 1px solid #4caf50;
+    }
+
+    .status-indicator--empty {
+      background: rgba(255, 235, 238, 0.9);
+      color: #c62828;
+      border: 1px solid #ef5350;
+    }
+
+    /* ===================================================
+       CV TOOLS SPECIFIC
+       =================================================== */
+    .file-upload {
+      position: relative;
+      margin-bottom: var(--space-md);
+    }
+
+    .file-upload__input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .file-upload__button {
+      display: block;
+      width: 100%;
+      padding: var(--space-md);
+      border-radius: 10px;
+      background: var(--gradient-success);
+      color: white;
+      text-align: center;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .file-status {
+      font-size: 12px;
+      color: #666;
+      text-align: center;
+      margin: var(--space-sm 0);
+    }
+
+    .extracted-data {
+      max-height: 120px;
+      overflow-y: auto;
+      background: #f5f5f5;
+      padding: var(--space-md);
+      border-radius: 10px;
+      margin-top: var(--space-md);
+      font-size: 11px;
+      font-family: 'Courier New', monospace;
+      display: none;
+      border-left: 4px solid var(--color-primary);
+    }
+
+    /* ===================================================
+       UTILITY CLASSES
+       =================================================== */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border-width: 0;
+    }
+
+    .hidden {
+      display: none !important;
     }
   </style>
 </head>
+
 <body>
-  <!-- Main Header -->
-  <div class="header">🎯 AutoFill Pro</div>
-  
-  <!-- Status Messages -->
-  <div id="status" class="status"></div>
+  <!-- ===================================================
+       HEADER
+       =================================================== -->
+  <header class="header">
+    <h1 class="logo">🎯 AutoFill Pro</h1>
+    <p class="tagline">Intelligent Form Filler & CV Uploader</p>
+  </header>
 
-  <!-- Profile Data Section -->
-  <div class="section">
-    <strong>👤 Profile Data</strong>
-    <input type="text" id="firstName" class="profile-input" placeholder="First Name">
-    <input type="text" id="lastName" class="profile-input" placeholder="Last Name">
-    <input type="email" id="email" class="profile-input" placeholder="Email">
-    <input type="tel" id="phone" class="profile-input" placeholder="Phone">
-    <input type="text" id="address" class="profile-input" placeholder="Address">
-    <input type="text" id="city" class="profile-input" placeholder="City">
-    <input type="text" id="state" class="profile-input" placeholder="State">
-    <input type="text" id="zipCode" class="profile-input" placeholder="ZIP">
-    <button id="saveProfile" class="secondary">💾 Save Profile</button>
-  </div>
+  <!-- ===================================================
+       TAB NAVIGATION
+       =================================================== -->
+  <nav class="tab-navigation" role="tablist" aria-label="AutoFill Pro Tools">
+    <button 
+      class="tab-button" 
+      role="tab" 
+      id="profile-tab-btn"
+      aria-selected="true" 
+      aria-controls="profile-panel"
+      data-js="tab-switcher"
+      data-target="profile-panel">
+      👤 Profile
+    </button>
+    <button 
+      class="tab-button" 
+      role="tab" 
+      id="cv-tab-btn"
+      aria-selected="false" 
+      aria-controls="cv-panel"
+      data-js="tab-switcher"
+      data-target="cv-panel">
+      📎 CV Tools
+    </button>
+  </nav>
 
-  <!-- CV Upload Section -->
-  <div class="section">
-    <strong>📎 CV Upload</strong>
-    <label class="file-btn" for="cvFile">📤 Upload CV</label>
-    <input type="file" id="cvFile" accept=".pdf,.doc,.docx,.txt">
-    <div id="cvStatus" class="file-status">No CV stored</div>
-    <button id="extractCV" class="primary">🔍 Extract Data</button>
-    <button id="previewCV" class="secondary">👁️ Preview CV</button>
-    <div id="extracted" class="extracted"></div>
-  </div>
+  <!-- ===================================================
+       MAIN CONTENT
+       =================================================== -->
+  <main>
+    <!-- Profile Tab Panel -->
+    <section 
+      id="profile-panel" 
+      class="tab-panel" 
+      role="tabpanel"
+      aria-labelledby="profile-tab-btn"
+      aria-hidden="false">
+      
+      <!-- Status Indicator -->
+      <div 
+        id="status-indicator" 
+        class="status-indicator status-indicator--empty">
+        ❌ No profile data saved
+      </div>
 
-  <!-- Actions Section -->
-  <div class="section">
-    <strong>🚀 Actions</strong>
-    <button id="fillForm" class="primary">🎯 Smart Fill Form</button>
-    <button id="clearAll" class="danger">🔄 Reset All</button>
-  </div>
+      <!-- Personal Information Card -->
+      <article class="card">
+        <h2 class="card__title">👤 Personal Information</h2>
+        
+        <form id="profile-form" data-js="profile-form">
+          <div class="form-group">
+            <label for="firstName" class="form-label">First Name</label>
+            <input 
+              type="text" 
+              id="firstName" 
+              name="firstName"
+              class="form-input" 
+              placeholder="e.g. David"
+              value="David"
+              autocomplete="given-name"
+              required>
+          </div>
 
-  <!-- JavaScript -->
+          <div class="form-group">
+            <label for="lastName" class="form-label">Last Name</label>
+            <input 
+              type="text" 
+              id="lastName" 
+              name="lastName"
+              class="form-input" 
+              placeholder="e.g. Armah"
+              value="Armah"
+              autocomplete="family-name"
+              required>
+          </div>
+
+          <div class="form-group">
+            <label for="email" class="form-label">Email Address</label>
+            <input 
+              type="email" 
+              id="email" 
+              name="email"
+              class="form-input" 
+              placeholder="e.g. dnafun991@gmail.com"
+              value="dnafun991@gmail.com"
+              autocomplete="email"
+              required>
+          </div>
+
+          <div class="form-group">
+            <label for="phone" class="form-label">Phone Number</label>
+            <input 
+              type="tel" 
+              id="phone" 
+              name="phone"
+              class="form-input" 
+              placeholder="e.g. 07588116743"
+              value="07588116743"
+              autocomplete="tel"
+              pattern="[0-9\s\-\+]*">
+          </div>
+        </form>
+      </article>
+
+      <!-- Address Card -->
+      <article class="card">
+        <h2 class="card__title">📍 Address</h2>
+        
+        <form id="address-form" data-js="address-form">
+          <div class="form-group">
+            <label for="address" class="form-label">Street Address</label>
+            <input 
+              type="text" 
+              id="address" 
+              name="address"
+              class="form-input" 
+              placeholder="e.g. 26 Goldings Crescent"
+              value="26 Goldings Crescent"
+              autocomplete="street-address">
+          </div>
+
+          <div class="form-group">
+            <label for="city" class="form-label">City</label>
+            <input 
+              type="text" 
+              id="city" 
+              name="city"
+              class="form-input" 
+              placeholder="e.g. Hatfield"
+              value="Hatfield"
+              autocomplete="address-level2">
+          </div>
+
+          <div class="form-group">
+            <label for="state" class="form-label">State/Province</label>
+            <input 
+              type="text" 
+              id="state" 
+              name="state"
+              class="form-input" 
+              placeholder="e.g. Hertfordshire"
+              value="Hertfordshire"
+              autocomplete="address-level1">
+          </div>
+
+          <div class="form-group">
+            <label for="zipCode" class="form-label">ZIP / Postal Code</label>
+            <input 
+              type="text" 
+              id="zipCode" 
+              name="zipCode"
+              class="form-input" 
+              placeholder="e.g. AL10 0XYZ"
+              autocomplete="postal-code"
+              pattern="[A-Za-z0-9\s\-]*">
+          </div>
+
+          <button 
+            type="button" 
+            id="save-profile-btn"
+            class="btn btn--success"
+            data-js="save-profile">
+            💾 Save Profile
+          </button>
+        </form>
+      </article>
+    </section>
+
+    <!-- CV Tools Tab Panel -->
+    <section 
+      id="cv-panel" 
+      class="tab-panel" 
+      role="tabpanel"
+      aria-labelledby="cv-tab-btn"
+      aria-hidden="true">
+      
+      <!-- CV Upload Card -->
+      <article class="card">
+        <h2 class="card__title">📄 CV Upload</h2>
+        
+        <div class="file-upload">
+          <label for="cv-file-input" class="file-upload__button">
+            📤 Upload CV (PDF/DOC/PNG)
+          </label>
+          <input 
+            type="file" 
+            id="cv-file-input"
+            class="file-upload__input"
+            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt,.rtf"
+            data-js="cv-upload">
+        </div>
+
+        <p id="cv-status" class="file-status">No CV stored</p>
+
+        <div class="button-group">
+          <button 
+            type="button" 
+            id="extract-cv-btn"
+            class="btn btn--primary"
+            data-js="extract-cv">
+            🔍 Extract Data from CV
+          </button>
+
+          <button 
+            type="button" 
+            id="preview-cv-btn"
+            class="btn btn--secondary"
+            data-js="preview-cv">
+            👁️ Preview CV
+          </button>
+        </div>
+
+        <div 
+          id="extracted-data-container" 
+          class="extracted-data"
+          tabindex="0"
+          aria-label="Extracted CV data">
+          <!-- Dynamic content -->
+        </div>
+      </article>
+
+      <!-- Smart Actions Card -->
+      <article class="card">
+        <h2 class="card__title">🚀 Smart Actions</h2>
+        
+        <div class="button-group">
+          <button 
+            type="button" 
+            id="smart-fill-btn"
+            class="btn btn--primary"
+            data-js="smart-fill">
+            🎯 Smart Fill Current Form
+          </button>
+
+          <button 
+            type="button" 
+            id="extract-browser-btn"
+            class="btn btn--secondary"
+            data-js="extract-browser">
+            📥 Extract from Browser
+          </button>
+
+          <button 
+            type="button" 
+            id="reset-all-btn"
+            class="btn btn--danger"
+            data-js="reset-all">
+            🔄 Reset All Data
+          </button>
+        </div>
+
+        <p class="shortcut-hint">
+          ⌨️ Shortcut: <strong>Ctrl+Shift+F</strong> to fill any form
+        </p>
+      </article>
+    </section>
+  </main>
+
+  <!-- ===================================================
+       JAVASCRIPT INTEGRATION
+       - External scripts for extension security
+       - DOM selectors use data-js attributes
+       =================================================== -->
+  <script src="config.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>
