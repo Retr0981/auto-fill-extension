@@ -1,6 +1,7 @@
-// content.js - Ultra-Intelligent Form Filling Engine
+// content.js - EXTREME FORM FILLING MODE
+// This will fill EVERYTHING it can find - aggressive, no mercy!
 
-// Configuration loaded from config.js
+// Use global config loaded from config.js
 let fieldMappings = FIELD_ALIASES;
 
 // Initialize
@@ -11,11 +12,11 @@ if (document.readyState === 'loading') {
 }
 
 function initialize() {
-  console.log('🎯 AutoFill Pro: Content script active');
+  console.log('🎯 AutoFill Pro: EXTREME MODE ACTIVATED - Will fill EVERYTHING');
   setupFormObserver();
 }
 
-// Watch for dynamic forms
+// Aggressive form observer
 function setupFormObserver() {
   const observer = new MutationObserver((mutations) => {
     mutations.forEach(mutation => {
@@ -23,7 +24,9 @@ function setupFormObserver() {
         const hasInputs = Array.from(mutation.addedNodes).some(node => 
           node.nodeType === 1 && node.querySelector?.('input, select, textarea')
         );
-        if (hasInputs) console.log('🔄 Dynamic form detected');
+        if (hasInputs) {
+          console.log('🔥 NEW FIELDS DETECTED - Ready to fill them all');
+        }
       }
     });
   });
@@ -36,302 +39,355 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   fieldMappings = request.fieldMappings || FIELD_ALIASES;
   
   if (request.action === "smartFill") {
+    console.log('🚀 EXTREME FILL COMMAND RECEIVED');
     smartFillEverything(request.data, request.cvData, request.cvFileName, request.cvFileType, request.formType)
-      .then(result => sendResponse({ success: true, ...result }))
-      .catch(err => sendResponse({ error: err.message }));
+      .then(result => {
+        console.log('✅ EXTREME FILL COMPLETE:', result);
+        sendResponse({ success: true, ...result });
+      })
+      .catch(err => {
+        console.error('❌ EXTREME FILL FAILED:', err);
+        sendResponse({ error: err.message });
+      });
     return true;
   } else if (request.action === "verifyFill") {
-    sendResponse(verifyAllFields());
+    const result = verifyAllFields();
+    console.log('📊 VERIFICATION:', result);
+    sendResponse(result);
   } else if (request.action === "extractAutofill") {
     extractBrowserData().then(sendResponse);
     return true;
   }
 });
 
-// Main fill function
+// EXTREME FILL - fills EVERYTHING
 async function smartFillEverything(data, cvData, cvFileName, cvFileType, formType) {
-  console.log(`🚀 Filling ${formType || 'form'} with ${Object.keys(data).length} fields`);
+  console.log(`🔥 EXTREME FILL: ${formType || 'form'} with ${Object.keys(data).length} data fields`);
   
+  // Wait for dynamic content
   await waitForDynamicContent();
   
-  const fieldGroups = analyzeFormConfidence(data, formType);
+  // Get EVERY possible field
+  const allFields = getEverySingleField();
+  console.log(`📋 FOUND ${allFields.length} FIELDS TO ATTACK`);
   
-  // Fill in order
-  await fillHighConfidenceFields(fieldGroups.high, data);
-  await fillMediumConfidenceFields(fieldGroups.medium, data);
-  await fillLowConfidenceFields(fieldGroups.low, data);
+  // Fill EVERY field with ANYTHING that might match
+  let filledCount = 0;
+  for (const field of allFields) {
+    // Try to find ANY value for this field
+    let value = null;
+    
+    // Strategy 1: Smart matching
+    value = getAnyPossibleMatch(field, data);
+    
+    // Strategy 2: If no match but field is required, use aggressive defaults
+    if (!value && field.required) {
+      value = getAggressiveDefault(field);
+    }
+    
+    // Strategy 3: If still no value, use ANY data we have (desperate mode)
+    if (!value && Object.keys(data).length > 0) {
+      const keys = Object.keys(data);
+      const randomKey = keys[Math.floor(Math.random() * keys.length)];
+      // Only do this for text fields that might accept anything
+      if (field.type === 'text' || field.tagName === 'TEXTAREA') {
+        value = data[randomKey];
+      }
+    }
+    
+    if (value) {
+      const success = await fillFieldExtreme(field, value);
+      if (success) {
+        filledCount++;
+        field.style.border = '3px solid #4CAF50';
+        console.log(`  ✅ FILLED: ${field.name || field.id || field.type} = "${value}"`);
+      } else {
+        field.style.border = '3px solid #FF9800';
+        console.log(`  ⚠️ PARTIAL: ${field.name || field.id}`);
+      }
+    } else {
+      // Mark empty fields
+      field.style.border = '3px solid #f44336';
+    }
+    
+    await sleep(10); // Minimal delay
+  }
   
-  // Fill special controls
-  await fillCheckboxesIntelligent(data, formType);
-  await fillRadioButtonsIntelligent(data, formType);
-  await fillDropdownsIntelligent(data, formType);
-  await fillDateFields(data);
+  // Now handle checkboxes and radios
+  await fillEveryCheckbox(data, formType);
+  await fillEveryRadio(data, formType);
   
   // Upload CV
   if (cvData && cvFileName) {
     await uploadCVAgent(cvData, cvFileName, cvFileType);
   }
   
-  return verifyAllFields();
+  // Final check
+  const result = verifyAllFields();
+  console.log(`🏆 EXTREME FILL COMPLETE: ${result.filled}/${result.total}`);
+  
+  return result;
 }
 
-// Wait for dynamic content
+// Wait for ANY dynamic content
 async function waitForDynamicContent() {
   return new Promise(resolve => {
     let checks = 0;
     const check = () => {
       checks++;
-      const loading = document.querySelectorAll('.loading, .spinner, [aria-busy="true"]');
-      if (loading.length === 0 || checks > 10) resolve();
-      else setTimeout(check, 500);
+      const loading = document.querySelectorAll('.loading, .spinner, [aria-busy="true"], .skeleton, .placeholder');
+      if (loading.length === 0 || checks > 20) {
+        console.log(`⏱️ Waited ${checks * 300}ms for content`);
+        resolve();
+      } else {
+        setTimeout(check, 300);
+      }
     };
     setTimeout(check, 300);
   });
 }
 
-// Analyze form confidence
-function analyzeFormConfidence(data, formType) {
-  const inputs = getAllVisibleFields();
-  const groups = { high: [], medium: [], low: [] };
+// Get EVERY SINGLE field - aggressive
+function getEverySingleField() {
+  const selectors = `
+    input:not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="image"]),
+    textarea,
+    select
+  `;
   
-  inputs.forEach(field => {
-    const score = calculateFieldConfidence(field, data, formType);
-    if (score > 75) groups.high.push(field);
-    else if (score > 50) groups.medium.push(field);
-    else groups.low.push(field);
-    field.dataset.confidence = score;
+  // Main document
+  let fields = Array.from(document.querySelectorAll(selectors));
+  
+  // Shadow DOM
+  document.querySelectorAll('*').forEach(el => {
+    if (el.shadowRoot) {
+      fields.push(...el.shadowRoot.querySelectorAll(selectors));
+    }
   });
   
-  console.log(`📊 Confidence: ${groups.high.length} high, ${groups.medium.length} medium, ${groups.low.length} low`);
-  return groups;
+  // Remove duplicates and disabled
+  fields = fields.filter(f => !f.disabled && f.offsetParent !== null);
+  
+  // Remove duplicates by name/id combo
+  const unique = [];
+  const seen = new Set();
+  fields.forEach(f => {
+    const key = `${f.name}-${f.id}-${f.type}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push(f);
+    }
+  });
+  
+  console.log(`🔍 FOUND ${unique.length} UNIQUE FIELDS`);
+  return unique;
 }
 
-// Calculate field confidence
-function calculateFieldConfidence(field, data, formType) {
-  let score = 0;
+// Get ANY possible match - EXTREME
+function getAnyPossibleMatch(field, data) {
   const name = (field.name || '').toLowerCase();
   const id = (field.id || '').toLowerCase();
-  const label = getLabel(field).toLowerCase();
-  const context = `${name} ${id} ${label}`;
+  const label = getLabelExtreme(field).toLowerCase();
+  const placeholder = (field.placeholder || '').toLowerCase();
+  const type = field.type || 'text';
   
+  const context = `${name} ${id} ${label} ${placeholder}`;
+  
+  // Try every data field with every alias
   for (const [key, value] of Object.entries(data)) {
     if (!value) continue;
     const aliases = fieldMappings[key] || [key];
     
-    aliases.forEach(alias => {
+    for (const alias of aliases) {
       const aliasLower = alias.toLowerCase();
-      if (name === aliasLower || id === aliasLower) score += 100;
-      else if (name.includes(aliasLower) || id.includes(aliasLower)) score += 80;
-      else if (label.includes(aliasLower)) score += 60;
       
-      // Fuzzy match
-      if (levenshteinDistance(context, aliasLower) < 3) score += 40;
-    });
-  }
-  
-  // Form bonuses
-  if (formType === 'jobApplication') {
-    if (['position', 'company', 'experience', 'salary'].some(f => context.includes(f))) score += 20;
-  }
-  
-  return Math.min(100, score);
-}
-
-// Fill high confidence
-async function fillHighConfidenceFields(fields, data) {
-  for (const field of fields) {
-    const value = getMatchingValueIntelligent(field, data);
-    if (value) {
-      await fillField(field, value);
-      field.style.border = '3px solid #4CAF50';
-    }
-    await sleep(30);
-  }
-}
-
-// Fill medium confidence
-async function fillMediumConfidenceFields(fields, data) {
-  for (const field of fields) {
-    const value = getMatchingValueIntelligent(field, data) || getSmartDefault(field);
-    if (value) {
-      await fillField(field, value);
-      field.style.border = '3px solid #FF9800';
-    }
-    await sleep(30);
-  }
-}
-
-// Fill low confidence (only required)
-async function fillLowConfidenceFields(fields, data) {
-  for (const field of fields) {
-    if (field.required) {
-      const value = getSmartDefault(field);
-      if (value) {
-        await fillField(field, value);
-        field.style.border = '3px solid #2196F3';
+      // Exact match
+      if (name === aliasLower || id === aliasLower) return value;
+      
+      // Contains
+      if (name.includes(aliasLower) || id.includes(aliasLower) || label.includes(aliasLower) || placeholder.includes(aliasLower)) {
+        return value;
+      }
+      
+      // Word boundary
+      if (new RegExp(`\\b${aliasLower}\\b`).test(context)) {
+        return value;
+      }
+      
+      // Fuzzy match (typos)
+      if (levenshteinDistance(context, aliasLower) < 4) {
+        return value;
       }
     }
   }
+  
+  // Type-based fallback
+  if (type === 'email' && data.email) return data.email;
+  if (type === 'tel' && data.phone) return data.phone;
+  if (type === 'url' && data.portfolio) return data.portfolio;
+  
+  return null;
 }
 
-// Get visible fields
-function getAllVisibleFields() {
-  return Array.from(document.querySelectorAll(`
-    input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([disabled]),
-    textarea:not([disabled]),
-    select:not([disabled])
-  `)).filter(f => f.offsetParent !== null);
+// Get label - EXTREME
+function getLabelExtreme(field) {
+  // Method 1: Standard
+  if (field.labels?.length > 0) return field.labels[0].textContent.trim();
+  
+  // Method 2: For attribute
+  if (field.id) {
+    const label = document.querySelector(`label[for="${field.id}"]`);
+    if (label) return label.textContent.trim();
+  }
+  
+  // Method 3: Aria
+  const ariaLabel = field.getAttribute('aria-label') || field.getAttribute('aria-labelledby');
+  if (ariaLabel) return ariaLabel;
+  
+  // Method 4: Placeholder
+  if (field.placeholder) return field.placeholder;
+  
+  // Method 5: Parent hierarchy
+  let parent = field.parentElement;
+  for (let i = 0; i < 5 && parent; i++) {
+    const text = parent.textContent.trim();
+    if (text.length > 3 && text.length < 300) {
+      return text;
+    }
+    parent = parent.parentElement;
+  }
+  
+  // Method 6: Previous siblings
+  let prev = field;
+  for (let i = 0; i < 3; i++) {
+    prev = prev.previousElementSibling;
+    if (prev && prev.textContent.trim() && prev.textContent.trim().length < 100) {
+      return prev.textContent.trim();
+    }
+  }
+  
+  return '';
 }
 
-// Intelligent field matching
-function getMatchingValueIntelligent(field, data) {
-  const name = (field.name || '').toLowerCase();
-  const id = (field.id || '').toLowerCase();
-  const label = getLabel(field).toLowerCase();
-  const context = `${name} ${id} ${label}`;
-  
-  let bestMatch = null;
-  let bestScore = 60;
-  
-  for (const [key, value] of Object.entries(data)) {
-    if (!value) continue;
-    const aliases = fieldMappings[key] || [key];
+// EXTREME field filling - tries EVERYTHING
+async function fillFieldExtreme(field, value) {
+  try {
+    field.focus();
     
-    aliases.forEach(alias => {
-      const aliasLower = alias.toLowerCase();
-      const strategies = [
-        () => context.includes(aliasLower) ? 100 : 0,
-        () => name.includes(aliasLower) ? 90 : 0,
-        () => label.includes(aliasLower) ? 70 : 0,
-        () => levenshteinDistance(context, aliasLower) < 3 ? 50 : 0
-      ];
-      const score = Math.max(...strategies.map(s => s()));
-      
-      if (score > bestScore) {
-        bestScore = score;
-        bestMatch = value;
-      }
-    });
-  }
-  
-  return bestMatch;
-}
-
-// Levenshtein distance
-function levenshteinDistance(str1, str2) {
-  const matrix = Array(str2.length + 1).fill(null).map(() => Array(str1.length + 1).fill(null));
-  for (let i = 0; i <= str1.length; i++) matrix[0][i] = i;
-  for (let j = 0; j <= str2.length; j++) matrix[j][0] = j;
-  
-  for (let j = 1; j <= str2.length; j++) {
-    for (let i = 1; i <= str1.length; i++) {
-      const cost = str1[i - 1] === str2[j - 1] ? 0 : 1;
-      matrix[j][i] = Math.min(
-        matrix[j][i - 1] + 1,
-        matrix[j - 1][i] + 1,
-        matrix[j - 1][i - 1] + cost
-      );
-    }
-  }
-  return matrix[str2.length][str1.length];
-}
-
-// Fill single field
-async function fillField(field, value) {
-  field.focus();
-  
-  if (field.tagName === 'SELECT') {
-    await fillSelect(field, value);
-  } else {
+    // Strategy 1: Standard
     field.value = value;
-  }
-  
-  ['input', 'change', 'blur'].forEach(event => {
-    field.dispatchEvent(new Event(event, { bubbles: true }));
-  });
-  
-  if (field._valueTracker) field._valueTracker.setValue('');
-  field.blur();
-  await sleep(30);
-}
-
-// Fill select
-async function fillSelect(select, value) {
-  const options = Array.from(select.options);
-  let target = null;
-  
-  const strategies = [
-    () => options.find(o => o.value.toLowerCase() === value.toLowerCase()),
-    () => options.find(o => o.text.toLowerCase() === value.toLowerCase()),
-    () => options.find(o => o.value.toLowerCase().includes(value.toLowerCase())),
-    () => options.find(o => o.text.toLowerCase().includes(value.toLowerCase()))
-  ];
-  
-  for (const strategy of strategies) {
-    target = strategy();
-    if (target) break;
-  }
-  
-  if (!target) {
-    const name = (select.name || '').toLowerCase();
-    if (name.includes('country')) {
-      target = options.find(o => SMART_DEFAULTS.country.some(c => o.text.includes(c)));
-    } else if (name.includes('experience') || name.includes('year')) {
-      target = options.find(o => parseInt(o.value) >= 3);
-    } else {
-      target = options.find(o => !o.text.toLowerCase().includes('select') && o.value);
+    
+    // Strategy 2: Property descriptor
+    try {
+      Object.defineProperty(field, 'value', {
+        value: value,
+        writable: true,
+        configurable: true
+      });
+    } catch (e) {}
+    
+    // Strategy 3: Setters
+    if (field.__lookupSetter__('value')) {
+      field.__lookupSetter__('value').call(field, value);
     }
-  }
-  
-  if (target) {
-    select.value = target.value;
-    triggerEvents(select);
+    
+    // Strategy 4: Event storm
+    const events = ['input', 'change', 'blur', 'focus', 'keyup', 'keydown', 'click', 'paste'];
+    events.forEach(eventType => {
+      const event = new Event(eventType, { bubbles: true, cancelable: true });
+      field.dispatchEvent(event);
+      
+      // React
+      const reactEvent = new Event(eventType, { bubbles: true });
+      reactEvent.simulated = true;
+      field.dispatchEvent(reactEvent);
+    });
+    
+    // Strategy 5: Framework hooks
+    if (field._valueTracker) field._valueTracker.setValue('');
+    if (field.__preactCompatEvn) field.__preactCompatEvn = null;
+    if (field._value) field._value = value;
+    
+    // Strategy 6: jQuery
+    if (window.jQuery) {
+      window.jQuery(field).val(value).trigger('input').trigger('change').trigger('blur');
+    }
+    
+    // Strategy 7: Angular
+    if (field.ngModel) field.ngModel = value;
+    
+    // Strategy 8: Vue
+    if (field.__vue__) field.__vue__.value = value;
+    
+    await sleep(60);
+    field.blur();
+    return true;
+  } catch (error) {
+    console.warn(`⚠️ Extreme fill failed for ${field.name || field.id}:`, error);
+    return false;
   }
 }
 
-// Intelligent checkbox filling
-async function fillCheckboxesIntelligent(data, formType) {
+// Fill every checkbox
+async function fillEveryCheckbox(data, formType) {
   const checkboxes = document.querySelectorAll('input[type="checkbox"]:not([disabled])');
   
   for (const checkbox of checkboxes) {
     const name = (checkbox.name || '').toLowerCase();
-    const label = getLabel(checkbox);
+    const label = getLabelExtreme(checkbox);
     const context = `${name} ${label}`.toLowerCase();
     
     let shouldCheck = false;
     let shouldUncheck = false;
     
+    // Aggressive job application rules
     if (formType === 'jobApplication') {
-      shouldCheck = ['agree', 'accept', 'consent', 'certify', 'confirm', 'eligible'].some(k => context.includes(k));
-      shouldUncheck = ['newsletter', 'spam', 'marketing', 'promo', 'notification'].some(k => context.includes(k));
+      const positive = ['agree', 'accept', 'consent', 'certify', 'confirm', 'eligible', 'understand', 'acknowledge', 'yes', 'true', 'on'];
+      const negative = ['newsletter', 'spam', 'marketing', 'promo', 'notification', 'advert', 'offer', 'no'];
+      
+      shouldCheck = positive.some(k => context.includes(k));
+      shouldUncheck = negative.some(k => context.includes(k));
     }
     
-    if (shouldUncheck) checkbox.checked = false;
-    else if (shouldCheck) {
+    // Data-driven
+    for (const [key, value] of Object.entries(data)) {
+      if (value && context.includes(key.toLowerCase())) {
+        shouldCheck = ['yes', 'true', '1', 'agree', 'accept', 'on'].includes(value.toLowerCase());
+      }
+    }
+    
+    if (shouldUncheck) {
+      checkbox.checked = false;
+      checkbox.style.outline = '3px solid #f44336';
+    } else if (shouldCheck) {
       checkbox.checked = true;
-      triggerEvents(checkbox);
+      triggerEventsAggressive(checkbox);
       checkbox.style.outline = '3px solid #4CAF50';
     }
     
-    await sleep(20);
+    await sleep(15);
   }
 }
 
-// Intelligent radio filling
-async function fillRadioButtonsIntelligent(data, formType) {
+// Fill every radio
+async function fillEveryRadio(data, formType) {
   const groups = {};
   document.querySelectorAll('input[type="radio"]:not([disabled])').forEach(radio => {
     if (radio.name) groups[radio.name] = [...(groups[radio.name]||[]), radio];
   });
   
   for (const radios of Object.values(groups)) {
+    if (radios.length === 0) continue;
+    
     let selected = null;
     
+    // Form-specific
     if (formType === 'jobApplication') {
-      const prefs = ['yes', 'true', 'accept', 'full-time', 'remote', 'immediate'];
+      const prefs = ['yes', 'true', 'accept', 'full-time', 'remote', 'immediate', 'available', 'agree'];
       selected = radios.find(r => prefs.some(p => r.value.toLowerCase().includes(p)));
     }
     
+    // Data matching
     if (!selected) {
       for (const [key, value] of Object.entries(data)) {
         if (!value) continue;
@@ -340,143 +396,53 @@ async function fillRadioButtonsIntelligent(data, formType) {
       }
     }
     
+    // Default: first
     if (!selected) selected = radios[0];
     
     if (selected) {
       selected.checked = true;
-      triggerEvents(selected);
+      triggerEventsAggressive(selected);
       selected.style.outline = '3px solid #FF9800';
     }
     
-    await sleep(30);
+    await sleep(20);
   }
 }
 
-// Intelligent dropdown filling
-async function fillDropdownsIntelligent(data, formType) {
-  const selects = document.querySelectorAll('select:not([disabled])');
-  
-  for (const select of selects) {
-    const value = getMatchingValueIntelligent(select, data) || getSmartDefault(select);
-    if (value) {
-      await fillSelect(select, value);
-      select.style.border = '3px solid #2196F3';
-    }
-    await sleep(30);
-  }
-}
-
-// Fill date fields
-async function fillDateFields(data) {
-  const dateInputs = document.querySelectorAll('input[type="date"]:not([disabled])');
-  
-  for (const input of dateInputs) {
-    const name = input.name?.toLowerCase() || '';
-    let dateValue = '';
-    
-    if (name.includes('birth')) dateValue = data.birthDate || '1990-01-01';
-    else if (name.includes('start')) dateValue = data.workStartDate || '2020-01-01';
-    else if (name.includes('end')) dateValue = data.workEndDate || '2023-12-31';
-    else if (name.includes('graduation')) dateValue = `${data.graduationYear || '2020'}-06-01`;
-    else dateValue = '2024-01-01';
-    
-    input.value = dateValue;
-    triggerEvents(input);
-    input.style.border = '3px solid #9C27B0';
-    await sleep(30);
-  }
-}
-
-// Get smart defaults
-function getSmartDefault(field) {
+// Aggressive defaults
+function getAggressiveDefault(field) {
   const name = (field.name || '').toLowerCase();
-  const label = getLabel(field).toLowerCase();
+  const label = getLabelExtreme(field).toLowerCase();
   
-  if (name.includes('country')) return SMART_DEFAULTS.country[0];
-  if (name.includes('experience')) return SMART_DEFAULTS.experience[0];
-  if (name.includes('availability')) return SMART_DEFAULTS.availability[0];
-  if (name.includes('salary')) return SMART_DEFAULTS.salary[0];
-  if (name.includes('type') && label.includes('work')) return SMART_DEFAULTS.workType[0];
+  if (name.includes('country') || label.includes('country')) return SMART_DEFAULTS.country[0];
+  if (name.includes('experience') || label.includes('experience')) return SMART_DEFAULTS.experience[0];
+  if (name.includes('availability') || label.includes('availability')) return SMART_DEFAULTS.availability[0];
+  if (name.includes('salary') || label.includes('salary') || name.includes('compensation')) return SMART_DEFAULTS.salary[0];
+  if ((name.includes('type') || name.includes('preference')) && label.includes('work')) return SMART_DEFAULTS.workType[0];
+  
   return '';
 }
 
-// CV Upload Agent
-async function uploadCVAgent(cvData, cvFileName, cvFileType) {
-  console.log('📎 Uploading CV...');
-  
-  const response = await fetch(cvData);
-  const blob = await response.blob();
-  const file = new File([blob], cvFileName, { type: cvFileType });
-  
-  const fileInputs = document.querySelectorAll('input[type="file"]:not([disabled])');
-  
-  for (const input of fileInputs) {
-    const name = (input.name || '').toLowerCase();
-    const label = getLabel(input).toLowerCase();
+// Trigger events aggressive
+function triggerEventsAggressive(element) {
+  const events = ['input', 'change', 'blur', 'focus', 'keyup', 'keydown', 'click', 'paste'];
+  events.forEach(eventType => {
+    const event = new Event(eventType, { bubbles: true, cancelable: true });
+    element.dispatchEvent(event);
     
-    const isCVField = ['cv', 'resume', 'document', 'upload'].some(k => 
-      name.includes(k) || label.includes(k)
-    );
+    // React-specific
+    const reactEvent = new Event(eventType, { bubbles: true });
+    reactEvent.simulated = true;
+    element.dispatchEvent(reactEvent);
     
-    if (isCVField || fileInputs.length === 1) {
-      const dataTransfer = new DataTransfer();
-      dataTransfer.items.add(file);
-      input.files = dataTransfer.files;
-      triggerEvents(input);
-      input.style.border = '3px solid #FF9800';
-      console.log(`  ✅ CV uploaded: ${cvFileName}`);
-      return true;
-    }
-  }
-  return false;
-}
-
-// Extract browser autofill
-async function extractBrowserData() {
-  const data = {};
-  const fields = document.querySelectorAll('input[autocomplete]');
-  
-  fields.forEach(field => {
-    const value = field.value.trim();
-    if (value) {
-      const mapping = {
-        'given-name': 'firstName',
-        'family-name': 'lastName',
-        'email': 'email',
-        'tel': 'phone',
-        'street-address': 'address',
-        'address-level2': 'city',
-        'postal-code': 'zip',
-        'organization': 'company',
-        'organization-title': 'position'
-      };
-      if (mapping[field.autocomplete]) {
-        data[mapping[field.autocomplete]] = value;
-      }
+    // jQuery
+    if (window.jQuery) {
+      window.jQuery(element).trigger(eventType);
     }
   });
-  
-  return { autofillData: data };
 }
 
-// Get label text
-function getLabel(field) {
-  if (field.labels?.length > 0) return field.labels[0].textContent.trim();
-  if (field.id) {
-    const label = document.querySelector(`label[for="${field.id}"]`);
-    if (label) return label.textContent.trim();
-  }
-  return field.parentElement?.textContent.trim().slice(0, 100) || '';
-}
-
-// Trigger events
-function triggerEvents(element) {
-  ['input', 'change', 'blur'].forEach(event => {
-    element.dispatchEvent(new Event(event, { bubbles: true }));
-  });
-}
-
-// Sleep helper
+// Sleep
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // Verify all fields
@@ -499,14 +465,14 @@ function verifyAllFields() {
     }
   });
   
-  // Show completion popup
   const percent = Math.round((filled/total) * 100);
-  showCompletionPopup(percent, filled, total);
+  console.log(`📊 VERIFICATION: ${percent}% (${filled}/${total})`);
   
+  showCompletionPopup(percent, filled, total);
   return { filled, total };
 }
 
-// Show completion popup
+// Show completion
 function showCompletionPopup(percent, filled, total) {
   document.getElementById('autofill-popup')?.remove();
   
@@ -524,5 +490,13 @@ function showCompletionPopup(percent, filled, total) {
   popup.onclick = () => popup.remove();
   document.body.appendChild(popup);
   
-  setTimeout(() => popup.remove(), 5000);
+  setTimeout(() => popup.remove(), 6000);
+}
+
+// Add animation
+if (!document.getElementById('autofill-styles')) {
+  const style = document.createElement('style');
+  style.id = 'autofill-styles';
+  style.textContent = `@keyframes slideIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }`;
+  document.head.appendChild(style);
 }
