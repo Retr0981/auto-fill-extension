@@ -1,4 +1,3 @@
-// Initialize with empty data
 let userData = {
   firstName: "", lastName: "", email: "", phone: "",
   address: "", city: "", country: "", zip: "",
@@ -8,11 +7,7 @@ let userData = {
   experience: "", skills: "", salary: "", birthDate: ""
 };
 
-// Load Tesseract.js dynamically
-let tesseractReady = false;
-let Tesseract = null;
-
-// Load stored data on startup
+// Load stored data
 chrome.storage.sync.get(['userData'], (result) => {
   if (result.userData) {
     userData = { ...userData, ...result.userData };
@@ -31,26 +26,16 @@ chrome.storage.local.get(['cvFileName', 'cvDataExtracted'], (result) => {
   }
 });
 
-// Initialize Tesseract.js
-async function initTesseract() {
-  if (tesseractReady) return;
-  
-  showStatus('🧠 Loading OCR engine...', 'info');
-  
-  // Load from CDN
-  const script = document.createElement('script');
-  script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
-  script.onload = async () => {
-    Tesseract = window.Tesseract;
-    await Tesseract.createWorker('eng');
-    tesseractReady = true;
-    showStatus('✅ OCR engine ready', 'success');
-  };
-  document.head.appendChild(script);
-}
-
 // Extract CV data using OCR
 document.getElementById('extractCVData').addEventListener('click', async () => {
+  if (typeof Tesseract === 'undefined') {
+    showStatus('❌ tesseract.min.js not found! Download it first.', 'warning');
+    console.error('ERROR: tesseract.min.js is missing!');
+    console.log('SOLUTION: Download from https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js');
+    console.log('         and save it in your extension folder.');
+    return;
+  }
+  
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   
   chrome.storage.local.get(['cvFile', 'cvFileName'], async (result) => {
@@ -59,38 +44,27 @@ document.getElementById('extractCVData').addEventListener('click', async () => {
       return;
     }
     
-    await initTesseract();
-    
     showStatus(`🔍 Reading ${result.cvFileName}...`, 'info');
     
     try {
-      // Convert stored data back to image
+      // Convert stored data to blob
       const uint8Array = new Uint8Array(result.cvFile);
       const blob = new Blob([uint8Array], { type: 'application/pdf' });
       
-      // If it's PDF, we need to handle differently
-      // For now, we'll convert to a data URL
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const imageUrl = e.target.result;
-        
-        // Run OCR
-        const worker = await Tesseract.createWorker('eng');
-        const { data: { text } } = await worker.recognize(imageUrl);
-        await worker.terminate();
-        
-        // Extract data from OCR text
-        const extracted = parseCVText(text);
-        
-        // Store and update UI
-        userData = { ...userData, ...extracted };
-        chrome.storage.local.set({ cvDataExtracted: extracted });
-        displayExtractedData(extracted);
-        
-        showStatus(`✅ Extracted ${Object.keys(extracted).length} fields`, 'success');
-      };
+      // Create worker and run OCR
+      const worker = await Tesseract.createWorker('eng');
+      const { data: { text } } = await worker.recognize(blob);
+      await worker.terminate();
       
-      reader.readAsDataURL(blob);
+      // Parse extracted text
+      const extracted = parseCVText(text);
+      
+      // Store and update
+      userData = { ...userData, ...extracted };
+      chrome.storage.local.set({ cvDataExtracted: extracted });
+      displayExtractedData(extracted);
+      
+      showStatus(`✅ Extracted ${Object.keys(extracted).length} fields`, 'success');
       
     } catch (error) {
       showStatus('❌ OCR failed: ' + error.message, 'warning');
@@ -102,18 +76,16 @@ document.getElementById('extractCVData').addEventListener('click', async () => {
 // Parse CV text to extract structured data
 function parseCVText(text) {
   const data = {};
-  
-  // Convert to lines and clean
   const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 2);
   const fullText = text.toLowerCase();
   
-  // Extract name (look for bold patterns or top of document)
+  // Extract name (look in first 10 lines)
   const namePatterns = [
-    /([A-Z][a-z]+)\s+([A-Z][a-z]+)/, // John Doe
-    /([A-Z][a-z]+)\s+([A-Z][a-z]+)\s+([A-Z][a-z]+)/ // John Michael Doe
+    /^([A-Z][a-z]+)\s+([A-Z][a-z]+)$/,
+    /^([A-Z][a-z]+)\s+([A-Z][a-z]+)\s+([A-Z][a-z]+)$/
   ];
   
-  for (const line of lines.slice(0, 10)) { // Check first 10 lines
+  for (const line of lines.slice(0, 10)) {
     for (const pattern of namePatterns) {
       const match = line.match(pattern);
       if (match && !line.includes('@') && !line.includes('http')) {
@@ -129,7 +101,7 @@ function parseCVText(text) {
   const emailMatch = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
   if (emailMatch) data.email = emailMatch[0];
   
-  // Extract phone (US & international)
+  // Extract phone
   const phoneMatch = text.match(/(\+?1\s*[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})/);
   if (phoneMatch) data.phone = phoneMatch[0];
   
@@ -137,16 +109,16 @@ function parseCVText(text) {
   const linkedinMatch = text.match(/linkedin\.com\/in\/[a-zA-Z0-9-]+/);
   if (linkedinMatch) data.linkedin = linkedinMatch[0];
   
-  // Extract GitHub/portfolio
+  // Extract GitHub
   const githubMatch = text.match(/github\.com\/[a-zA-Z0-9-]+/);
   if (githubMatch) data.portfolio = githubMatch[0];
   
-  // Extract address (look for common address patterns)
+  // Extract address (simple pattern)
   const addressMatch = text.match(/\d+\s+[A-Za-z\s]+,\s*[A-Za-z\s]+,\s*[A-Z]{2}\s+\d{5}/);
   if (addressMatch) data.address = addressMatch[0];
   
   // Extract degree
-  const degreeKeywords = ['Bachelor', 'Master', 'PhD', 'BS', 'MS', 'BA', 'MA'];
+  const degreeKeywords = ['Bachelor', 'Master', 'PhD', 'BS', 'MS', 'BA', 'MA', 'B.Sc', 'M.Sc'];
   for (const line of lines) {
     for (const degree of degreeKeywords) {
       if (line.includes(degree)) {
@@ -157,7 +129,7 @@ function parseCVText(text) {
     if (data.degree) break;
   }
   
-  // Extract skills (look for section)
+  // Extract skills
   const skillsSection = text.match(/skills?:?(.+?)(?=experience|education|project|$)/is);
   if (skillsSection) {
     data.skills = skillsSection[1].trim().split('\n').slice(0, 5).join(', ');
@@ -167,18 +139,18 @@ function parseCVText(text) {
   const expMatch = text.match(/(\d+)\s*(years?|yrs?)\s*(experience|exp)/i);
   if (expMatch) data.experience = expMatch[1];
   
-  console.log('🔍 OCR parsed data:', data);
+  console.log('🔍 OCR parsed CV data:', data);
   return data;
 }
 
-// Display extracted data in popup
+// Display extracted data
 function displayExtractedData(data) {
   const container = document.getElementById('extractedData');
   container.innerHTML = '';
   container.style.display = 'block';
   
   const title = document.createElement('div');
-  title.innerHTML = '<strong>📊 Extracted Data:</strong>';
+  title.innerHTML = '<strong>📊 CV Data Extracted:</strong>';
   title.style.marginBottom = '8px';
   container.appendChild(title);
   
@@ -205,7 +177,7 @@ document.getElementById('extractAutofill').addEventListener('click', async () =>
     if (response?.autofillData) {
       userData = { ...userData, ...response.autofillData };
       const count = Object.keys(response.autofillData).length;
-      showStatus(`📥 Extracted ${count} browser fields`, count > 0 ? 'success' : 'warning');
+      showStatus(`📥 Extracted ${count} fields`, count > 0 ? 'success' : 'warning');
     }
   });
 });
@@ -225,25 +197,26 @@ document.getElementById('cvFile').addEventListener('change', (e) => {
       cvFileType: file.type
     }, () => {
       showStatus(`✅ CV stored`, 'success');
-      document.getElementById('cvStatus').textContent = `✅ ${file.name}`;
-      document.getElementById('cvStatus').style.color = '#34A853';
+      const cvStatus = document.getElementById('cvStatus');
+      cvStatus.textContent = `✅ ${file.name}`;
+      cvStatus.style.color = '#34A853';
     });
   };
   
   reader.readAsArrayBuffer(file);
 });
 
-// Smart fill with OCR data
+// Smart fill all
 document.getElementById('smartFill').addEventListener('click', async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   
   chrome.storage.local.get(['cvFile', 'cvFileName', 'cvFileType'], (result) => {
-    if (!userData.email) {
+    if (!userData.email && !userData.firstName) {
       showStatus('⚠️ No data! Extract CV or autofill first', 'warning');
       return;
     }
     
-    showStatus('🚀 Filling ALL fields...', 'info');
+    showStatus('🚀 Filling ALL fields + uploading CV...', 'info');
     
     chrome.tabs.sendMessage(tab.id, {
       action: "smartFill",
@@ -259,7 +232,7 @@ document.getElementById('smartFill').addEventListener('click', async () => {
   });
 });
 
-// Verify all fields
+// Verify fill
 document.getElementById('verifyFill').addEventListener('click', async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   
@@ -270,9 +243,9 @@ document.getElementById('verifyFill').addEventListener('click', async () => {
       const percent = Math.round((filled / total) * 100);
       
       if (percent === 100) {
-        showStatus(`✅ 100% Complete (${filled}/${total})`, 'success');
+        showStatus(`✅ 100% Complete (${filled}/${total} fields)`, 'success');
       } else {
-        showStatus(`⚠️ ${percent}% Complete (${filled}/${total}) - Click again`, 'warning');
+        showStatus(`⚠️ ${percent}% Complete (${filled}/${total}) - Retry if needed`, 'warning');
       }
     }
   });
@@ -285,25 +258,25 @@ document.getElementById('clickButtons').addEventListener('click', async () => {
   showStatus('👆 Clicking buttons...', 'info');
 });
 
-// Save all data
+// Save data
 document.getElementById('saveData').addEventListener('click', () => {
-  if (!userData.email) {
+  if (!userData.email && !userData.firstName) {
     showStatus('❌ No data to save', 'warning');
     return;
   }
   
   chrome.storage.sync.set({ userData: userData }, () => {
-    showStatus('💾 All data saved', 'success');
+    showStatus('💾 Data saved permanently', 'success');
   });
 });
 
-// Reset
+// Reset all
 document.getElementById('clearAll').addEventListener('click', () => {
-  if (confirm('🚨 Delete ALL data (including CV & extracted data)?')) {
+  if (confirm('🚨 Delete ALL data (CV, OCR, browser data)?')) {
     chrome.storage.local.clear();
     chrome.storage.sync.clear();
     showStatus('🔄 Reset complete', 'info');
-    setTimeout(() => window.close(), 1000);
+    setTimeout(() => window.location.reload(), 1000);
   }
 });
 

@@ -1,22 +1,14 @@
 {
   "manifest_version": 3,
   "name": "AutoFill Pro - CV OCR & Smart Filler",
-  "version": "4.0",
-  "description": "Extracts data from your CV using OCR and auto-fills forms completely",
+  "version": "4.1",
+  "description": "Extracts CV data via OCR or manual entry, auto-fills ALL form fields",
   
   "permissions": [
     "storage",
     "activeTab",
     "scripting"
   ],
-  
-  "host_permissions": [
-    "https://cdn.jsdelivr.net/*"
-  ],
-  
-  "content_security_policy": {
-    "extension_pages": "script-src 'self' https://cdn.jsdelivr.net; object-src 'self'"
-  },
   
   "action": {
     "default_popup": "popup.html",
@@ -44,18 +36,11 @@
         "default": "Ctrl+Shift+F",
         "mac": "Command+Shift+F"
       },
-      "description": "Trigger Smart Fill All"
+      "description": "Smart Fill All Fields"
     }
   },
   
   "icons": {
     "48": "icons/icon48.png"
-  },
-  
-  "web_accessible_resources": [
-    {
-      "resources": ["tesseract.min.js"],
-      "matches": ["<all_urls>"]
-    }
-  ]
+  }
 }
