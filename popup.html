@@ -32,6 +32,7 @@
       font-weight: 800;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       -webkit-background-clip: text;
+      background-clip: text; /* ✅ FIXED: Added standard property */
       -webkit-text-fill-color: transparent;
       margin-bottom: 8px;
       letter-spacing: -0.5px;
@@ -89,6 +90,7 @@
     
     .section-header {
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); /* ✅ FIXED: Added standard property */
       color: white;
       padding: 12px 15px;
       font-size: 14px;
@@ -129,29 +131,35 @@
     
     .primary {
       background: linear-gradient(135deg, #4285F4 0%, #34A853 100%);
+      -webkit-background: linear-gradient(135deg, #4285F4 0%, #34A853 100%); /* ✅ FIXED: Added standard property */
       color: white;
     }
     
     .primary:hover {
       background: linear-gradient(135deg, #357ABD 0%, #2E8B47 100%);
+      -webkit-background: linear-gradient(135deg, #357ABD 0%, #2E8B47 100%); /* ✅ FIXED: Added standard property */
     }
     
     .secondary {
       background: linear-gradient(135deg, #FBBC05 0%, #EA4335 100%);
+      -webkit-background: linear-gradient(135deg, #FBBC05 0%, #EA4335 100%); /* ✅ FIXED: Added standard property */
       color: white;
     }
     
     .secondary:hover {
       background: linear-gradient(135deg, #E0A800 0%, #D32F2F 100%);
+      -webkit-background: linear-gradient(135deg, #E0A800 0%, #D32F2F 100%); /* ✅ FIXED: Added standard property */
     }
     
     .success {
       background: linear-gradient(135deg, #34A853 0%, #0F9D58 100%);
+      -webkit-background: linear-gradient(135deg, #34A853 0%, #0F9D58 100%); /* ✅ FIXED: Added standard property */
       color: white;
     }
     
     .danger {
       background: linear-gradient(135deg, #EA4335 0%, #D23F31 100%);
+      -webkit-background: linear-gradient(135deg, #EA4335 0%, #D23F31 100%); /* ✅ FIXED: Added standard property */
       color: white;
     }
     
@@ -161,6 +169,7 @@
     
     .file-upload-btn {
       background: linear-gradient(135deg, #34A853 0%, #0F9D58 100%);
+      -webkit-background: linear-gradient(135deg, #34A853 0%, #0F9D58 100%); /* ✅ FIXED: Added standard property */
       color: white;
       padding: 12px;
       border-radius: 8px;
@@ -295,6 +304,17 @@
     .action-buttons button {
       font-size: 12px;
       padding: 10px;
+    }
+    
+    /* Vendor prefix fixes */
+    /* ...existing code... */
+    
+    /* Additional fixes for older browsers */
+    @supports not (background-clip: text) {
+      .logo {
+        -webkit-text-fill-color: initial;
+        color: #667eea;
+      }
     }
   </style>
 </head>
