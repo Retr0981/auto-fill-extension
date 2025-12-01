@@ -1,4 +1,4 @@
-// config.js - Centralized field mappings and constants
+// config.js - Centralized Configuration
 
 // Field aliases for intelligent matching
 const FIELD_ALIASES = {
@@ -28,7 +28,7 @@ const FIELD_ALIASES = {
 
 // Form type detection patterns
 const FORM_PATTERNS = {
-  jobApplication: ['job', 'career', 'apply', 'position', 'employment', 'candidate', 'recruitment'],
+  jobApplication: ['job', 'career', 'apply', 'position', 'employment', 'candidate', 'recruitment', 'workday', 'greenhouse', 'lever'],
   contact: ['contact', 'inquiry', 'message', 'feedback', 'support'],
   registration: ['register', 'signup', 'account', 'create'],
   login: ['login', 'signin', 'auth'],
@@ -53,8 +53,3 @@ const SMART_DEFAULTS = {
   salary: ['120000', 'Negotiable', 'Market rate'],
   workType: ['Full-time', 'Remote', 'Hybrid', 'On-site']
 };
-
-// Export for use in other files
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { FIELD_ALIASES, FORM_PATTERNS, CV_PATTERNS, SMART_DEFAULTS };
-}

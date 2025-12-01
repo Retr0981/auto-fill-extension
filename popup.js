@@ -1,753 +1,596 @@
-// content.js - Ultra-Intelligent Form Filling Engine
+// popup.js - Complete AutoFill Pro Logic
 
-let fieldMappings = {};
-let formObserver = null;
+// State management
+let userData = {};
+let hasManualData = false;
+let hasOCRData = false;
+let hasBrowserData = false;
+let currentCV = null;
+let tesseractReady = false;
 
 // Initialize on load
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initialize);
-} else {
-  initialize();
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadStoredData();
+  setupEventListeners();
+  await initTesseract();
+  updateDataSourcesIndicator();
+  checkShortcut();
+});
+
+// Load all stored data
+async function loadStoredData() {
+  try {
+    const [syncResult, localResult] = await Promise.all([
+      chrome.storage.sync.get(['userData', 'dataSources']),
+      chrome.storage.local.get(['cvFile', 'cvFileName', 'cvFileType', 'cvDataExtracted'])
+    ]);
+    
+    userData = syncResult.userData || {};
+    
+    // Restore flags
+    if (syncResult.dataSources) {
+      hasManualData = syncResult.dataSources.manual || false;
+      hasOCRData = syncResult.dataSources.ocr || false;
+      hasBrowserData = syncResult.dataSources.browser || false;
+    }
+    
+    // Check manual data
+    if (Object.keys(userData).length > 0) {
+      hasManualData = true;
+    }
+    
+    // Restore CV
+    if (localResult.cvFile) {
+      currentCV = {
+        data: localResult.cvFile,
+        name: localResult.cvFileName,
+        type: localResult.cvFileType
+      };
+      document.getElementById('cvStatus').textContent = `✅ ${localResult.cvFileName}`;
+    }
+    
+    // Restore extracted data
+    if (localResult.cvDataExtracted && Object.keys(localResult.cvDataExtracted).length > 0) {
+      hasOCRData = true;
+      displayExtractedData(localResult.cvDataExtracted);
+    }
+    
+    // Show sample data for first-time users
+    if (!hasManualData && !hasOCRData && !hasBrowserData) {
+      showStatus('👋 Welcome! Upload a CV or enter data to begin.', 'info');
+    }
+    
+  } catch (error) {
+    console.error('❌ Load error:', error);
+    showStatus('❌ Failed to load data', 'error');
+  }
 }
 
-function initialize() {
-  console.log('🎯 AutoFill Pro: Content script loaded');
-  setupFormObserver();
+// Setup all event listeners
+function setupEventListeners() {
+  // CV Section
+  document.getElementById('cvFile').addEventListener('change', handleCVUpload);
+  document.getElementById('extractCVData').addEventListener('click', extractCVData);
+  document.getElementById('previewCV').addEventListener('click', previewCV);
+  
+  // Manual Section
+  document.getElementById('toggleManual').addEventListener('click', toggleManualForm);
+  document.getElementById('saveManual').addEventListener('click', saveManualData);
+  
+  // Actions Section
+  document.getElementById('smartFill').addEventListener('click', smartFillEverything);
+  document.getElementById('verifyFill').addEventListener('click', verifyFill);
+  document.getElementById('extractAutofill').addEventListener('click', extractBrowserData);
+  document.getElementById('saveData').addEventListener('click', saveProfile);
+  document.getElementById('clearAll').addEventListener('click', resetAllData);
+  
+  // Section toggles
+  document.querySelectorAll('.section-header[data-toggle]').forEach(header => {
+    header.addEventListener('click', () => {
+      const targetId = header.dataset.toggle;
+      const section = header.parentElement;
+      section.classList.toggle('collapsed');
+    });
+  });
 }
 
-// Observe for dynamic forms
-function setupFormObserver() {
-  formObserver = new MutationObserver((mutations) => {
-    mutations.forEach(mutation => {
-      if (mutation.addedNodes.length > 0) {
-        // Check if any added node is a form or contains inputs
-        const hasInputs = Array.from(mutation.addedNodes).some(node => 
-          node.nodeType === 1 && (node.tagName === 'FORM' || node.querySelector('input, select, textarea'))
-        );
-        
-        if (hasInputs) {
-          console.log('🔄 Dynamic form detected');
-          // Will be filled when user triggers Smart Fill
+// Initialize Tesseract from CDN (no manual download needed!)
+async function initTesseract() {
+  try {
+    // Load from CDN
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    script.onload = () => {
+      tesseractReady = typeof Tesseract !== 'undefined';
+      if (tesseractReady) {
+        console.log('✅ Tesseract.js loaded from CDN');
+        showStatus('✅ OCR ready!', 'success');
+      }
+    };
+    script.onerror = () => {
+      tesseractReady = false;
+      showStatus('⚠️ OCR unavailable (offline mode)', 'warning');
+    };
+    document.head.appendChild(script);
+  } catch (error) {
+    console.warn('⚠️ Tesseract init failed:', error);
+    tesseractReady = false;
+  }
+}
+
+// Handle CV file upload
+async function handleCVUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  showProgress('Uploading CV...', 10);
+  
+  try {
+    // Convert to base64 for storage
+    const base64 = await fileToBase64(file);
+    
+    await chrome.storage.local.set({
+      cvFile: base64,
+      cvFileName: file.name,
+      cvFileType: file.type
+    });
+    
+    currentCV = { data: base64, name: file.name, type: file.type };
+    document.getElementById('cvStatus').textContent = `✅ ${file.name} (${(file.size/1024).toFixed(1)} KB)`;
+    showStatus('📎 CV uploaded! Click "Extract" to analyze.', 'success');
+    updateDataSourcesIndicator();
+    hideProgress();
+    
+  } catch (error) {
+    showStatus(`❌ Upload failed: ${error.message}`, 'error');
+    hideProgress();
+  }
+}
+
+// Convert file to base64
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// Extract CV data using OCR
+async function extractCVData() {
+  if (!tesseractReady) {
+    showStatus('❌ OCR not ready. Check internet connection.', 'error');
+    return;
+  }
+  
+  if (!currentCV) {
+    showStatus('❌ No CV uploaded. Please upload first.', 'warning');
+    return;
+  }
+  
+  showProgress('AI analyzing CV...', 20);
+  
+  try {
+    const worker = await Tesseract.createWorker('eng', 1, {
+      logger: m => {
+        if (m.status === 'recognizing text') {
+          showProgress(`Processing: ${Math.round(m.progress * 100)}%`, 20 + (m.progress * 40));
         }
       }
     });
-  });
-  
-  formObserver.observe(document.body, {
-    childList: true,
-    subtree: true
-  });
-}
-
-// Listen for messages
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  fieldMappings = request.fieldMappings || FIELD_ALIASES;
-  
-  if (request.action === "smartFill") {
-    smartFillEverything(request.data, request.cvData, request.cvFileName, request.cvFileType, request.formType)
-      .then(result => sendResponse({ success: true, ...result }))
-      .catch(err => sendResponse({ error: err.message }));
-    return true; // Keep channel open for async
-  } else if (request.action === "verifyFill") {
-    sendResponse(verifyAllFields());
-  } else if (request.action === "extractAutofill") {
-    extractBrowserData().then(sendResponse);
-    return true;
-  }
-});
-
-// Main smart fill function
-async function smartFillEverything(data, cvData, cvFileName, cvFileType, formType) {
-  console.log(`🚀 INTELLIGENT FILL STARTED for ${formType || 'general form'}`);
-  console.log('Available data:', Object.keys(data));
-  
-  const startTime = performance.now();
-  
-  // Wait for any dynamic content to load
-  await waitForDynamicContent();
-  
-  // Group fields by confidence
-  const fieldGroups = analyzeFormStructure(data, formType);
-  
-  // Fill in order of confidence
-  await fillHighConfidenceFields(fieldGroups.high, data);
-  await fillMediumConfidenceFields(fieldGroups.medium, data);
-  await fillLowConfidenceFields(fieldGroups.low, data);
-  
-  // Fill special controls
-  await fillCheckboxesIntelligent(data, formType);
-  await fillRadioButtonsIntelligent(data, formType);
-  await fillDropdownsIntelligent(data, formType);
-  await fillDateFields(data);
-  
-  // Upload CV if available
-  if (cvData && cvFileName) {
-    await uploadCVAgent(cvData, cvFileName, cvFileType);
-  }
-  
-  const endTime = performance.now();
-  console.log(`🏆 FILL COMPLETED in ${Math.round(endTime - startTime)}ms`);
-  
-  return {
-    filled: fieldGroups.high.length + fieldGroups.medium.length,
-    total: fieldGroups.high.length + fieldGroups.medium.length + fieldGroups.low.length,
-    confidence: 'high'
-  };
-}
-
-// Wait for dynamic content
-async function waitForDynamicContent() {
-  return new Promise(resolve => {
-    let readyChecks = 0;
-    const maxChecks = 10;
     
-    const checkReady = () => {
-      readyChecks++;
-      const loadingElements = document.querySelectorAll('.loading, .spinner, [aria-busy="true"]');
-      const isReady = loadingElements.length === 0 || readyChecks >= maxChecks;
-      
-      if (isReady) {
-        resolve();
-      } else {
-        setTimeout(checkReady, 500);
-      }
-    };
+    const { data: { text } } = await worker.recognize(currentCV.data);
+    await worker.terminate();
     
-    setTimeout(checkReady, 1000);
-  });
-}
-
-// Analyze form structure and group fields by confidence
-function analyzeFormStructure(data, formType) {
-  const inputs = getAllInputFields();
-  const groups = { high: [], medium: [], low: [] };
-  
-  inputs.forEach(field => {
-    const confidence = calculateFieldConfidence(field, data, formType);
+    showProgress('Parsing structured data...', 70);
     
-    if (confidence > 80) groups.high.push(field);
-    else if (confidence > 50) groups.medium.push(field);
-    else groups.low.push(field);
+    const extracted = parseCVIntelligently(text);
     
-    field.dataset.confidence = confidence;
-  });
-  
-  console.log(`📊 Field Analysis: ${groups.high.length} high, ${groups.medium.length} medium, ${groups.low.length} low confidence`);
-  
-  return groups;
-}
-
-// Calculate confidence score for a field
-function calculateFieldConfidence(field, data, formType) {
-  let score = 0;
-  const name = (field.name || '').toLowerCase();
-  const id = (field.id || '').toLowerCase();
-  const label = getLabel(field).toLowerCase();
-  const placeholder = (field.placeholder || '').toLowerCase();
-  const type = field.type || 'text';
-  
-  // Check for exact matches
-  for (const [key, value] of Object.entries(data)) {
-    if (!value) continue;
-    const aliases = fieldMappings[key] || [key];
-    
-    aliases.forEach(alias => {
-      const aliasLower = alias.toLowerCase();
-      if (name === aliasLower || id === aliasLower) {
-        score += 100;
-      } else if (name.includes(aliasLower) || id.includes(aliasLower)) {
-        score += 80;
-      } else if (label.includes(aliasLower) || placeholder.includes(aliasLower)) {
-        score += 60;
-      }
-    });
-  }
-  
-  // Boost score for form type specific fields
-  if (formType === 'jobApplication') {
-    const jobFields = ['position', 'company', 'experience', 'skills', 'salary'];
-    if (jobFields.some(f => name.includes(f) || label.includes(f))) {
-      score += 20;
-    }
-  }
-  
-  // Penalize hidden fields
-  if (type === 'hidden' || field.offsetParent === null) {
-    score -= 50;
-  }
-  
-  return Math.min(100, score);
-}
-
-// Fill fields with high confidence
-async function fillHighConfidenceFields(fields, data) {
-  console.log(`🔥 Filling ${fields.length} high-confidence fields`);
-  
-  for (const field of fields) {
-    const value = getMatchingValueIntelligent(field, data);
-    if (value) {
-      await fillField(field, value);
-      field.style.border = '3px solid #4CAF50';
-      field.style.background = '#E8F5E9';
-      console.log(`  ✅ HIGH: ${field.name || field.id} = "${value}"`);
-    }
-    await sleep(50); // Small delay for responsiveness
-  }
-}
-
-// Fill medium confidence fields
-async function fillMediumConfidenceFields(fields, data) {
-  console.log(`🔶 Filling ${fields.length} medium-confidence fields`);
-  
-  for (const field of fields) {
-    const value = getMatchingValueIntelligent(field, data) || getSmartDefault(field);
-    if (value) {
-      await fillField(field, value);
-      field.style.border = '3px solid #FF9800';
-      field.style.background = '#FFE0B2';
-      console.log(`  ⚠️ MEDIUM: ${field.name || field.id} = "${value}"`);
-    }
-    await sleep(30);
-  }
-}
-
-// Fill low confidence fields with defaults
-async function fillLowConfidenceFields(fields, data) {
-  console.log(`⚪ Skipping ${fields.length} low-confidence fields (use defaults if needed)`);
-  
-  // Only fill if required field
-  for (const field of fields) {
-    if (field.required) {
-      const value = getSmartDefault(field);
-      if (value) {
-        await fillField(field, value);
-        field.style.border = '3px solid #2196F3';
-        console.log(`  🔷 DEFAULT: ${field.name || field.id} = "${value}"`);
-      }
-    }
-  }
-}
-
-// Get smart default based on field type
-function getSmartDefault(field) {
-  const name = (field.name || '').toLowerCase();
-  const label = getLabel(field).toLowerCase();
-  
-  if (name.includes('country') || label.includes('country')) {
-    return SMART_DEFAULTS.country[0];
-  }
-  
-  if (name.includes('experience') || label.includes('experience')) {
-    return SMART_DEFAULTS.experience[0];
-  }
-  
-  if (name.includes('availability') || label.includes('availability')) {
-    return SMART_DEFAULTS.availability[0];
-  }
-  
-  if (name.includes('salary') || label.includes('salary') || name.includes('compensation')) {
-    return SMART_DEFAULTS.salary[0];
-  }
-  
-  if (name.includes('type') && (label.includes('work') || label.includes('employment'))) {
-    return SMART_DEFAULTS.workType[0];
-  }
-  
-  return '';
-}
-
-// Get all input fields
-function getAllInputFields() {
-  return Array.from(document.querySelectorAll(`
-    input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([disabled]),
-    textarea:not([disabled]),
-    select:not([disabled])
-  `)).filter(field => field.offsetParent !== null);
-}
-
-// Intelligent field matching
-function getMatchingValueIntelligent(field, data) {
-  const name = (field.name || '').toLowerCase();
-  const id = (field.id || '').toLowerCase();
-  const label = getLabel(field).toLowerCase();
-  const placeholder = (field.placeholder || '').toLowerCase();
-  const type = field.type || 'text';
-  
-  // Create search string
-  const searchContext = `${name} ${id} ${label} ${placeholder}`;
-  
-  // Score each data field
-  let bestMatch = null;
-  let bestScore = 0;
-  
-  for (const [key, value] of Object.entries(data)) {
-    if (!value) continue;
-    
-    const aliases = fieldMappings[key] || [key];
-    let score = 0;
-    
-    aliases.forEach(alias => {
-      const aliasLower = alias.toLowerCase();
-      const distance = levenshteinDistance(searchContext, aliasLower);
-      
-      if (searchContext.includes(aliasLower)) {
-        score = Math.max(score, 100 - distance);
-      }
-      
-      // Check individual components
-      if (name.includes(aliasLower) || id.includes(aliasLower)) score = Math.max(score, 90);
-      if (label.includes(aliasLower) || placeholder.includes(aliasLower)) score = Math.max(score, 70);
-    });
-    
-    // Boost for form-specific fields
-    if (key === 'email' && type === 'email') score += 20;
-    if (key === 'phone' && type === 'tel') score += 20;
-    
-    if (score > bestScore && score > 60) {
-      bestScore = score;
-      bestMatch = value;
-    }
-  }
-  
-  return bestMatch;
-}
-
-// Levenshtein distance for fuzzy matching
-function levenshteinDistance(str1, str2) {
-  if (str1.length < str2.length) return levenshteinDistance(str2, str1);
-  if (str2.length === 0) return str1.length;
-  
-  let previousRow = Array.from({ length: str2.length + 1 }, (_, i) => i);
-  
-  for (let i = 0; i < str1.length; i++) {
-    const currentRow = [i + 1];
-    for (let j = 0; j < str2.length; j++) {
-      const cost = str1[i] === str2[j] ? 0 : 1;
-      currentRow.push(
-        Math.min(
-          previousRow[j + 1] + 1,
-          currentRow[j] + 1,
-          previousRow[j] + cost
-        )
-      );
-    }
-    previousRow = currentRow;
-  }
-  
-  return previousRow[previousRow.length - 1];
-}
-
-// Fill a single field with events
-async function fillField(field, value) {
-  field.focus();
-  
-  // Handle different field types
-  if (field.tagName === 'SELECT') {
-    await fillSelect(field, value);
-  } else if (field.tagName === 'TEXTAREA') {
-    field.value = value;
-  } else {
-    // Input field
-    field.value = value;
-  }
-  
-  // Trigger all necessary events
-  triggerEvents(field);
-  
-  // Blur to trigger validation
-  field.blur();
-  await sleep(30);
-}
-
-// Fill select dropdown intelligently
-async function fillSelect(select, value) {
-  const options = Array.from(select.options);
-  let targetOption = null;
-  
-  // Exact match
-  targetOption = options.find(opt => 
-    opt.value.toLowerCase() === value.toLowerCase() ||
-    opt.text.toLowerCase() === value.toLowerCase()
-  );
-  
-  // Partial match
-  if (!targetOption) {
-    targetOption = options.find(opt => 
-      opt.value.toLowerCase().includes(value.toLowerCase()) ||
-      opt.text.toLowerCase().includes(value.toLowerCase())
-    );
-  }
-  
-  // Smart fallback for common fields
-  if (!targetOption) {
-    const name = (select.name || '').toLowerCase();
-    
-    if (name.includes('country')) {
-      targetOption = options.find(opt => 
-        SMART_DEFAULTS.country.some(c => 
-          opt.text.includes(c) || opt.value.includes(c)
-        )
-      );
-    } else if (name.includes('year') || name.includes('experience')) {
-      targetOption = options.find(opt => 
-        parseInt(opt.value) >= 3 || parseInt(opt.text) >= 3
-      );
-    }
-  }
-  
-  // Select first non-placeholder if still no match
-  if (!targetOption) {
-    targetOption = options.find(opt => 
-      !opt.text.toLowerCase().includes('select') && 
-      !opt.value.toLowerCase().includes('select') &&
-      opt.value.trim() !== '' &&
-      opt.value !== '0'
-    );
-  }
-  
-  if (targetOption) {
-    select.value = targetOption.value;
-  }
-}
-
-// Intelligent checkbox filling
-async function fillCheckboxesIntelligent(data, formType) {
-  const checkboxes = document.querySelectorAll('input[type="checkbox"]:not([disabled])');
-  console.log(`☑️ Processing ${checkboxes.length} checkboxes intelligently`);
-  
-  for (const checkbox of checkboxes) {
-    const name = (checkbox.name || '').toLowerCase();
-    const label = getLabel(checkbox);
-    const key = `${name} ${label}`.toLowerCase();
-    
-    let shouldCheck = false;
-    let shouldUncheck = false;
-    
-    // Form type specific logic
-    if (formType === 'jobApplication') {
-      // Check positive fields
-      shouldCheck = ['agree', 'accept', 'consent', 'certify', 'confirm', 'true', 'yes', 'on'].some(k => 
-        key.includes(k)
-      );
-      
-      // Uncheck marketing spam
-      shouldUncheck = ['newsletter', 'spam', 'marketing', 'promo', 'advert', 'notification', 'offer'].some(k => 
-        key.includes(k)
-      );
+    if (Object.keys(extracted).length === 0) {
+      showStatus('⚠️ Could not extract data. Try manual entry.', 'warning');
+      hideProgress();
+      return;
     }
     
-    // Apply decision
-    if (shouldUncheck) {
-      checkbox.checked = false;
-      checkbox.style.outline = '3px solid #f44336';
-    } else if (shouldCheck) {
-      checkbox.checked = true;
-      triggerEvents(checkbox);
-      checkbox.style.outline = '3px solid #4CAF50';
-    }
+    showProgress('Merging with profile...', 90);
     
-    await sleep(20);
+    // Merge data (OCR has lower priority than manual)
+    userData = { ...userData, ...extracted };
+    hasOCRData = true;
+    
+    await Promise.all([
+      chrome.storage.local.set({ cvDataExtracted: extracted }),
+      chrome.storage.sync.set({ userData: userData })
+    ]);
+    
+    displayExtractedData(extracted);
+    updateDataSourcesIndicator();
+    showStatus(`✅ AI extracted ${Object.keys(extracted).length} fields!`, 'success');
+    hideProgress();
+    
+  } catch (error) {
+    console.error('❌ OCR Error:', error);
+    showStatus('❌ OCR failed. Try again or use manual entry.', 'error');
+    hideProgress();
   }
 }
 
-// Intelligent radio button filling
-async function fillRadioButtonsIntelligent(data, formType) {
-  const radioGroups = {};
-  
-  document.querySelectorAll('input[type="radio"]:not([disabled])').forEach(radio => {
-    if (radio.name) {
-      radioGroups[radio.name] = radioGroups[radio.name] || [];
-      radioGroups[radio.name].push(radio);
-    }
-  });
-  
-  console.log(`⭕ Processing ${Object.keys(radioGroups).length} radio groups intelligently`);
-  
-  for (const [groupName, radios] of Object.entries(radioGroups)) {
-    if (radios.length === 0) continue;
-    
-    let selectedRadio = null;
-    
-    // Form-specific selection
-    if (formType === 'jobApplication') {
-      // Prefer positive/employable options
-      const preferences = ['yes', 'true', '1', 'agree', 'accept', 'full-time', 'remote', 'immediate', 'available'];
-      selectedRadio = radios.find(r => 
-        preferences.some(p => r.value.toLowerCase().includes(p))
-      );
-    }
-    
-    // Fall back to data matching
-    if (!selectedRadio) {
-      for (const [key, value] of Object.entries(data)) {
-        if (!value) continue;
-        
-        selectedRadio = radios.find(r => 
-          r.value.toLowerCase() === value.toLowerCase() ||
-          (['yes', 'true', '1'].includes(value.toLowerCase()) && 
-           ['yes', 'true', '1', 'agree'].some(v => r.value.toLowerCase().includes(v)))
-        );
-        
-        if (selectedRadio) break;
-      }
-    }
-    
-    // Final fallback: select first
-    if (!selectedRadio) {
-      selectedRadio = radios[0];
-    }
-    
-    if (selectedRadio) {
-      selectedRadio.checked = true;
-      triggerEvents(selectedRadio);
-      selectedRadio.style.outline = '3px solid #FF9800';
-      console.log(`  ✅ RADIO: ${groupName} = "${selectedRadio.value}"`);
-    }
-    
-    await sleep(30);
-  }
-}
-
-// Intelligent dropdown filling
-async function fillDropdownsIntelligent(data, formType) {
-  const selects = document.querySelectorAll('select:not([disabled])');
-  console.log(`🔽 Processing ${selects.length} dropdowns intelligently`);
-  
-  for (const select of selects) {
-    const value = getMatchingValueIntelligent(select, data) || getSmartDefault(select);
-    if (value) {
-      await fillSelect(select, value);
-      select.style.border = '3px solid #2196F3';
-      console.log(`  ✅ DROPDOWN: ${select.name || select.id} = "${value}"`);
-    }
-    await sleep(30);
-  }
-}
-
-// Fill date fields
-async function fillDateFields(data) {
-  const dateInputs = document.querySelectorAll('input[type="date"]:not([disabled])');
-  console.log(`📅 Processing ${dateInputs.length} date fields`);
-  
-  for (const input of dateInputs) {
-    const name = input.name?.toLowerCase() || '';
-    let dateValue = '';
-    
-    if (name.includes('birth')) dateValue = data.birthDate || '1990-01-01';
-    else if (name.includes('start')) dateValue = data.workStartDate || '2020-01-01';
-    else if (name.includes('end')) dateValue = data.workEndDate || '2023-12-31';
-    else if (name.includes('graduation')) dateValue = data.graduationYear + '-06-01' || '2020-06-01';
-    else dateValue = '2024-01-01';
-    
-    input.value = dateValue;
-    triggerEvents(input);
-    input.style.border = '3px solid #9C27B0';
-    console.log(`  📅 DATE: ${input.name || input.id} = ${dateValue}`);
-    
-    await sleep(30);
-  }
-}
-
-// CV Upload Agent
-async function uploadCVAgent(cvData, cvFileName, cvFileType) {
-  console.log('📎 CV Upload Agent: Starting...');
-  
-  // Convert base64 back to blob
-  const base64Response = await fetch(cvData);
-  const blob = await base64Response.blob();
-  const file = new File([blob], cvFileName, { type: cvFileType });
-  
-  const fileInputs = document.querySelectorAll('input[type="file"]:not([disabled])');
-  
-  for (const input of fileInputs) {
-    const name = (input.name || '').toLowerCase();
-    const label = getLabel(input).toLowerCase();
-    
-    const isCVField = ['cv', 'resume', 'curriculum', 'vitae', 'document', 'upload'].some(k => 
-      name.includes(k) || label.includes(k)
-    );
-    
-    if (isCVField || fileInputs.length === 1) {
-      const dataTransfer = new DataTransfer();
-      dataTransfer.items.add(file);
-      input.files = dataTransfer.files;
-      triggerEvents(input);
-      
-      input.style.border = '3px solid #FF9800';
-      input.style.background = '#FFE0B2';
-      console.log(`  ✅ CV UPLOADED: ${cvFileName} → ${name || label}`);
-      return true;
-    }
-  }
-  
-  console.log('  ⚠️ No CV upload field found');
-  return false;
-}
-
-// Extract browser autofill data
-async function extractBrowserData() {
+// Intelligent CV parsing
+function parseCVIntelligently(text) {
   const data = {};
+  const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 3);
   
-  // Look for common autofill attributes
-  const fields = document.querySelectorAll('input[autocomplete]');
+  // Extract emails (take most professional one)
+  const emails = text.match(CV_PATTERNS.email) || [];
+  if (emails.length > 0) {
+    const professional = emails.filter(e => !/(gmail|yahoo|hotmail|outlook|aol)\./i.test(e));
+    data.email = (professional[0] || emails[0]).toLowerCase();
+  }
+  
+  // Extract phone
+  const phones = [...text.matchAll(CV_PATTERNS.phone)];
+  if (phones.length > 0) data.phone = phones[0][0];
+  
+  // Extract URLs
+  const urls = text.match(CV_PATTERNS.url) || [];
+  urls.forEach(url => {
+    const lower = url.toLowerCase();
+    if (lower.includes('linkedin')) data.linkedin = url.replace(/^https?:\/\//, '');
+    else if (lower.includes('github') || lower.includes('gitlab') || lower.includes('portfolio')) {
+      data.portfolio = url.replace(/^https?:\/\//, '');
+    }
+  });
+  
+  // Extract name (first 15 lines, look for "John Doe" pattern)
+  for (let i = 0; i < Math.min(15, lines.length); i++) {
+    const line = lines[i];
+    const nameMatch = line.match(/^([A-Z][a-z]+)\s+([A-Z][a-z]+)$/) || 
+                     line.match(/^([A-Z][a-z]+),\s*([A-Z][a-z]+)$/);
+    if (nameMatch && !line.includes('@') && !line.includes('http') && line.length < 50) {
+      data.firstName = nameMatch[2] || nameMatch[1];
+      data.lastName = nameMatch[1] || nameMatch[2];
+      break;
+    }
+  }
+  
+  // Extract graduation year (most recent)
+  const years = text.match(CV_PATTERNS.year) || [];
+  const currentYear = new Date().getFullYear();
+  const validYears = years.map(y => parseInt(y)).filter(y => y >= 1980 && y <= currentYear);
+  if (validYears.length > 0) data.graduationYear = Math.max(...validYears).toString();
+  
+  // Extract skills section
+  const sections = ['skills', 'technologies', 'expertise', 'competencies', 'abilities'];
+  const skillsPattern = new RegExp(`(${sections.join('|')}):?\\s*([\\s\\S]*?)(?=\\n\\s*(education|experience|projects|employment|$))`, 'i');
+  const skillsMatch = text.match(skillsPattern);
+  if (skillsMatch && skillsMatch[2]) {
+    const skills = skillsMatch[2]
+      .split(/[,\n•·-]/)
+      .map(s => s.trim())
+      .filter(s => s.length > 1 && s.length < 40)
+      .slice(0, 8);
+    if (skills.length > 0) data.skills = skills.join(', ');
+  }
+  
+  // Clean up
+  Object.keys(data).forEach(key => {
+    if (!data[key] || data[key].length > 200) delete data[key];
+  });
+  
+  return data;
+}
+
+// Preview CV
+function previewCV() {
+  if (!currentCV) {
+    showStatus('❌ No CV to preview', 'warning');
+    return;
+  }
+  const newTab = window.open('', '_blank');
+  newTab.document.write(`
+    <html><head><title>CV Preview: ${currentCV.name}</title><style>
+      body { margin: 0; padding: 20px; background: #f5f5f5; }
+      embed { width: 100%; height: 90vh; border: none; }
+    </style></head><body>
+      <h2>Preview: ${currentCV.name}</h2>
+      <embed src="${currentCV.data}" type="${currentCV.type}">
+    </body></html>
+  `);
+}
+
+// Toggle manual form
+function toggleManualForm() {
+  const form = document.getElementById('manualForm');
+  const toggle = document.getElementById('toggleManual');
+  const isVisible = form.style.display === 'block';
+  
+  form.style.display = isVisible ? 'none' : 'block';
+  toggle.textContent = isVisible ? '✏️ Enter Data Manually' : '🔼 Hide Manual Form';
+  toggle.className = isVisible ? 'secondary' : 'danger';
+}
+
+// Save manual data
+async function saveManualData() {
+  const manualData = {};
+  const fields = ['firstName', 'lastName', 'email', 'phone', 'linkedin', 'portfolio', 'position', 'company'];
+  
   fields.forEach(field => {
-    const autocomplete = field.autocomplete;
-    const value = field.value.trim();
+    const value = document.getElementById(`manual${field.charAt(0).toUpperCase() + field.slice(1)}`).value.trim();
+    if (value) manualData[field] = value;
+  });
+  
+  if (Object.keys(manualData).length === 0) {
+    showStatus('❌ Please enter at least one field', 'warning');
+    return;
+  }
+  
+  userData = { ...userData, ...manualData };
+  hasManualData = true;
+  await saveProfile();
+  
+  document.getElementById('manualForm').style.display = 'none';
+  document.getElementById('toggleManual').textContent = '✏️ Enter Data Manually';
+  document.getElementById('toggleManual').className = 'secondary';
+  
+  updateDataSourcesIndicator();
+  showStatus(`✅ Saved ${Object.keys(manualData).length} fields!`, 'success');
+}
+
+// Extract browser autofill
+async function extractBrowserData() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  showProgress('Extracting browser data...', 30);
+  
+  try {
+    const response = await chrome.tabs.sendMessage(tab.id, { action: "extractAutofill" });
     
-    if (value && autocomplete) {
-      // Map autocomplete to our field names
-      const mapping = {
-        'given-name': 'firstName',
-        'family-name': 'lastName',
-        'email': 'email',
-        'tel': 'phone',
-        'street-address': 'address',
-        'address-level2': 'city',
-        'address-level1': 'state',
-        'postal-code': 'zip',
-        'country': 'country',
-        'organization': 'company',
-        'organization-title': 'position'
-      };
-      
-      if (mapping[autocomplete]) {
-        data[mapping[autocomplete]] = value;
+    if (response?.autofillData && Object.keys(response.autofillData).length > 0) {
+      userData = { ...userData, ...response.autofillData };
+      hasBrowserData = true;
+      await saveProfile();
+      updateDataSourcesIndicator();
+      showStatus(`✅ Extracted ${Object.keys(response.autofillData).length} fields!`, 'success');
+    } else {
+      showStatus('ℹ️ No browser autofill found', 'info');
+    }
+  } catch (error) {
+    showStatus('❌ Please refresh the page and try again', 'warning');
+  } finally {
+    hideProgress();
+  }
+}
+
+// Smart fill everything
+async function smartFillEverything() {
+  if (!userData.email && !userData.firstName) {
+    showStatus('❌ No profile data! Upload CV or enter manually.', 'error');
+    return;
+  }
+  
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  showProgress('Intelligently filling form...', 10);
+  
+  try {
+    const result = await chrome.storage.local.get(['cvFile', 'cvFileName', 'cvFileType']);
+    
+    // Detect form type
+    const formType = detectFormType(tab.url);
+    
+    const response = await chrome.tabs.sendMessage(tab.id, {
+      action: "smartFill",
+      data: userData,
+      fieldMappings: FIELD_ALIASES,
+      cvData: result.cvFile,
+      cvFileName: result.cvFileName,
+      cvFileType: result.cvFileType,
+      formType: formType,
+      intelligentMode: true
+    });
+    
+    if (response?.error) throw new Error(response.error);
+    
+    showProgress('Verifying fill...', 80);
+    
+    setTimeout(async () => {
+      const verify = await chrome.tabs.sendMessage(tab.id, { action: "verifyFill" });
+      if (verify) {
+        const percent = Math.round((verify.filled / verify.total) * 100);
+        showStatus(`🎯 ${percent}% Complete! (${verify.filled}/${verify.total} fields)`, 
+                   percent >= 80 ? 'success' : 'warning');
+        document.getElementById('statConfidence').textContent = `${percent}%`;
+        hideProgress();
       }
+    }, 2000);
+    
+  } catch (error) {
+    console.error('❌ Fill error:', error);
+    showStatus(`❌ Failed: ${error.message}. Refresh page and retry.`, 'error');
+    hideProgress();
+  }
+}
+
+// Detect form type from URL
+function detectFormType(url) {
+  const lower = url.toLowerCase();
+  if (lower.includes('job') || lower.includes('career') || lower.includes('apply') || lower.includes('workday')) {
+    return 'jobApplication';
+  }
+  if (lower.includes('contact') || lower.includes('support')) return 'contact';
+  if (lower.includes('register') || lower.includes('signup')) return 'registration';
+  return null;
+}
+
+// Verify fill
+async function verifyFill() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  showProgress('Verifying...', 50);
+  
+  try {
+    const response = await chrome.tabs.sendMessage(tab.id, { action: "verifyFill" });
+    if (response) {
+      const percent = Math.round((response.filled / response.total) * 100);
+      showStatus(`📊 ${percent}% Complete (${response.filled}/${response.total} fields)`, 
+                 percent >= 80 ? 'success' : percent >= 50 ? 'warning' : 'info');
+      document.getElementById('statConfidence').textContent = `${percent}%`;
+    }
+  } catch (error) {
+    showStatus('❌ Verification failed', 'error');
+  } finally {
+    hideProgress();
+  }
+}
+
+// Save profile
+async function saveProfile() {
+  try {
+    await chrome.storage.sync.set({ 
+      userData: userData,
+      dataSources: {
+        manual: hasManualData,
+        ocr: hasOCRData,
+        browser: hasBrowserData,
+        lastUpdated: new Date().toISOString()
+      }
+    });
+    updateDataSourcesIndicator();
+    showStatus('💾 Profile saved to cloud!', 'success');
+  } catch (error) {
+    showStatus('❌ Save failed', 'error');
+  }
+}
+
+// Reset all data
+async function resetAllData() {
+  if (!confirm('🚨 Delete ALL data (CV, profile, settings)?')) return;
+  
+  showProgress('Resetting...', 20);
+  
+  try {
+    await Promise.all([
+      chrome.storage.local.clear(),
+      chrome.storage.sync.clear()
+    ]);
+    
+    userData = {};
+    hasManualData = false;
+    hasOCRData = false;
+    hasBrowserData = false;
+    currentCV = null;
+    
+    // Reset UI
+    document.getElementById('cvStatus').textContent = 'No CV stored';
+    document.getElementById('extractedData').style.display = 'none';
+    updateDataSourcesIndicator();
+    
+    showStatus('🔄 Reset complete! Reloading...', 'info');
+    setTimeout(() => window.location.reload(), 1000);
+  } catch (error) {
+    showStatus('❌ Reset failed', 'error');
+    hideProgress();
+  }
+}
+
+// Display extracted data
+function displayExtractedData(data) {
+  if (!data || Object.keys(data).length === 0) return;
+  
+  const container = document.getElementById('extractedData');
+  container.innerHTML = '';
+  container.style.display = 'block';
+  
+  const title = document.createElement('div');
+  title.innerHTML = '<strong>📊 AI Extracted Data:</strong>';
+  title.style.marginBottom = '8px';
+  container.appendChild(title);
+  
+  Object.entries(data).forEach(([key, value]) => {
+    if (value && value.length < 100) {
+      const item = document.createElement('div');
+      item.className = 'data-item';
+      item.textContent = `${key}: ${value}`;
+      container.appendChild(item);
     }
   });
-  
-  return { autofillData: data };
 }
 
-// Get label for field
-function getLabel(field) {
-  // Try multiple methods to find label
-  if (field.labels && field.labels.length > 0) {
-    return field.labels[0].textContent.trim();
-  }
+// Update status indicator
+function updateDataSourcesIndicator() {
+  const sources = [];
+  if (hasManualData) sources.push('Manual');
+  if (hasOCRData) sources.push('CV AI');
+  if (hasBrowserData) sources.push('Browser');
   
-  // Check for aria-labelledby
-  if (field.getAttribute('aria-labelledby')) {
-    const labelId = field.getAttribute('aria-labelledby');
-    const labelElement = document.getElementById(labelId);
-    if (labelElement) return labelElement.textContent.trim();
-  }
+  const indicator = document.getElementById('dataSources');
+  const icon = document.getElementById('statusIcon');
+  const text = document.getElementById('statusText');
   
-  // Check for associated label
-  if (field.id) {
-    const label = document.querySelector(`label[for="${field.id}"]`);
-    if (label) return label.textContent.trim();
-  }
-  
-  // Check parent text
-  let parent = field.parentElement;
-  for (let i = 0; i < 3 && parent; i++) {
-    const text = parent.textContent.trim();
-    if (text.length > 2 && text.length < 100) {
-      return text;
-    }
-    parent = parent.parentElement;
-  }
-  
-  return '';
-}
-
-// Trigger all events
-function triggerEvents(element) {
-  const events = ['input', 'change', 'blur', 'keyup', 'keydown', 'focus'];
-  events.forEach(eventType => {
-    const event = new Event(eventType, { bubbles: true, cancelable: true });
-    element.dispatchEvent(event);
-  });
-  
-  // Trigger React/Angular specific events if present
-  if (element._valueTracker) {
-    element._valueTracker.setValue('');
+  if (sources.length > 0) {
+    icon.textContent = '✅';
+    text.textContent = `Ready: ${sources.join(' + ')} (${Object.keys(userData).length} fields)`;
+    indicator.className = 'data-sources ready';
+    updateStats(Object.keys(userData).length, calculateConfidence());
+  } else {
+    icon.textContent = '❌';
+    text.textContent = 'No data loaded. Upload CV or enter manually.';
+    indicator.className = 'data-sources empty';
   }
 }
 
-// Sleep helper
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+// Calculate confidence score
+function calculateConfidence() {
+  const requiredFields = ['firstName', 'lastName', 'email'];
+  const hasRequired = requiredFields.every(field => userData[field]);
+  return hasRequired ? Math.min(95, 60 + Object.keys(userData).length * 2) : Math.min(60, Object.keys(userData).length * 5);
 }
 
-// Verify all fields
-function verifyAllFields() {
-  const inputs = document.querySelectorAll('input, textarea, select');
-  let filled = 0, total = 0;
-  
-  inputs.forEach(input => {
-    if (input.offsetParent === null) return;
-    total++;
-    
-    const isFilled = input.type === 'radio' || input.type === 'checkbox' 
-      ? input.checked 
-      : (input.value && input.value.trim().length > 0);
-    
-    if (isFilled) filled++;
-    
-    // Visual feedback
-    if (input.type !== 'radio' && input.type !== 'checkbox' && input.type !== 'file') {
-      input.style.border = isFilled ? '3px solid #4CAF50' : '3px solid #f44336';
-    }
-  });
-  
-  console.log(`📊 VERIFICATION: ${filled}/${total} (${Math.round(filled/total*100)}%)`);
-  
-  // Show summary
-  const summary = `Filled: ${filled}/${total} (${Math.round(filled/total*100)}%)`;
-  showVisualSummary(summary, filled, total);
-  
-  return { filled, total };
+// Update statistics
+function updateStats(fields, confidence) {
+  document.getElementById('stats').style.display = 'flex';
+  document.getElementById('statFields').textContent = fields;
+  document.getElementById('statConfidence').textContent = `${confidence}%`;
+  document.getElementById('statForms').textContent = 'All';
 }
 
-// Show visual summary
-function showVisualSummary(summary, filled, total) {
-  // Remove old summary if exists
-  const oldSummary = document.getElementById('autofill-summary');
-  if (oldSummary) oldSummary.remove();
+// Show progress bar
+function showProgress(message, percent) {
+  const status = document.getElementById('status');
+  const progressBar = document.getElementById('progressBar');
+  const progressFill = document.getElementById('progressFill');
   
-  // Create new summary
-  const summaryDiv = document.createElement('div');
-  summaryDiv.id = 'autofill-summary';
-  summaryDiv.style.cssText = `
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background: ${filled/total > 0.8 ? '#4CAF50' : filled/total > 0.5 ? '#FF9800' : '#f44336'};
-    color: white;
-    padding: 15px;
-    border-radius: 8px;
-    z-index: 999999;
-    font-family: system-ui;
-    font-size: 14px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    animation: slideIn 0.3s ease;
-  `;
+  status.textContent = message;
+  status.className = 'status info';
+  status.style.display = 'block';
   
-  summaryDiv.innerHTML = `
-    <strong>🎯 AutoFill Complete!</strong><br>
-    ${summary}<br>
-    <small>Click to dismiss</small>
-  `;
-  
-  summaryDiv.addEventListener('click', () => summaryDiv.remove());
-  document.body.appendChild(summaryDiv);
-  
-  // Auto-remove after 5 seconds
+  progressBar.classList.add('active');
+  progressFill.style.width = `${percent}%`;
+}
+
+// Hide progress bar
+function hideProgress() {
   setTimeout(() => {
-    if (summaryDiv.parentElement) {
-      summaryDiv.remove();
-    }
-  }, 5000);
+    document.getElementById('progressBar').classList.remove('active');
+    document.getElementById('status').style.display = 'none';
+  }, 1000);
 }
 
-// Add slideIn animation
-const style = document.createElement('style');
-style.textContent = `
-  @keyframes slideIn {
-    from { opacity: 0; transform: translateY(-20px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-`;
-document.head.appendChild(style);
+// Show status message
+function showStatus(message, type) {
+  const status = document.getElementById('status');
+  status.textContent = message;
+  status.className = `status ${type}`;
+  status.style.display = 'block';
+  
+  const delay = type === 'error' ? 7000 : type === 'success' ? 4000 : 5000;
+  setTimeout(() => status.style.display = 'none', delay);
+}
+
+// Check and show shortcut tip
+function checkShortcut() {
+  chrome.commands.getAll((commands) => {
+    const shortcut = commands.find(c => c.name === 'smart-fill')?.shortcut;
+    if (shortcut) {
+      console.log(`⌨️ Shortcut registered: ${shortcut}`);
+    }
+  });
+}

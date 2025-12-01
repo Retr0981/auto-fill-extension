@@ -1,39 +1,35 @@
 {
   "manifest_version": 3,
-  "name": "🎯 AutoFill Pro - Smart Form Filler",
+  "name": "AutoFill Pro - AI Form Filler",
   "version": "5.0",
-  "description": "Intelligently fills forms & auto-uploads CVs. Handles text, dropdowns, checkboxes & radios.",
-  
-  "permissions": [
-    "storage",
-    "activeTab",
-    "scripting",
-    "unlimitedStorage",
-    "clipboardRead"
-  ],
-  
-  "host_permissions": [
-    "<all_urls>"
-  ],
-  
+  "description": "Intelligently fill any form with CV data extraction and smart matching",
+  "permissions": ["storage", "tabs", "scripting", "notifications", "contextMenus"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [{
+    "matches": ["<all_urls>"],
+    "js": ["config.js", "content.js"],
+    "run_at": "document_end",
+    "world": "MAIN"
+  }],
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
-      "48": "icons/icon48.png"
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
     }
   },
-  
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": ["config.js", "content.js"],
-      "run_at": "document_end",
-      "all_frames": true,
-      "match_about_blank": true
+  "commands": {
+    "smart-fill": {
+      "suggested_key": "Ctrl+Shift+F",
+      "description": "Smart fill current form"
     }
-  ],
-  
-  "background": {
-    "service_worker": "background.js"
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
   }
 }
