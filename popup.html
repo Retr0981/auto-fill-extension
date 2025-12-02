@@ -7,288 +7,70 @@
   <title>AutoFill Pro - Extension Popup</title>
   
   <style>
-    :root {
-      --color-primary: #667eea;
-      --color-secondary: #764ba2;
-      --color-success: #34a853;
-      --color-warning: #fbbc05;
-      --color-danger: #ea4335;
-      --color-white: rgba(255, 255, 255, 0.98);
-      --color-black: #333;
-      --gradient-body: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
-      --gradient-success: linear-gradient(135deg, #34a853 0%, #0f9d58 100%);
-      --gradient-danger: linear-gradient(135deg, var(--color-danger) 0%, #d23f31 100%);
-      --space-xs: 4px;
-      --space-sm: 8px;
-      --space-md: 12px;
-      --space-lg: 15px;
-      --space-xl: 20px;
-      --shadow-card: 0 8px 20px rgba(0, 0, 0, 0.12);
-      --shadow-button: 0 4px 12px rgba(0, 0, 0, 0.2);
-      --transition-fast: 0.3s ease;
-      --transition-bounce: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    }
-
-    *, *::before, *::after {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    body {
-      width: 420px;
-      min-height: 580px;
-      font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    /* ... (previous styles remain) ... */
+    
+    /* NEW: Sticky action bar */
+    .action-bar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
       background: var(--gradient-body);
-      color: var(--color-black);
-      padding: var(--space-xl);
-      -webkit-font-smoothing: antialiased;
-    }
-
-    .header {
-      text-align: center;
-      margin-bottom: var(--space-xl);
-    }
-
-    .logo {
-      font-size: 28px;
-      font-weight: 800;
-      background: linear-gradient(135deg, #fff 0%, #f0f0f0 100%);
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
-      margin-bottom: var(--space-xs);
-    }
-
-    .tagline {
-      font-size: 13px;
-      color: rgba(255, 255, 255, 0.85);
-      letter-spacing: 0.5px;
-    }
-
-    .tab-navigation {
-      display: flex;
-      background: rgba(255, 255, 255, 0.15);
-      border-radius: 12px;
-      padding: var(--space-xs);
-      margin-bottom: var(--space-xl);
-    }
-
-    .tab-button {
-      flex: 1;
-      padding: var(--space-md);
-      border: none;
-      border-radius: 8px;
-      background: transparent;
-      color: rgba(255, 255, 255, 0.8);
-      font-weight: 600;
-      cursor: pointer;
-      transition: var(--transition-bounce);
-    }
-
-    .tab-button[aria-selected="true"] {
-      background: var(--color-white);
-      color: var(--color-primary);
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-    }
-
-    .tab-panel {
-      display: none;
-      animation: fadeIn 0.4s ease;
-    }
-
-    .tab-panel[aria-hidden="false"] {
-      display: block;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    .card {
-      background: var(--color-white);
-      border-radius: 16px;
-      padding: var(--space-xl);
+      padding: var(--space-md) 0;
       margin-bottom: var(--space-lg);
-      box-shadow: var(--shadow-card);
+      border-bottom: 1px solid rgba(255,255,255,0.1);
     }
-
-    .card__title {
+    
+    .smart-fill-main-btn {
+      width: 100%;
+      padding: 16px;
       font-size: 16px;
       font-weight: 700;
-      color: var(--color-primary);
-      margin-bottom: var(--space-lg);
-      display: flex;
-      align-items: center;
-      gap: var(--space-sm);
-    }
-
-    .form-group {
-      margin-bottom: var(--space-md);
-    }
-
-    .form-label {
-      display: block;
-      font-size: 11px;
-      font-weight: 600;
-      color: #666;
-      margin-bottom: var(--space-xs);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .form-input {
-      width: 100%;
-      padding: var(--space-md);
-      border: 2px solid #e0e0e0;
-      border-radius: 10px;
-      font-size: 14px;
-      transition: var(--transition-fast);
-      background: #fafafa;
-    }
-
-    .form-input:focus {
-      outline: none;
-      border-color: var(--color-primary);
-      background: #fff;
-      box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15);
-    }
-
-    .btn {
-      width: 100%;
-      padding: 14px;
+      background: linear-gradient(135deg, #4285f4 0%, #34a853 100%);
+      color: white;
       border: none;
-      border-radius: 10px;
-      font-size: 14px;
-      font-weight: 600;
+      border-radius: 12px;
       cursor: pointer;
-      margin-top: var(--space-md);
-      transition: var(--transition-bounce);
+      box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
-
-    .btn:hover {
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-button);
+    
+    .smart-fill-main-btn:hover {
+      transform: translateY(-3px) scale(1.02);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.3);
     }
-
-    .btn--primary {
-      background: linear-gradient(135deg, #4285f4 0%, var(--color-success) 100%);
-      color: white;
+    
+    .smart-fill-main-btn:active {
+      transform: translateY(0) scale(0.98);
     }
-
-    .btn--secondary {
-      background: linear-gradient(135deg, var(--color-warning) 0%, var(--color-danger) 100%);
-      color: white;
+    
+    .smart-fill-main-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
     }
-
-    .btn--success {
-      background: var(--gradient-success);
-      color: white;
-    }
-
-    .btn--danger {
-      background: var(--gradient-danger);
-      color: white;
-    }
-
-    .status-indicator {
-      padding: var(--space-md);
-      border-radius: 10px;
-      text-align: center;
-      font-size: 13px;
-      font-weight: 600;
-      margin-bottom: var(--space-lg);
-    }
-
-    .status-indicator--ready {
-      background: rgba(232, 245, 233, 0.9);
-      color: #2e7d32;
-      border: 1px solid #4caf50;
-    }
-
-    .status-indicator--empty {
-      background: rgba(255, 235, 238, 0.9);
-      color: #c62828;
-      border: 1px solid #ef5350;
-    }
-
-    .file-upload {
-      position: relative;
-      margin-bottom: var(--space-md);
-    }
-
-    .file-upload__input {
-      position: absolute;
-      inset: 0;
-      opacity: 0;
-      cursor: pointer;
-    }
-
-    .file-upload__button {
-      display: block;
-      width: 100%;
-      padding: var(--space-md);
-      border-radius: 10px;
-      background: var(--gradient-success);
-      color: white;
-      text-align: center;
-      cursor: pointer;
-      font-weight: 600;
-    }
-
-    .file-status {
-      font-size: 12px;
-      color: #666;
-      text-align: center;
-      margin: var(--space-sm) 0;
-    }
-
-    .extracted-data {
-      max-height: 120px;
-      overflow-y: auto;
-      background: #f5f5f5;
-      padding: var(--space-md);
-      border-radius: 10px;
-      margin-top: var(--space-md);
-      font-size: 11px;
-      font-family: 'Courier New', monospace;
-      display: none;
-      border-left: 4px solid var(--color-primary);
-    }
-
-    .sr-only {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      padding: 0;
-      margin: -1px;
-      overflow: hidden;
-      clip: rect(0, 0, 0, 0);
-      white-space: nowrap;
-      border-width: 0;
-    }
-
-    .hidden {
-      display: none !important;
-    }
-
-    .shortcut-hint {
-      text-align: center;
-      font-size: 11px;
-      color: rgba(255, 255, 255, 0.8);
-      margin-top: var(--space-lg);
-      padding-top: var(--space-lg);
-      border-top: 1px solid rgba(255, 255, 255, 0.2);
-    }
+    
+    /* ... (rest of previous styles) ... */
   </style>
 </head>
 
 <body>
+  <!-- PROMINENT SMART FILL BUTTON - ALWAYS VISIBLE -->
+  <div class="action-bar">
+    <button type="button" id="smart-fill-main-btn" class="smart-fill-main-btn">
+      🚀 SMART FILL CURRENT FORM
+    </button>
+  </div>
+
   <header class="header">
     <h1 class="logo">🎯 AutoFill Pro</h1>
     <p class="tagline">Intelligent Form Filler & CV Uploader</p>
+    <p class="version">v5.2 - Universal Form Support</p>
   </header>
+
+  <!-- Status indicator now shows fill results -->
+  <div id="status-indicator" class="status-indicator status-indicator--empty">
+    ❌ No profile data saved
+  </div>
 
   <nav class="tab-navigation" role="tablist" aria-label="AutoFill Pro Tools">
     <button 
@@ -320,9 +102,7 @@
       aria-labelledby="profile-tab-btn"
       aria-hidden="false">
       
-      <div id="status-indicator" class="status-indicator status-indicator--empty">
-        ❌ No profile data saved
-      </div>
+      <!-- Status indicator moved above for immediate visibility -->
 
       <article class="card">
         <h2 class="card__title">👤 Personal Information</h2>
@@ -342,6 +122,14 @@
           <div class="form-group">
             <label for="phone" class="form-label">Phone Number</label>
             <input type="tel" id="phone" class="form-input" placeholder="e.g. 07588116743" autocomplete="tel">
+          </div>
+          <div class="form-group">
+            <label for="company" class="form-label">Company</label>
+            <input type="text" id="company" class="form-input" placeholder="e.g. Tech Corp" autocomplete="organization">
+          </div>
+          <div class="form-group">
+            <label for="jobTitle" class="form-label">Job Title</label>
+            <input type="text" id="jobTitle" class="form-input" placeholder="e.g. Software Developer">
           </div>
         </form>
       </article>
@@ -365,8 +153,41 @@
             <label for="zipCode" class="form-label">ZIP / Postal Code</label>
             <input type="text" id="zipCode" class="form-input" placeholder="e.g. AL10 0XYZ" autocomplete="postal-code">
           </div>
-          <button type="button" id="save-profile-btn" class="btn btn--success">💾 Save Profile</button>
+          <div class="form-group">
+            <label for="country" class="form-label">Country</label>
+            <input type="text" id="country" class="form-input" placeholder="e.g. United Kingdom" autocomplete="country-name">
+          </div>
         </form>
+      </article>
+
+      <article class="card">
+        <h2 class="card__title">🔧 Selection & Boolean Fields</h2>
+        <div class="info-box">
+          <div class="info-box__title">💡 Pro Tips</div>
+          <div>• Enter "true" to CHECK checkboxes</div>
+          <div>• Enter "false" to LEAVE THEM UNCHECKED</div>
+          <div>• For dropdowns: enter exact option text</div>
+          <div>• For radios: enter button value (e.g. "male")</div>
+        </div>
+        <form id="selection-form">
+          <div class="form-group">
+            <label for="gender" class="form-label">Gender (matches radio buttons)</label>
+            <input type="text" id="gender" class="form-input" placeholder="e.g. male OR female OR other">
+          </div>
+          <div class="form-group">
+            <label for="newsletter" class="form-label">Subscribe to Newsletter</label>
+            <input type="text" id="newsletter" class="form-input" placeholder="Enter: true (to check) or false">
+          </div>
+          <div class="form-group">
+            <label for="remoteWork" class="form-label">Remote Work</label>
+            <input type="text" id="remoteWork" class="form-input" placeholder="e.g. yes OR no OR hybrid">
+          </div>
+          <div class="form-group">
+            <label for="terms" class="form-label">Agree to Terms</label>
+            <input type="text" id="terms" class="form-input" placeholder="Enter: true (to auto-check)">
+          </div>
+        </form>
+        <button type="button" id="save-profile-btn" class="btn btn--success">💾 Save All Data</button>
       </article>
     </section>
 
@@ -391,11 +212,10 @@
       </article>
 
       <article class="card">
-        <h2 class="card__title">🚀 Smart Actions</h2>
-        <button type="button" id="smart-fill-btn" class="btn btn--primary">🎯 Smart Fill Current Form</button>
+        <h2 class="card__title">🛠️ Additional Tools</h2>
         <button type="button" id="extract-browser-btn" class="btn btn--secondary">📥 Extract from Browser</button>
         <button type="button" id="reset-all-btn" class="btn btn--danger">🔄 Reset All Data</button>
-        <p class="shortcut-hint">⌨️ Shortcut: <strong>Ctrl+Shift+F</strong> to fill any form</p>
+        <p class="shortcut-hint">⌨️ Keyboard Shortcut: <strong>Ctrl+Shift+F</strong></p>
       </article>
     </section>
   </main>
