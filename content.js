@@ -31,12 +31,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log('📨 Content script received:', request.action);
   
   const actions = {
-    'smartFill': () => handleSmartFill(request.data, sendResponse),
+    'smartFill': () => handleSmartFill(request.data, request.settings, sendResponse),
     'fillForm': () => handleFillForm(request.data, sendResponse),
     'extractFromBrowser': () => handleExtractData(sendResponse),
     'ping': () => sendResponse({ status: 'ready', version: '5.2', timestamp: Date.now() }),
     'detectForms': () => handleDetectForms(sendResponse),
-    'fillField': () => handleSingleField(request.field, request.value, sendResponse)
+    'fillField': () => handleSingleField(request.field, request.value, sendResponse),
+    'autoSubmit': () => handleAutoSubmit(sendResponse)
   };
   
   if (actions[request.action]) {
@@ -49,7 +50,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 // Smart fill handler
-async function handleSmartFill(profileData, sendResponse) {
+async function handleSmartFill(profileData, settings, sendResponse) {
   if (state.isFilling) {
     sendResponse({ error: 'Already filling forms', filled: 0 });
     return;
@@ -59,6 +60,12 @@ async function handleSmartFill(profileData, sendResponse) {
   
   try {
     console.log('🚀 Starting smart fill with profile:', profileData);
+    
+    // Update config with settings
+    if (settings) {
+      CONFIG.highlightFilled = settings.highlightFields !== false;
+      CONFIG.showNotifications = settings.showNotifications !== false;
+    }
     
     // Step 1: Detect all forms on page
     const forms = detectAllForms();
@@ -730,6 +737,243 @@ function showFillNotification(filledCount, formCount) {
   }, CONFIG.notificationDuration);
 }
 
+// Handle auto-submit
+function handleAutoSubmit(sendResponse) {
+  console.log('⚡ Auto-submitting form');
+  
+  try {
+    // Find all submit buttons
+    const submitButtons = document.querySelectorAll(`
+      input[type="submit"],
+      button[type="submit"],
+      button:not([type]):not([type="button"]):not([type="reset"]),
+      [type="submit"],
+      .submit-btn,
+      .submit-button,
+      [data-submit],
+      [onclick*="submit"],
+      [onclick*="Submit"]
+    `);
+    
+    console.log(`Found ${submitButtons.length} potential submit buttons`);
+    
+    // Try to click the most likely submit button
+    let submitted = false;
+    
+    for (const button of submitButtons) {
+      if (isVisible(button) && !button.disabled) {
+        try {
+          console.log(`Clicking submit button: ${button.textContent || button.value || button.className}`);
+          button.click();
+          submitted = true;
+          break;
+        } catch (error) {
+          console.warn('Failed to click button:', error);
+        }
+      }
+    }
+    
+    // If no button found, try form submit
+    if (!submitted) {
+      const forms = document.querySelectorAll('form');
+      for (const form of forms) {
+        try {
+          console.log('Submitting form via submit() method');
+          form.submit();
+          submitted = true;
+          break;
+        } catch (error) {
+          console.warn('Failed to submit form:', error);
+        }
+      }
+    }
+    
+    const result = { submitted, buttonCount: submitButtons.length };
+    sendResponse(result);
+    
+  } catch (error) {
+    console.error('❌ Auto-submit error:', error);
+    sendResponse({ submitted: false, error: error.message });
+  }
+}
+
+// Detect forms on page
+function handleDetectForms(sendResponse) {
+  try {
+    const forms = document.querySelectorAll(`
+      form,
+      [role="form"],
+      [data-form],
+      .form,
+      .application-form,
+      .contact-form,
+      .registration-form,
+      .signup-form,
+      .login-form,
+      .checkout-form,
+      .survey-form,
+      .questionnaire
+    `);
+    
+    const fields = document.querySelectorAll(`
+      input:not([type="hidden"]),
+      textarea,
+      select,
+      [contenteditable="true"]
+    `);
+    
+    const result = {
+      formsCount: forms.length,
+      fieldsCount: fields.length,
+      forms: Array.from(forms).map(form => ({
+        id: form.id || 'no-id',
+        className: form.className,
+        fields: form.querySelectorAll('input, textarea, select').length
+      }))
+    };
+    
+    sendResponse(result);
+    
+  } catch (error) {
+    console.error('❌ Form detection error:', error);
+    sendResponse({ formsCount: 0, fieldsCount: 0, error: error.message });
+  }
+}
+
+// Extract data from browser
+function handleExtractData(sendResponse) {
+  console.log('🔍 Extracting data from browser');
+  
+  const extracted = {};
+  const inputs = document.querySelectorAll('input, textarea, select');
+  
+  inputs.forEach(input => {
+    if (!isFieldFillable(input) || !input.value?.trim()) return;
+    
+    const value = input.value.trim();
+    if (value.length < 2 || value.length > 150) return;
+    
+    const context = getFieldContext(input).toLowerCase();
+    
+    // Check for common field patterns
+    const patterns = {
+      email: /email|e.?mail|mail.?address/i,
+      phone: /phone|mobile|tel|cell|contact.?number/i,
+      firstName: /first.?name|fname|given.?name|forename/i,
+      lastName: /last.?name|lname|surname|family.?name/i,
+      address: /address|street|location|addr/i,
+      city: /city|town|locality/i,
+      state: /state|province|region/i,
+      zipCode: /zip|postal.?code|postcode/i,
+      country: /country|nation/i,
+      company: /company|organization|employer|firm/i,
+      jobTitle: /title|position|role|occupation|designation/i
+    };
+    
+    for (const [key, pattern] of Object.entries(patterns)) {
+      if (pattern.test(context)) {
+        extracted[key] = value;
+        break;
+      }
+    }
+  });
+  
+  console.log('📤 Extracted data:', extracted);
+  sendResponse({ data: extracted });
+}
+
+// Check if element is visible
+function isVisible(element) {
+  try {
+    if (!element) return false;
+    if (element.disabled) return false;
+    if (element.hidden) return false;
+    if (element.getAttribute('type') === 'hidden') return false;
+    if (element.style.display === 'none') return false;
+    if (element.style.visibility === 'hidden') return false;
+    if (element.style.opacity === '0') return false;
+    if (element.offsetWidth === 0 && element.offsetHeight === 0) return false;
+    
+    const style = window.getComputedStyle(element);
+    if (style.display === 'none') return false;
+    if (style.visibility === 'hidden') return false;
+    if (style.opacity === '0') return false;
+    
+    // Check if element is within viewport
+    const rect = element.getBoundingClientRect();
+    if (rect.width === 0 && rect.height === 0) return false;
+    
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+// Handle fill form (legacy function)
+function handleFillForm(profileData, sendResponse) {
+  try {
+    const result = fillAllForms(profileData);
+    sendResponse(result);
+  } catch (error) {
+    console.error('❌ Fill form error:', error);
+    sendResponse({ error: error.message, filled: 0, total: 0 });
+  }
+}
+
+// Legacy fill all forms function
+function fillAllForms(profileData) {
+  const startTime = performance.now();
+  let filled = 0;
+  let total = 0;
+  
+  const forms = detectAllForms();
+  
+  forms.forEach(form => {
+    const fields = form.querySelectorAll('input, textarea, select');
+    total += fields.length;
+    
+    fields.forEach(field => {
+      if (isFieldFillable(field)) {
+        const fieldInfo = analyzeField(field);
+        const value = findBestMatch(fieldInfo, profileData);
+        
+        if (value !== null) {
+          const success = fillFieldWithValue(field, value, fieldInfo);
+          if (success) {
+            filled++;
+          }
+        }
+      }
+    });
+  });
+  
+  const duration = (performance.now() - startTime).toFixed(2);
+  
+  return {
+    filled: filled,
+    total: total,
+    forms: forms.length,
+    duration: duration,
+    success: filled > 0
+  };
+}
+
+// Handle single field fill
+function handleSingleField(fieldInfo, value, sendResponse) {
+  try {
+    const field = document.querySelector(fieldInfo.selector);
+    if (!field) {
+      sendResponse({ error: 'Field not found', success: false });
+      return;
+    }
+    
+    const success = fillFieldWithValue(field, value, fieldInfo);
+    sendResponse({ success: success, value: value });
+  } catch (error) {
+    sendResponse({ error: error.message, success: false });
+  }
+}
+
 // Add CSS for animations
 const style = document.createElement('style');
 style.textContent = `
@@ -759,3 +1003,11 @@ document.head.appendChild(style);
 
 // Initialize
 console.log('✅ AutoFill Pro content script initialized');
+
+// Export functions for debugging
+window.AutoFillPro = {
+  fillForm: handleSmartFill,
+  detectForms: handleDetectForms,
+  extractData: handleExtractData,
+  autoSubmit: handleAutoSubmit
+};
