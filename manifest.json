@@ -1,29 +1,49 @@
 {
   "manifest_version": 3,
   "name": "AutoFill Pro",
-  "version": "5.0",
-  "description": "Beautiful AI form filler with profile & CV tools",
-  "permissions": ["storage", "tabs", "scripting", "contextMenus", "activeTab"],
+  "version": "5.1",
+  "description": "Intelligent AI form filler that handles all field types - text, dropdowns, radios, checkboxes & CV uploads",
+  
+  "permissions": [
+    "storage",
+    "tabs",
+    "scripting",
+    "contextMenus",
+    "activeTab",
+    "notifications"
+  ],
+  
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
+  
   "content_scripts": [{
     "matches": ["<all_urls>"],
     "js": ["config.js", "content.js"],
     "run_at": "document_end",
-    "world": "MAIN"
+    "world": "MAIN",
+    "match_about_blank": true
   }],
+  
   "action": {
     "default_popup": "popup.html",
     "default_icon": "icon48.png"
   },
+  
   "commands": {
     "smart-fill": {
       "suggested_key": "Ctrl+Shift+F",
-      "description": "Fill current form"
+      "description": "Fill current form with saved profile & CV data"
     }
   },
+  
   "icons": {
     "48": "icon48.png"
-  }
+  },
+  
+  "web_accessible_resources": [{
+    "resources": ["config.js"],
+    "matches": ["<all_urls>"]
+  }]
 }

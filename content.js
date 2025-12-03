@@ -1,424 +1,214 @@
-// content.js - Universal Form Filling Engine
-console.log('🎯 AutoFill Pro: Content script injected successfully');
+// Add this to content.js for better form detection:
 
-// Emergency fallback if config fails to load
-if (typeof FIELD_ALIASES === 'undefined') {
-  console.error('❌ CRITICAL: FIELD_ALIASES not loaded! Check manifest script order.');
-  const FIELD_ALIASES = {};
-}
+// Enhanced form selector patterns
+const FORM_PATTERNS = {
+  // Common form patterns
+  standard: /form|application|registration|signup|sign-up|signin|login|checkout|payment|contact|lead|survey|questionnaire/i,
+  job: /job|application|candidate|resume|career|employment|work|position|role|vacancy/i,
+  contact: /contact|message|inquiry|query|feedback|support|help|request/i,
+  account: /account|profile|user|member|registration|signup|createaccount/i,
+  checkout: /checkout|cart|basket|order|payment|shipping|billing|delivery/i
+};
 
-// Message listener with comprehensive error handling
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log('📨 Message received:', request.action);
+// Enhanced field detection function
+function detectFormType() {
+  const pageText = document.body.innerText.toLowerCase();
+  const url = window.location.href.toLowerCase();
   
-  try {
-    switch (request.action) {
-      case 'fillForm':
-        const result = fillAllFields(request.data || {});
-        sendResponse(result);
-        break;
-        
-      case 'extractFromBrowser':
-        sendResponse({ data: extractFormData() });
-        break;
-        
-      case 'ping':
-        sendResponse({ status: 'ready', timestamp: Date.now() });
-        break;
-        
-      default:
-        console.warn('⚠️ Unknown action:', request.action);
-        sendResponse({ error: 'Unknown action', filled: 0 });
+  for (const [type, pattern] of Object.entries(FORM_PATTERNS)) {
+    if (pattern.test(pageText) || pattern.test(url)) {
+      console.log(`📋 Detected ${type} form`);
+      return type;
     }
-  } catch (error) {
-    console.error('❌ Message handler error:', error);
-    sendResponse({ error: error.message, filled: 0, total: 0 });
   }
   
-  return true; // Keep channel open for async
-});
+  // Check for form elements
+  const formCount = document.querySelectorAll('form, [role="form"]').length;
+  if (formCount > 0) {
+    console.log(`📋 Found ${formCount} form(s)`);
+    return 'generic';
+  }
+  
+  return 'unknown';
+}
 
-/**
- * Main form filling orchestrator
- */
-function fillAllFields(profileData) {
-  console.log('🔍 Starting intelligent form fill...');
-  console.log('📦 Profile data:', profileData);
+// Enhanced smart fill function
+async function smartFillAllForms(profileData) {
+  console.log('🚀 Starting comprehensive form fill...');
   
-  const startTime = performance.now();
+  const results = {
+    totalFilled: 0,
+    formsProcessed: 0,
+    fieldsProcessed: 0,
+    details: []
+  };
   
-  // Select ALL form controls (including radios and checkboxes)
-  const selectors = `
-    input:not([type=button]):not([type=submit]):not([type=reset]):not([type=file]):not([type=hidden]):not([disabled]),
-    textarea:not([disabled]),
-    select:not([disabled])
-  `;
+  // Strategy 1: Fill visible forms
+  const forms = document.querySelectorAll('form, [role="form"]');
+  console.log(`📋 Found ${forms.length} forms`);
   
-  const fields = document.querySelectorAll(selectors);
-  console.log(`📋 Found ${fields.length} potential fields`);
+  for (const form of forms) {
+    const formResult = await fillSingleForm(form, profileData);
+    results.totalFilled += formResult.filled;
+    results.formsProcessed++;
+    results.details.push(formResult);
+  }
   
-  let filledCount = 0;
-  let skippedCount = 0;
+  // Strategy 2: Fill standalone fields not in forms
+  if (results.totalFilled === 0) {
+    const standaloneResult = fillStandaloneFields(profileData);
+    results.totalFilled = standaloneResult.filled;
+    results.details.push(standaloneResult);
+  }
   
-  fields.forEach(field => {
-    if (!isVisible(field)) {
-      skippedCount++;
-      return;
-    }
-    
-    const fieldType = field.type || field.tagName.toLowerCase();
-    const identifier = getFieldIdentifier(field);
-    
-    // Skip pre-filled text fields but not checkboxes/radios
-    if (fieldType !== 'checkbox' && fieldType !== 'radio' && field.value?.trim()) {
-      console.log(`⏭️ Skipping pre-filled: ${identifier}`);
-      skippedCount++;
-      return;
-    }
-    
-    // Find matching profile value
-    const matchedValue = findMatch(field, profileData);
-    
-    if (matchedValue !== null && matchedValue !== undefined) {
-      try {
-        setFieldValue(field, matchedValue);
-        filledCount++;
-        console.log(`✅ Filled: ${identifier} = ${matchedValue}`);
-      } catch (error) {
-        console.error(`❌ Failed to fill ${identifier}:`, error);
+  // Strategy 3: Fill iframe forms
+  const iframeResults = await fillIframeForms(profileData);
+  results.totalFilled += iframeResults.totalFilled;
+  
+  // Show results
+  showResultsNotification(results);
+  
+  return results;
+}
+
+// Fill single form comprehensively
+function fillSingleForm(form, profileData) {
+  const result = {
+    filled: 0,
+    total: 0,
+    fields: []
+  };
+  
+  // Get all possible input elements
+  const fieldTypes = [
+    'input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"])',
+    'textarea',
+    'select',
+    '[contenteditable="true"]',
+    '.form-control',
+    '.form-input',
+    '.input-field',
+    '[role="textbox"]',
+    '[role="combobox"]'
+  ];
+  
+  const selectors = fieldTypes.join(', ');
+  const fields = form.querySelectorAll(selectors);
+  result.total = fields.length;
+  
+  console.log(`📝 Processing ${fields.length} fields in form`);
+  
+  fields.forEach((field, index) => {
+    try {
+      if (!isVisible(field) || field.disabled) {
+        return;
       }
+      
+      const filled = fillField(field, profileData);
+      if (filled) {
+        result.filled++;
+        result.fields.push({
+          index,
+          name: field.name || field.id || `field-${index}`,
+          type: field.type || field.tagName,
+          value: filled
+        });
+      }
+    } catch (error) {
+      console.warn(`⚠️ Error filling field ${index}:`, error);
     }
   });
   
-  // Auto-check consent boxes as fallback
-  autoCheckConsentBoxes();
+  // Auto-submit forms if configured
+  if (result.filled > 0 && shouldAutoSubmit(form)) {
+    setTimeout(() => autoSubmitForm(form), 1000);
+  }
   
-  const duration = (performance.now() - startTime).toFixed(2);
-  console.log(`🏁 Fill complete: ${filledCount} filled, ${skippedCount} skipped in ${duration}ms`);
-  
-  return {
-    filled: filledCount,
-    total: fields.length,
-    skipped: skippedCount,
-    duration: duration
-  };
+  return result;
 }
 
-/**
- * Get field identifier for logging
- */
-function getFieldIdentifier(field) {
-  const tag = field.tagName.toLowerCase();
-  const type = field.type ? `[${field.type}]` : '';
-  const name = field.name ? `[name="${field.name}"]` : '';
-  const id = field.id ? `#${field.id}` : '';
-  return `${tag}${type}${name}${id}`;
-}
-
-/**
- * Find matching profile value for a field
- */
-function findMatch(field, data) {
-  const context = getFieldContext(field);
+// Enhanced field filling logic
+function fillField(field, profileData) {
   const fieldType = field.type || field.tagName.toLowerCase();
+  const fieldName = (field.name || field.id || '').toLowerCase();
+  const fieldLabel = getFieldLabel(field).toLowerCase();
   
-  // 1. Direct alias matching
-  for (const [key, value] of Object.entries(data)) {
-    if (!value && value !== false) continue; // Allow false for checkboxes
-    
-    const aliases = FIELD_ALIASES[key] || [key];
-    
-    for (const alias of aliases) {
-      if (context.includes(alias.toLowerCase())) {
-        console.log(`🔎 Matched: "${alias}" → ${key} = ${value}`);
-        return value;
+  // Try multiple matching strategies
+  let valueToFill = null;
+  
+  // Strategy 1: Direct field name matching
+  for (const [key, aliases] of Object.entries(FIELD_ALIASES)) {
+    if (profileData[key]) {
+      // Check field name
+      if (fieldName && aliases.some(alias => fieldName.includes(alias.toLowerCase()))) {
+        valueToFill = profileData[key];
+        break;
+      }
+      // Check field label
+      if (fieldLabel && aliases.some(alias => fieldLabel.includes(alias.toLowerCase()))) {
+        valueToFill = profileData[key];
+        break;
+      }
+      // Check placeholder
+      if (field.placeholder && aliases.some(alias => 
+        field.placeholder.toLowerCase().includes(alias.toLowerCase()))) {
+        valueToFill = profileData[key];
+        break;
       }
     }
   }
   
-  // 2. Type-based fallbacks
-  if (fieldType === 'email' && data.email) return data.email;
-  if (fieldType === 'tel' && data.phone) return data.phone;
-  if (fieldType === 'url' && data.website) return data.website;
-  if (fieldType === 'date' && data.birthDate) return data.birthDate;
+  // Strategy 2: Autocomplete attribute matching
+  if (!valueToFill && field.autocomplete) {
+    const autocompleteMap = {
+      'name': profileData.firstName,
+      'given-name': profileData.firstName,
+      'family-name': profileData.lastName,
+      'email': profileData.email,
+      'tel': profileData.phone,
+      'address-line1': profileData.address,
+      'address-level2': profileData.city,
+      'address-level1': profileData.state,
+      'postal-code': profileData.zipCode,
+      'country': profileData.country,
+      'organization': profileData.company,
+      'organization-title': profileData.jobTitle
+    };
+    
+    if (autocompleteMap[field.autocomplete]) {
+      valueToFill = autocompleteMap[field.autocomplete];
+    }
+  }
+  
+  // Strategy 3: Context-based matching
+  if (!valueToFill) {
+    valueToFill = contextBasedMatch(field, profileData);
+  }
+  
+  if (valueToFill) {
+    return applyValueToField(field, valueToFill);
+  }
   
   return null;
 }
 
-/**
- * Get searchable context string
- */
-function getFieldContext(field) {
-  return [
-    field.name || '',
-    field.id || '',
-    field.className || '',
-    field.placeholder || '',
-    getLabel(field),
-    field.getAttribute('aria-label') || '',
-    field.getAttribute('aria-labelledby') || '',
-    field.getAttribute('data-testid') || '',
-    field.getAttribute('autocomplete') || ''
-  ].join(' ').toLowerCase();
-}
-
-/**
- * Universal field value setter
- */
-function setFieldValue(field, value) {
+// Apply value with proper field type handling
+function applyValueToField(field, value) {
   const fieldType = field.type || field.tagName.toLowerCase();
-  const stringValue = String(value);
-  
-  // Apply visual feedback
-  field.style.outline = '3px solid #4CAF50';
-  field.style.background = 'rgba(76, 175, 80, 0.1)';
-  field.style.transition = 'all 0.3s ease';
-  
-  setTimeout(() => {
-    field.style.outline = '';
-    field.style.background = '';
-  }, 2000);
-  
-  try {
-    switch (fieldType) {
-      case 'checkbox':
-        const shouldCheck = typeof value === 'boolean' 
-          ? value 
-          : ['true', 'yes', '1', 'on', 'checked', 'agree', 'accept'].includes(stringValue.toLowerCase());
-        
-        field.checked = shouldCheck;
-        console.log(`☑️ Checkbox: ${field.name || field.id} = ${shouldCheck}`);
-        break;
-        
-      case 'radio':
-        // Find matching radio in the same group
-        const radioGroup = document.querySelectorAll(`input[type="radio"][name="${field.name}"]`);
-        const targetRadio = Array.from(radioGroup).find(radio => {
-          const radioValue = radio.value.toLowerCase();
-          const radioId = radio.id.toLowerCase();
-          const radioLabel = getLabel(radio).toLowerCase();
-          
-          return radioValue === stringValue.toLowerCase() || 
-                 radioId === stringValue.toLowerCase() ||
-                 radioLabel === stringValue.toLowerCase();
-        });
-        
-        if (targetRadio) {
-          targetRadio.checked = true;
-          console.log(`🔘 Radio selected: ${field.name} = ${targetRadio.value}`);
-        } else {
-          console.warn(`⚠️ No radio match for "${value}" in group "${field.name}"`);
-          return; // Don't trigger events
-        }
-        break;
-        
-      case 'select-one':
-      case 'select-multiple':
-        handleSelect(field, stringValue);
-        break;
-        
-      default:
-        // Text, email, tel, textarea, etc.
-        field.value = stringValue;
-        field.setAttribute('value', stringValue);
-        console.log(`📝 Field: ${field.name || field.id} = "${stringValue}"`);
-    }
-    
-    // Trigger framework events
-    triggerEvents(field, fieldType);
-    
-  } catch (error) {
-    console.error(`❌ Value setter failed for ${getFieldIdentifier(field)}:`, error);
-    throw error;
-  }
-}
-
-/**
- * Handle select dropdowns intelligently
- */
-function handleSelect(select, targetValue) {
-  const options = Array.from(select.options || []);
-  const targetLower = targetValue.toLowerCase();
-  
-  // Exact match
-  const exactMatch = options.find(opt => 
-    opt.value.toLowerCase() === targetLower || opt.text.toLowerCase() === targetLower
-  );
-  
-  if (exactMatch) {
-    select.value = exactMatch.value;
-    console.log(`📋 Select: ${select.name} = ${exactMatch.text}`);
-    return;
-  }
-  
-  // Partial match
-  const partialMatch = options.find(opt => 
-    targetLower.includes(opt.value.toLowerCase()) ||
-    opt.text.toLowerCase().includes(targetLower) ||
-    opt.value.toLowerCase().includes(targetLower) ||
-    targetLower.includes(opt.text.toLowerCase())
-  );
-  
-  if (partialMatch) {
-    select.value = partialMatch.value;
-    console.log(`📋 Select (partial): ${select.name} = ${partialMatch.text}`);
-  } else {
-    console.warn(`⚠️ No select option match for "${targetValue}"`);
-  }
-}
-
-/**
- * Trigger all necessary events
- */
-function triggerEvents(field, fieldType) {
-  const events = [];
   
   switch (fieldType) {
     case 'checkbox':
+      return handleCheckbox(field, value);
     case 'radio':
-      events.push('click', 'change', 'input');
-      break;
+      return handleRadio(field, value);
     case 'select-one':
     case 'select-multiple':
-      events.push('change', 'input');
-      break;
+      return handleSelect(field, value);
+    case 'date':
+      return handleDate(field, value);
+    case 'file':
+      return handleFile(field, value);
     default:
-      events.push('input', 'change', 'blur');
+      return handleTextInput(field, value);
   }
-  
-  events.forEach(eventType => {
-    try {
-      const event = new Event(eventType, { bubbles: true, cancelable: true });
-      field.dispatchEvent(event);
-      
-      // Special input event for frameworks
-      if (eventType === 'input' && typeof InputEvent !== 'undefined') {
-        const inputEvent = new InputEvent('input', {
-          bubbles: true,
-          cancelable: false,
-          data: field.value || '',
-          inputType: 'insertText'
-        });
-        field.dispatchEvent(inputEvent);
-      }
-    } catch (e) {
-      console.warn(`⚠️ Event dispatch failed: ${eventType}`, e);
-    }
-  });
-  
-  // Framework setters
-  try {
-    const proto = Object.getPrototypeOf(field);
-    
-    if (fieldType === 'checkbox' || fieldType === 'radio') {
-      const checkedSetter = Object.getOwnPropertyDescriptor(proto, 'checked')?.set;
-      if (checkedSetter) checkedSetter.call(field, field.checked);
-    } else {
-      const valueSetter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
-      if (valueSetter) valueSetter.call(field, field.value);
-    }
-  } catch (e) {
-    console.warn('⚠️ Framework setter failed:', e);
-  }
-}
-
-/**
- * Get label text with fallback
- */
-function getLabel(field) {
-  try {
-    // Standard label association
-    if (field.labels?.[0]) return field.labels[0].textContent.trim();
-    
-    // For attribute
-    if (field.id) {
-      const label = document.querySelector(`label[for="${field.id}"]`);
-      if (label) return label.textContent.trim();
-    }
-    
-    // Parent label
-    const parentLabel = field.closest('label');
-    if (parentLabel) return parentLabel.textContent.trim();
-    
-    // ARIA
-    const ariaLabel = field.getAttribute('aria-label');
-    if (ariaLabel) return ariaLabel.trim();
-    
-    const labelledBy = field.getAttribute('aria-labelledby');
-    if (labelledBy) {
-      const labelElement = document.getElementById(labelledBy);
-      if (labelElement) return labelElement.textContent.trim();
-    }
-    
-    return field.placeholder || '';
-  } catch (e) {
-    return '';
-  }
-}
-
-/**
- * Robust visibility check
- */
-function isVisible(element) {
-  try {
-    if (!element.offsetParent) return false;
-    if (element.disabled) return false;
-    if (element.hidden) return false;
-    
-    const style = window.getComputedStyle(element);
-    return style.display !== 'none' && 
-           style.visibility !== 'hidden' && 
-           style.opacity !== '0';
-  } catch (e) {
-    return false;
-  }
-}
-
-/**
- * Auto-check consent boxes
- */
-function autoCheckConsentBoxes() {
-  const consentWords = ['agree', 'accept', 'terms', 'consent', 'privacy', 'policy', 'conditions', 'confirm', 'legal'];
-  
-  document.querySelectorAll('input[type="checkbox"]:not([disabled])').forEach(cb => {
-    if (!isVisible(cb) || cb.checked) return;
-    
-    const context = getFieldContext(cb);
-    const isConsent = consentWords.some(word => context.includes(word));
-    
-    if (isConsent) {
-      cb.checked = true;
-      triggerEvents(cb, 'checkbox');
-      console.log(`☑️ Auto-consent: ${cb.name || cb.id}`);
-    }
-  });
-}
-
-/**
- * Extract data from page for learning
- */
-function extractFormData() {
-  const inputs = document.querySelectorAll('input, textarea, select');
-  const extracted = {};
-  
-  inputs.forEach(input => {
-    if (!isVisible(input) || !input.value?.trim()) return;
-    
-    const value = input.value.trim();
-    if (value.length < 2 || value.length > 150) return;
-    
-    const context = getFieldContext(input);
-    
-    for (const [key, aliases] of Object.entries(FIELD_ALIASES)) {
-      for (const alias of aliases) {
-        if (context.includes(alias.toLowerCase())) {
-          extracted[key] = value;
-          break;
-        }
-      }
-    }
-  });
-  
-  console.log('📤 Extracted browser data:', extracted);
-  return extracted;
 }
