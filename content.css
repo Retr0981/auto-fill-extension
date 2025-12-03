@@ -1,0 +1,41 @@
+/* content.css - Styles for form field highlighting */
+.autofill-highlight {
+  animation: autofill-pulse 0.5s ease-in-out !important;
+  box-shadow: 0 0 0 2px #4CAF50 !important;
+  transition: all 0.3s ease !important;
+}
+
+@keyframes autofill-pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+  100% { transform: scale(1); }
+}
+
+.autofill-notification {
+  position: fixed !important;
+  top: 20px !important;
+  right: 20px !important;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  color: white !important;
+  padding: 12px 20px !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2) !important;
+  z-index: 999999 !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  backdrop-filter: blur(10px) !important;
+  border: 1px solid rgba(255,255,255,0.1) !important;
+}
+
+.autofill-tooltip {
+  position: absolute !important;
+  background: #333 !important;
+  color: white !important;
+  padding: 4px 8px !important;
+  border-radius: 4px !important;
+  font-size: 12px !important;
+  z-index: 999999 !important;
+  pointer-events: none !important;
+  white-space: nowrap !important;
+}

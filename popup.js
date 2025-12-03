@@ -1,156 +1,174 @@
-// Add this at the beginning of your initializePopup() function:
-async function initializePopup() {
-  console.log('⚙️ Initializing popup...');
+// Add these functions to popup.js
+
+// Better status indicator
+function showStatus(message, type = 'info') {
+  const statusEl = document.getElementById('status-indicator');
+  if (!statusEl) return;
   
-  // Get current tab for validation
-  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-  currentTab = tabs[0];
+  statusEl.textContent = message;
+  statusEl.className = 'status-indicator';
   
-  // Initialize UI
-  loadProfile();
-  initTabs();
-  bindEvents();
-  checkStoredCV();
-  updateStatusIndicator();
-  
-  // Highlight Smart Fill button
-  const smartFillBtn = document.getElementById('smart-fill-btn');
-  if (smartFillBtn) {
-    smartFillBtn.style.order = '-1'; // Move to front
-    smartFillBtn.style.marginBottom = '15px';
-    smartFillBtn.style.fontWeight = '700';
-    smartFillBtn.style.boxShadow = '0 4px 15px rgba(66, 133, 244, 0.4)';
-    smartFillBtn.innerHTML = '🚀 <strong>Smart Fill Current Form</strong>';
+  switch (type) {
+    case 'success':
+      statusEl.classList.add('status-indicator--success');
+      break;
+    case 'error':
+      statusEl.classList.add('status-indicator--error');
+      break;
+    case 'warning':
+      statusEl.classList.add('status-indicator--warning');
+      break;
+    case 'loading':
+      statusEl.classList.add('status-indicator--loading');
+      break;
+    default:
+      statusEl.classList.add('status-indicator--info');
   }
   
-  // Validate tab URL
-  if (currentTab?.url?.startsWith('chrome://') || currentTab?.url?.startsWith('chrome-extension://')) {
-    showStatus('⚠️ Limited functionality on this page', 'warning');
-    if (smartFillBtn) smartFillBtn.disabled = true;
-    document.getElementById('extract-browser-btn').disabled = true;
+  // Auto-hide success messages
+  if (type === 'success') {
+    setTimeout(() => {
+      if (statusEl.textContent === message) {
+        updateStatusIndicator();
+      }
+    }, 3000);
   }
-  
-  console.log('✅ Popup ready');
 }
 
-// Update the smartFillForm function to be more robust:
+// Enhanced smart fill with progress
 async function smartFillForm() {
-  console.log('🖱️ Smart Fill button clicked');
+  console.log('🚀 Smart Fill initiated');
   
-  showStatus('⏳ Preparing form fill...', 'loading');
+  // Visual feedback
+  const button = document.getElementById('smart-fill-main-btn');
+  const originalText = button.innerHTML;
+  button.innerHTML = '⏳ Filling Forms...';
+  button.disabled = true;
+  
+  showStatus('⏳ Scanning page for forms...', 'loading');
   
   try {
+    // Get current tab
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    
     // Get profile data
-    const result = await chrome.storage.local.get(['profile']);
-    const profile = result.profile;
-    
+    const { profile } = await chrome.storage.local.get(['profile']);
     if (!profile || Object.keys(profile).length === 0) {
-      showStatus('❌ No profile data! Save profile first.', 'error');
+      showStatus('❌ Please save your profile first!', 'error');
+      button.innerHTML = originalText;
+      button.disabled = false;
       return;
     }
     
-    // Validate tab
-    if (!currentTab || currentTab.url.startsWith('chrome://') || currentTab.url.startsWith('chrome-extension://')) {
-      showStatus('❌ Cannot fill forms on this page', 'error');
-      return;
-    }
+    showStatus('🚀 Injecting form filler...', 'loading');
     
-    showStatus('🚀 Injecting content script...', 'loading');
-    
-    // Try to inject content script if not already present
-    try {
-      await chrome.scripting.executeScript({
-        target: { tabId: currentTab.id },
-        files: ['content.js']
-      });
-      console.log('✅ Content script injected');
-    } catch (injectError) {
-      console.log('ℹ️ Content script may already be injected:', injectError.message);
-    }
-    
-    // Wait a moment for script to initialize
-    await new Promise(resolve => setTimeout(resolve, 300));
-    
-    // Ping test with timeout
-    const pingPromise = chrome.tabs.sendMessage(currentTab.id, { action: 'ping' })
-      .then(response => {
-        console.log('✅ Content script responded:', response);
-        return true;
-      })
-      .catch(error => {
-        console.warn('⚠️ Ping failed, trying direct fill:', error);
-        return false;
-      });
-    
-    const pingResult = await Promise.race([
-      pingPromise,
-      new Promise(resolve => setTimeout(() => resolve(false), 1000))
-    ]);
-    
-    if (!pingResult) {
-      showStatus('⚠️ Content script not responding. Trying alternative method...', 'warning');
-      
-      // Try direct execution as fallback
-      await chrome.scripting.executeScript({
-        target: { tabId: currentTab.id },
-        func: (profileData) => {
-          // Simple direct fill as fallback
-          const inputs = document.querySelectorAll('input, textarea, select');
-          let filled = 0;
-          
-          inputs.forEach(input => {
-            if (input.disabled || input.hidden || input.type === 'hidden') return;
-            
-            const name = (input.name || input.id || '').toLowerCase();
-            for (const [key, value] of Object.entries(profileData)) {
-              if (name.includes(key.toLowerCase()) && !input.value) {
-                input.value = value;
-                input.dispatchEvent(new Event('input', { bubbles: true }));
-                input.dispatchEvent(new Event('change', { bubbles: true }));
-                filled++;
-                break;
-              }
-            }
-          });
-          
-          return { filled, total: inputs.length };
-        },
-        args: [profile]
-      });
-      
-      showStatus('✅ Direct fill attempted (fallback mode)', 'success');
-      return;
-    }
-    
-    // Execute fill with timeout
-    showStatus('🚀 Filling form fields...', 'loading');
-    
-    const fillPromise = chrome.tabs.sendMessage(currentTab.id, { 
-      action: 'fillForm', 
-      data: profile 
+    // Execute content script
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: (profileData) => {
+        if (typeof window.smartFillAllForms === 'function') {
+          return window.smartFillAllForms(profileData);
+        }
+        return { error: 'Function not available' };
+      },
+      args: [profile]
     });
     
-    const fillResult = await Promise.race([
-      fillPromise,
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Fill timeout')), 5000))
-    ]);
+    const result = results[0]?.result;
     
-    if (fillResult?.error) {
-      throw new Error(fillResult.error);
+    if (result?.error) {
+      throw new Error(result.error);
     }
     
-    if (fillResult) {
-      const success = fillResult.filled > 0;
-      const message = success 
-        ? `✅ Filled ${fillResult.filled} fields in ${fillResult.forms || 1} forms (${fillResult.duration}ms)` 
-        : `⚠️ No matches found (scanned ${fillResult.total} fields)`;
-      showStatus(message, success ? 'success' : 'warning');
+    if (result?.totalFilled > 0) {
+      showStatus(`✅ Filled ${result.totalFilled} fields across ${result.formsProcessed} forms!`, 'success');
+      
+      // Show detailed results
+      if (result.details && result.details.length > 0) {
+        console.log('📊 Fill details:', result);
+        
+        // Optionally show more details
+        const detailText = result.details.map(d => 
+          `${d.filled} of ${d.total} fields`
+        ).join(', ');
+        
+        showStatus(`📝 Results: ${detailText}`, 'success');
+      }
+    } else {
+      showStatus('⚠️ No matching form fields found', 'warning');
     }
-    
-    console.log('✅ Fill operation complete:', fillResult);
     
   } catch (error) {
     console.error('❌ Fill failed:', error);
     showStatus(`❌ Error: ${error.message}`, 'error');
+  } finally {
+    button.innerHTML = originalText;
+    button.disabled = false;
+  }
+}
+
+// Initialize with better UI
+async function initializePopup() {
+  console.log('⚡ Initializing AutoFill Pro');
+  
+  // Load theme
+  loadTheme();
+  
+  // Load profile
+  await loadProfile();
+  
+  // Initialize tabs
+  initTabs();
+  
+  // Bind events
+  bindEvents();
+  
+  // Update status
+  updateStatusIndicator();
+  
+  // Check current page
+  checkCurrentPage();
+  
+  console.log('✅ Popup ready');
+}
+
+// Check current page for forms
+async function checkCurrentPage() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  
+  if (!tab.url || tab.url.startsWith('chrome://')) {
+    document.getElementById('smart-fill-main-btn').disabled = true;
+    showStatus('⚠️ Cannot fill on this page', 'warning');
+    return;
+  }
+  
+  // Check if page has forms
+  try {
+    const [result] = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: () => {
+        const forms = document.querySelectorAll('form, [role="form"]');
+        const inputs = document.querySelectorAll('input, textarea, select');
+        return {
+          hasForms: forms.length > 0,
+          formCount: forms.length,
+          inputCount: inputs.length
+        };
+      }
+    });
+    
+    const button = document.getElementById('smart-fill-main-btn');
+    if (result.result.hasForms) {
+      button.disabled = false;
+      showStatus(`📋 ${result.result.formCount} form(s) detected`, 'info');
+    } else if (result.result.inputCount > 0) {
+      button.disabled = false;
+      showStatus(`⌨️ ${result.result.inputCount} input field(s) found`, 'info');
+    } else {
+      button.disabled = true;
+      showStatus('❌ No form fields detected', 'error');
+    }
+  } catch (error) {
+    console.log('ℹ️ Page check failed:', error);
   }
 }
