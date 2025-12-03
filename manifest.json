@@ -43,7 +43,7 @@
   },
   
   "web_accessible_resources": [{
-    "resources": ["config.js"],
+    "resources": ["config.js", "content.css"],
     "matches": ["<all_urls>"]
   }]
 }
