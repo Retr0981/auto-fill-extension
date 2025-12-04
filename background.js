@@ -31,12 +31,13 @@ chrome.runtime.onInstalled.addListener((details) => {
         salary: '',
         notice: ''
       },
-      'version': '5.2',
+      'version': '5.3',
       'settings': {
         autoFill: true,
         autoSubmit: false,
         highlightFields: true,
-        showNotifications: true
+        showNotifications: true,
+        autoUploadCV: true // New setting
       }
     });
     
@@ -65,8 +66,9 @@ chrome.commands.onCommand.addListener(async (command) => {
       }
       
       // Get profile data
-      const result = await chrome.storage.local.get(['profile']);
+      const result = await chrome.storage.local.get(['profile', 'settings']);
       const profile = result.profile;
+      const settings = result.settings || {};
       
       if (!profile || Object.keys(profile).length === 0) {
         console.warn('⚠️ No profile data available for shortcut');
@@ -88,6 +90,7 @@ chrome.commands.onCommand.addListener(async (command) => {
       await chrome.tabs.sendMessage(tab.id, { 
         action: "smartFill", 
         data: profile,
+        settings: settings,
         source: "shortcut"
       }).catch(async (err) => {
         console.error('❌ Shortcut fill failed:', err.message);
@@ -98,7 +101,7 @@ chrome.commands.onCommand.addListener(async (command) => {
           
           await chrome.scripting.executeScript({
             target: { tabId: tab.id },
-            files: ['content.js']
+            files: ['config.js', 'content.js']
           });
           
           await chrome.scripting.insertCSS({
@@ -112,6 +115,7 @@ chrome.commands.onCommand.addListener(async (command) => {
           await chrome.tabs.sendMessage(tab.id, { 
             action: "smartFill", 
             data: profile,
+            settings: settings,
             source: "shortcut_retry"
           });
         }
@@ -161,15 +165,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             func: () => {
               const forms = document.querySelectorAll('form, [role="form"]').length;
               const inputs = document.querySelectorAll('input, textarea, select').length;
-              return { hasForms: forms > 0, formCount: forms, inputCount: inputs };
+              const fileInputs = document.querySelectorAll('input[type="file"]').length;
+              return { hasForms: forms > 0, formCount: forms, inputCount: inputs, fileInputs: fileInputs };
             }
           }).then((results) => {
-            sendResponse(results[0]?.result || { hasForms: false, formCount: 0, inputCount: 0 });
+            sendResponse(results[0]?.result || { hasForms: false, formCount: 0, inputCount: 0, fileInputs: 0 });
           }).catch(() => {
-            sendResponse({ hasForms: false, formCount: 0, inputCount: 0 });
+            sendResponse({ hasForms: false, formCount: 0, inputCount: 0, fileInputs: 0 });
           });
         } else {
-          sendResponse({ hasForms: false, formCount: 0, inputCount: 0 });
+          sendResponse({ hasForms: false, formCount: 0, inputCount: 0, fileInputs: 0 });
         }
       });
       return true; // Keep channel open for async response
@@ -213,11 +218,12 @@ chrome.runtime.onInstalled.addListener(() => {
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === "autofill-form") {
-    const result = await chrome.storage.local.get(['profile']);
+    const result = await chrome.storage.local.get(['profile', 'settings']);
     if (result.profile) {
       chrome.tabs.sendMessage(tab.id, { 
         action: "smartFill", 
         data: result.profile,
+        settings: result.settings || {},
         source: "context_menu"
       });
     }
