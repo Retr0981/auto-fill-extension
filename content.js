@@ -314,82 +314,144 @@ function analyzeField(field) {
 }
 
 // Find best matching value from profile
+// Find best matching value from profile using intelligent scoring
 function findBestMatch(fieldInfo, profileData) {
   if (!profileData || Object.keys(profileData).length === 0) {
     return null;
   }
   
-  // Priority 1: Direct name/id match
+  let bestMatch = null;
+  let bestScore = 0;
+  const debugMatches = []; // For troubleshooting
+  
+  // Score weights - higher = more important
+  const weights = {
+    exactNameMatch: 100,      // Field name exactly matches alias
+    partialNameMatch: 60,     // Field name contains alias
+    exactContextMatch: 40,    // Context exactly matches alias
+    partialContextMatch: 25,  // Context contains alias
+    fieldNameHint: 50,        // Special bonus for explicit field name hints
+    typeMatch: 30,            // Field type matches expected type
+    minScoreThreshold: 20     // Minimum score to consider a match
+  };
+  
+  // Debug logging
+  console.log(`🔍 Analyzing field: ${fieldInfo.name} (${fieldInfo.type})`);
+  
   for (const [key, value] of Object.entries(profileData)) {
     if (!value && value !== false) continue;
     
-    // Check if field name/id matches key or its aliases
-    if (fieldInfo.name.toLowerCase().includes(key.toLowerCase())) {
-      return value;
-    }
-    
-    // Check aliases
+    let score = 0;
     const aliases = FIELD_ALIASES[key] || [key];
+    const fieldName = fieldInfo.name.toLowerCase();
+    const context = fieldInfo.context;
+    
+    // Priority 1: Check field name/id matches (highest weight)
     for (const alias of aliases) {
-      if (fieldInfo.context.includes(alias.toLowerCase())) {
-        return value;
+      const aliasLower = alias.toLowerCase();
+      
+      if (fieldName === aliasLower) {
+        score = Math.max(score, weights.exactNameMatch);
+        debugMatches.push({key, alias, type: 'exactName', score});
+      } else if (fieldName.includes(aliasLower)) {
+        score = Math.max(score, weights.partialNameMatch);
+        debugMatches.push({key, alias, type: 'partialName', score});
+      }
+    }
+    
+    // Priority 2: Special field name hints (e.g., "surname" strongly indicates lastName)
+    if (fieldName.includes('surname') && key === 'lastName') {
+      score += weights.fieldNameHint;
+      debugMatches.push({key, hint: 'surname', type: 'fieldHint', score});
+    }
+    if (fieldName.includes('forename') && key === 'firstName') {
+      score += weights.fieldNameHint;
+      debugMatches.push({key, hint: 'forename', type: 'fieldHint', score});
+    }
+    if (fieldName.includes('family') && key === 'lastName') {
+      score += weights.fieldNameHint;
+      debugMatches.push({key, hint: 'family', type: 'fieldHint', score});
+    }
+    if (fieldName.includes('given') && key === 'firstName') {
+      score += weights.fieldNameHint;
+      debugMatches.push({key, hint: 'given', type: 'fieldHint', score});
+    }
+    
+    // Priority 3: Check context matches (lower priority)
+    for (const alias of aliases) {
+      const aliasLower = alias.toLowerCase();
+      const contextWords = context.split(/\W+/).filter(w => w.length > 2);
+      
+      // Exact match in context
+      if (context.includes(aliasLower)) {
+        // Penalize if it's just a generic word in a larger string
+        const isGeneric = aliasLower.length <= 4 && contextWords.length > 5;
+        const contextualScore = isGeneric ? 
+          weights.partialContextMatch : 
+          weights.exactContextMatch;
+        score = Math.max(score, contextualScore);
+        debugMatches.push({key, alias, type: 'context', score});
+      }
+      // Smart partial match - check word boundaries
+      else if (contextWords.some(word => 
+        word.includes(aliasLower) || aliasLower.includes(word)
+      )) {
+        score = Math.max(score, weights.partialContextMatch);
+        debugMatches.push({key, alias, type: 'partialContext', score});
+      }
+    }
+    
+    // Priority 4: Type-based matching (bonus)
+    if (fieldInfo.type === 'email' && key === 'email') score += weights.typeMatch;
+    if (fieldInfo.type === 'tel' && key === 'phone') score += weights.typeMatch;
+    if (fieldInfo.type === 'url' && key === 'website') score += weights.typeMatch;
+    if (fieldInfo.type === 'date' && key === 'birthDate') score += weights.typeMatch;
+    
+    // Update best match if this score is higher
+    if (score > bestScore) {
+      bestScore = score;
+      bestMatch = value;
+    }
+  }
+  
+  // Priority 5: Fallback to autocomplete attribute (only if no strong match)
+  if (bestScore < weights.minScoreThreshold) {
+    if (fieldInfo.autocomplete) {
+      const autocompleteMap = {
+        'name': profileData.fullName,
+        'given-name': profileData.firstName,
+        'additional-name': profileData.middleName,
+        'family-name': profileData.lastName,
+        'email': profileData.email,
+        'tel': profileData.phone,
+        'address-line1': profileData.address,
+        'address-level2': profileData.city,
+        'address-level1': profileData.state,
+        'postal-code': profileData.zipCode,
+        'country': profileData.country,
+        'organization': profileData.company,
+        'organization-title': profileData.jobTitle
+      };
+      
+      const value = autocompleteMap[fieldInfo.autocomplete];
+      if (value) {
+        bestMatch = value;
+        bestScore = weights.exactNameMatch;
+        console.log(`✅ Matched via autocomplete: ${fieldInfo.autocomplete} = ${value}`);
       }
     }
   }
   
-  // Priority 2: Autocomplete attribute match
-  if (fieldInfo.autocomplete) {
-    const autocompleteMap = {
-      'name': profileData.firstName,
-      'given-name': profileData.firstName,
-      'additional-name': profileData.middleName,
-      'family-name': profileData.lastName,
-      'email': profileData.email,
-      'tel': profileData.phone,
-      'tel-national': profileData.phone,
-      'address-line1': profileData.address,
-      'address-level2': profileData.city,
-      'address-level1': profileData.state,
-      'postal-code': profileData.zipCode,
-      'country': profileData.country,
-      'organization': profileData.company,
-      'organization-title': profileData.jobTitle
-    };
-    
-    const value = autocompleteMap[fieldInfo.autocomplete];
-    if (value) return value;
+  // Debug output
+  if (bestScore > 0) {
+    console.log(`✅ Best match for "${fieldInfo.name}": ${bestMatch} (score: ${bestScore})`);
+    console.log('📊 All matches:', debugMatches.filter(m => m.score > 20));
+  } else {
+    console.log(`❌ No match found for "${fieldInfo.name}"`);
   }
   
-  // Priority 3: Context-based matching
-  for (const [key, value] of Object.entries(profileData)) {
-    if (!value && value !== false) continue;
-    
-    // Split context into words and check for matches
-    const contextWords = fieldInfo.context.split(/\W+/);
-    for (const word of contextWords) {
-      if (word.length < 3) continue;
-      
-      if (key.toLowerCase().includes(word) || word.includes(key.toLowerCase())) {
-        return value;
-      }
-      
-      // Check aliases
-      const aliases = FIELD_ALIASES[key] || [key];
-      for (const alias of aliases) {
-        if (alias.toLowerCase().includes(word) || word.includes(alias.toLowerCase())) {
-          return value;
-        }
-      }
-    }
-  }
-  
-  // Priority 4: Type-based fallback
-  if (fieldInfo.type === 'email' && profileData.email) return profileData.email;
-  if (fieldInfo.type === 'tel' && profileData.phone) return profileData.phone;
-  if (fieldInfo.type === 'url' && profileData.website) return profileData.website;
-  if (fieldInfo.type === 'date' && profileData.birthDate) return profileData.birthDate;
-  
-  return null;
+  // Only return match if we have a decent score
+  return bestScore >= weights.minScoreThreshold ? bestMatch : null;
 }
 
 // Fill field with value
