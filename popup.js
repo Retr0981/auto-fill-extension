@@ -13,14 +13,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   console.log('⚡ Initializing popup...');
   
   try {
-    // Get current tab
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     currentTab = tabs[0];
     
-    // Load all data
     await loadAllData();
-    
-    // Initialize UI components
     initTabs();
     bindAllEvents();
     updateAllUI();
@@ -37,19 +33,15 @@ async function loadAllData() {
   try {
     const result = await chrome.storage.local.get(['profile', 'settings', 'usageStats', 'cvFile']);
     
-    // Load profile
     currentProfile = result.profile || createDefaultProfile();
     populateProfileForm();
     
-    // Load settings
     settings = result.settings || createDefaultSettings();
     populateSettingsForm();
     
-    // Load usage stats
     usageStats = result.usageStats || createDefaultStats();
     updateUsageStats();
     
-    // Load CV file
     cvFile = result.cvFile || null;
     updateCVStatus();
     
@@ -64,53 +56,26 @@ async function loadAllData() {
 // Create default profile
 function createDefaultProfile() {
   return {
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    address: '',
-    city: '',
-    state: '',
-    zipCode: '',
-    country: '',
-    company: '',
-    jobTitle: '',
-    website: '',
-    linkedin: '',
-    github: '',
-    experience: '',
-    education: '',
-    skills: '',
-    salary: '',
-    notice: '',
-    gender: '',
-    newsletter: '',
-    remoteWork: '',
-    terms: ''
+    firstName: '', lastName: '', email: '', phone: '', address: '', city: '', state: '',
+    zipCode: '', country: '', company: '', jobTitle: '', website: '', linkedin: '',
+    github: '', experience: '', education: '', skills: '', salary: '', notice: '',
+    gender: '', newsletter: '', remoteWork: '', terms: ''
   };
 }
 
 // Create default settings
 function createDefaultSettings() {
   return {
-    autoFill: true,
-    highlightFields: true,
-    showNotifications: true,
-    autoSubmit: false,
-    autoUploadCV: true, // New setting
-    keyboardShortcut: true
+    autoFill: true, highlightFields: true, showNotifications: true,
+    autoSubmit: false, autoUploadCV: true, keyboardShortcut: true
   };
 }
 
 // Create default stats
 function createDefaultStats() {
   return {
-    formsFilled: 0,
-    fieldsFilled: 0,
-    cvUploads: 0, // New stat
-    lastUsed: null,
-    totalUsageTime: 0,
-    favoriteSites: []
+    formsFilled: 0, fieldsFilled: 0, cvUploads: 0,
+    lastUsed: null, totalUsageTime: 0, favoriteSites: []
   };
 }
 
@@ -118,9 +83,7 @@ function createDefaultStats() {
 function populateProfileForm() {
   Object.keys(currentProfile).forEach(key => {
     const element = document.getElementById(key);
-    if (element) {
-      element.value = currentProfile[key] || '';
-    }
+    if (element) element.value = currentProfile[key] || '';
   });
 }
 
@@ -131,14 +94,12 @@ function populateSettingsForm() {
     'highlight-fields-toggle': 'highlightFields',
     'show-notifications-toggle': 'showNotifications',
     'auto-submit-toggle': 'autoSubmit',
-    'auto-upload-cv-toggle': 'autoUploadCV' // New setting
+    'auto-upload-cv-toggle': 'autoUploadCV'
   };
   
   Object.entries(settingsMap).forEach(([elementId, settingKey]) => {
     const element = document.getElementById(elementId);
-    if (element) {
-      element.checked = settings[settingKey] || false;
-    }
+    if (element) element.checked = settings[settingKey] || false;
   });
 }
 
@@ -152,7 +113,6 @@ function initTabs() {
       e.preventDefault();
       const target = button.getAttribute('data-target');
       
-      // Update button states
       tabButtons.forEach(btn => {
         btn.setAttribute('aria-selected', 'false');
         btn.classList.remove('active');
@@ -160,7 +120,6 @@ function initTabs() {
       button.setAttribute('aria-selected', 'true');
       button.classList.add('active');
       
-      // Show target panel
       tabPanels.forEach(panel => {
         panel.setAttribute('aria-hidden', 'true');
         panel.style.display = 'none';
@@ -177,69 +136,28 @@ function initTabs() {
 
 // Bind all events
 function bindAllEvents() {
-  // Smart Fill button
-  const smartFillBtn = document.getElementById('smart-fill-btn');
-  if (smartFillBtn) {
-    smartFillBtn.addEventListener('click', handleSmartFill);
-  }
+  document.getElementById('smart-fill-btn')?.addEventListener('click', handleSmartFill);
+  document.getElementById('save-profile-btn')?.addEventListener('click', saveProfile);
+  document.getElementById('cv-file-input')?.addEventListener('change', handleCVUpload);
+  document.getElementById('preview-cv-btn')?.addEventListener('click', previewCV);
+  document.getElementById('extract-cv-btn')?.addEventListener('click', extractCVData);
+  document.getElementById('extract-browser-btn')?.addEventListener('click', extractFromBrowser);
+  document.getElementById('reset-all-btn')?.addEventListener('click', resetAllData);
+  document.getElementById('save-settings-btn')?.addEventListener('click', saveSettings);
   
-  // Save Profile button
-  const saveProfileBtn = document.getElementById('save-profile-btn');
-  if (saveProfileBtn) {
-    saveProfileBtn.addEventListener('click', saveProfile);
-  }
-  
-  // CV Upload
-  const cvFileInput = document.getElementById('cv-file-input');
-  if (cvFileInput) {
-    cvFileInput.addEventListener('change', handleCVUpload);
-  }
-  
-  // Preview CV button
-  const previewCvBtn = document.getElementById('preview-cv-btn');
-  if (previewCvBtn) {
-    previewCvBtn.addEventListener('click', previewCV);
-  }
-  
-  // Extract CV button
-  const extractCvBtn = document.getElementById('extract-cv-btn');
-  if (extractCvBtn) {
-    extractCvBtn.addEventListener('click', extractCVData);
-  }
-  
-  // Extract from Browser button
-  const extractBrowserBtn = document.getElementById('extract-browser-btn');
-  if (extractBrowserBtn) {
-    extractBrowserBtn.addEventListener('click', extractFromBrowser);
-  }
-  
-  // Reset All button
-  const resetAllBtn = document.getElementById('reset-all-btn');
-  if (resetAllBtn) {
-    resetAllBtn.addEventListener('click', resetAllData);
-  }
-  
-  // Save Settings button
-  const saveSettingsBtn = document.getElementById('save-settings-btn');
-  if (saveSettingsBtn) {
-    saveSettingsBtn.addEventListener('click', saveSettings);
-  }
-  
-  // Profile form auto-save indicator
-  const formElements = document.querySelectorAll('#profile-form input, #profile-form textarea, #profile-form select');
-  formElements.forEach(element => {
-    element.addEventListener('input', () => {
-      const saveBtn = document.getElementById('save-profile-btn');
-      if (saveBtn) {
-        saveBtn.classList.add('btn--pulse');
-        saveBtn.innerHTML = '💾 Save Profile (Unsaved Changes)';
-      }
+  // Auto-save indicators
+  document.querySelectorAll('#profile-form input, #profile-form textarea, #profile-form select')
+    .forEach(element => {
+      element.addEventListener('input', () => {
+        const saveBtn = document.getElementById('save-profile-btn');
+        if (saveBtn) {
+          saveBtn.classList.add('btn--pulse');
+          saveBtn.innerHTML = '💾 Save Profile (Unsaved Changes)';
+        }
+      });
     });
-  });
   
-  // Settings toggle changes
-  const settingToggles = document.querySelectorAll('input[type="checkbox"]');
-  settingToggles.forEach(toggle => {
+  document.querySelectorAll('input[type="checkbox"]').forEach(toggle => {
     toggle.addEventListener('change', () => {
       const saveBtn = document.getElementById('save-settings-btn');
       if (saveBtn) {
@@ -257,14 +175,12 @@ async function handleSmartFill() {
   const button = document.getElementById('smart-fill-btn');
   const originalText = button.innerHTML;
   
-  // Update button state
   button.innerHTML = '⏳ Filling Forms...';
   button.disabled = true;
   
   showStatus('⏳ Starting form fill...', 'loading');
   
   try {
-    // Validate tab
     if (!currentTab || !currentTab.url) {
       throw new Error('No active tab found');
     }
@@ -273,14 +189,12 @@ async function handleSmartFill() {
       throw new Error('Cannot fill forms on this page');
     }
     
-    // Check profile data
     if (!currentProfile || Object.keys(currentProfile).length === 0) {
       showStatus('❌ Please save your profile first!', 'error');
       resetButton(button, originalText);
       return;
     }
     
-    // Check if we have any data
     const hasData = Object.values(currentProfile).some(value => value && value.trim());
     if (!hasData && !cvFile) {
       showStatus('❌ Profile is empty and no CV uploaded!', 'error');
@@ -290,7 +204,6 @@ async function handleSmartFill() {
     
     showStatus('🚀 Scanning page for forms & CV fields...', 'loading');
     
-    // Try to send message to content script
     let response;
     try {
       response = await chrome.tabs.sendMessage(currentTab.id, {
@@ -300,13 +213,10 @@ async function handleSmartFill() {
         source: 'popup'
       });
     } catch (error) {
-      // Content script not injected, inject it
       if (error.message.includes('receiving end does not exist')) {
         showStatus('🔄 Injecting content script...', 'loading');
         
         await injectContentScript();
-        
-        // Retry after injection
         await new Promise(resolve => setTimeout(resolve, 500));
         
         response = await chrome.tabs.sendMessage(currentTab.id, {
@@ -320,13 +230,11 @@ async function handleSmartFill() {
       }
     }
     
-    // Handle response
     if (response?.error) {
       throw new Error(response.error);
     }
     
     if (response?.filled > 0) {
-      // Update usage stats
       const cvUploads = response.cvUploads || 0;
       await updateUsageStatsAfterFill(response.filled, response.formsProcessed || 1, cvUploads);
       
@@ -338,7 +246,6 @@ async function handleSmartFill() {
       
       showStatus(message, 'success');
       
-      // Auto-submit if enabled
       if (settings.autoSubmit && response.filled > 0) {
         setTimeout(() => {
           showStatus('⚡ Auto-submitting form...', 'loading');
@@ -357,12 +264,18 @@ async function handleSmartFill() {
   }
 }
 
-// Inject content script
+// Inject content script (INJECT CONFIG.JS FIRST, THEN CONTENT.JS)
 async function injectContentScript() {
   try {
+    // IMPORTANT: Inject config.js BEFORE content.js to avoid duplicate declarations
     await chrome.scripting.executeScript({
       target: { tabId: currentTab.id },
-      files: ['config.js', 'content.js']
+      files: ['config.js']
+    });
+    
+    await chrome.scripting.executeScript({
+      target: { tabId: currentTab.id },
+      files: ['content.js']
     });
     
     await chrome.scripting.insertCSS({
@@ -370,11 +283,11 @@ async function injectContentScript() {
       files: ['content.css']
     });
     
-    console.log('✅ Content script injected successfully');
+    console.log('✅ Content scripts injected successfully (config.js -> content.js)');
     return true;
   } catch (error) {
-    console.error('❌ Failed to inject content script:', error);
-    throw new Error('Failed to inject content script');
+    console.error('❌ Failed to inject content scripts:', error);
+    throw new Error('Failed to inject content scripts');
   }
 }
 
@@ -389,7 +302,6 @@ async function saveProfile() {
   showStatus('💾 Saving profile...', 'loading');
   
   try {
-    // Collect all profile data
     const profile = {};
     const fields = [
       'firstName', 'lastName', 'email', 'phone', 'address', 'city', 'state',
@@ -400,21 +312,15 @@ async function saveProfile() {
     
     fields.forEach(field => {
       const element = document.getElementById(field);
-      if (element) {
-        profile[field] = element.value.trim();
-      }
+      if (element) profile[field] = element.value.trim();
     });
     
-    // Save to storage
     await chrome.storage.local.set({ profile });
     currentProfile = profile;
-    
-    // Update UI
     updateStatusIndicator();
     
     showStatus('✅ Profile saved successfully!', 'success');
     
-    // Reset button
     button.innerHTML = '💾 Profile Saved!';
     button.classList.remove('btn--pulse');
     
@@ -436,15 +342,10 @@ async function handleCVUpload(event) {
   const file = event.target.files[0];
   if (!file) return;
   
-  // Validate file type
   const validTypes = [
-    'application/pdf',
-    'application/msword',
+    'application/pdf', 'application/msword',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'image/jpeg',
-    'image/png',
-    'text/plain',
-    'text/rtf'
+    'image/jpeg', 'image/png', 'text/plain', 'text/rtf'
   ];
   
   if (!validTypes.includes(file.type) && !file.name.match(/\.(pdf|doc|docx|jpg|jpeg|png|txt|rtf)$/i)) {
@@ -452,7 +353,6 @@ async function handleCVUpload(event) {
     return;
   }
   
-  // Check file size (max 10MB)
   if (file.size > 10 * 1024 * 1024) {
     showStatus('❌ File too large. Maximum size is 10MB.', 'error');
     return;
@@ -461,7 +361,6 @@ async function handleCVUpload(event) {
   showStatus('📤 Uploading CV...', 'loading');
   
   try {
-    // Convert file to base64
     const base64Data = await readFileAsBase64(file);
     
     cvFile = {
@@ -473,12 +372,8 @@ async function handleCVUpload(event) {
       uploadedAt: new Date().toISOString()
     };
     
-    // Save to storage
     await chrome.storage.local.set({ cvFile });
-    
-    // Update UI
     updateCVStatus();
-    
     showStatus(`✅ CV uploaded: ${file.name}`, 'success');
     
   } catch (error) {
@@ -507,7 +402,6 @@ async function previewCV() {
     
     showStatus('👁️ Opening CV preview...', 'loading');
     
-    // Create preview window
     const previewWindow = window.open('', '_blank');
     
     const previewHTML = `
@@ -516,31 +410,10 @@ async function previewCV() {
         <head>
           <title>CV Preview - ${cvFile.name}</title>
           <style>
-            body {
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-              margin: 0;
-              padding: 20px;
-              background: #f5f5f5;
-            }
-            .header {
-              background: white;
-              padding: 20px;
-              border-radius: 10px;
-              box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-              margin-bottom: 20px;
-            }
-            .file-info {
-              margin-top: 10px;
-              color: #666;
-              font-size: 14px;
-            }
-            .preview-container {
-              background: white;
-              padding: 20px;
-              border-radius: 10px;
-              box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-              min-height: 500px;
-            }
+            body { font-family: sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
+            .header { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
+            .file-info { margin-top: 10px; color: #666; font-size: 14px; }
+            .preview-container { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); min-height: 500px; }
           </style>
         </head>
         <body>
@@ -560,10 +433,7 @@ async function previewCV() {
               ? `<embed src="${cvFile.data}" width="100%" height="600px" type="application/pdf" />`
               : cvFile.type.includes('text')
               ? `<pre style="white-space: pre-wrap; font-family: monospace;">${atob(cvFile.data.split(',')[1]).substring(0, 5000)}...</pre>`
-              : `<p>Preview not available for this file type. Download the file to view it.</p>
-                 <a href="${cvFile.data}" download="${cvFile.name}" style="display: inline-block; padding: 10px 20px; background: #4361ee; color: white; text-decoration: none; border-radius: 5px; margin-top: 10px;">
-                   Download CV
-                 </a>`
+              : `<p>Preview not available for this file type. <a href="${cvFile.data}" download="${cvFile.name}" style="display: inline-block; padding: 10px 20px; background: #4361ee; color: white; text-decoration: none; border-radius: 5px; margin-top: 10px;">Download CV</a></p>`
             }
           </div>
         </body>
@@ -572,7 +442,6 @@ async function previewCV() {
     
     previewWindow.document.write(previewHTML);
     previewWindow.document.close();
-    
     showStatus('✅ CV preview opened in new tab', 'success');
     
   } catch (error) {
@@ -590,33 +459,24 @@ async function extractCVData() {
     }
     
     if (!cvFile.type.includes('text')) {
-      showStatus('⚠️ Text extraction only works with TXT files. For PDF/DOC files, please use the manual fields.', 'warning');
+      showStatus('⚠️ Text extraction only works with TXT files', 'warning');
       return;
     }
     
     showStatus('🔍 Extracting data from CV...', 'loading');
     
-    // Decode base64 data
     const base64Content = cvFile.data.split(',')[1];
     const textContent = atob(base64Content);
-    
-    // Extract data using patterns
     const extractedData = extractDataFromText(textContent);
     
-    // Update form fields with extracted data
     updateFormWithExtractedData(extractedData);
     
-    // Show extracted data in container
     const container = document.getElementById('extracted-data-container');
     if (container) {
       let html = '<h3 style="margin-bottom: 10px;">Extracted Data:</h3>';
-      
       Object.entries(extractedData).forEach(([key, value]) => {
-        if (value) {
-          html += `<div style="margin-bottom: 5px;"><strong>${formatKey(key)}:</strong> ${value}</div>`;
-        }
+        if (value) html += `<div style="margin-bottom: 5px;"><strong>${formatKey(key)}:</strong> ${value}</div>`;
       });
-      
       container.innerHTML = html;
     }
     
@@ -632,16 +492,13 @@ async function extractCVData() {
 function extractDataFromText(text) {
   const extracted = {};
   
-  // Email
   const emailMatch = text.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/);
   if (emailMatch) extracted.email = emailMatch[0];
   
-  // Phone (multiple formats)
   const phoneRegex = /(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b/g;
   const phoneMatches = text.match(phoneRegex);
   if (phoneMatches) extracted.phone = phoneMatches[0];
   
-  // Name (simple pattern)
   const nameRegex = /^([A-Z][a-z]+)\s+([A-Z][a-z]+)/m;
   const nameMatch = text.match(nameRegex);
   if (nameMatch) {
@@ -649,20 +506,15 @@ function extractDataFromText(text) {
     extracted.lastName = nameMatch[2];
   }
   
-  // LinkedIn URL
   const linkedinMatch = text.match(/linkedin\.com\/in\/[A-Za-z0-9-]+/i);
   if (linkedinMatch) extracted.linkedin = `https://${linkedinMatch[0]}`;
   
-  // GitHub URL
   const githubMatch = text.match(/github\.com\/[A-Za-z0-9-]+/i);
   if (githubMatch) extracted.github = `https://${githubMatch[0]}`;
   
-  // Skills (looking for common keywords)
   const skillKeywords = ['JavaScript', 'Python', 'React', 'Node.js', 'Java', 'C++', 'HTML', 'CSS', 'SQL', 'AWS'];
   const foundSkills = skillKeywords.filter(skill => text.includes(skill));
-  if (foundSkills.length > 0) {
-    extracted.skills = foundSkills.join(', ');
-  }
+  if (foundSkills.length > 0) extracted.skills = foundSkills.join(', ');
   
   return extracted;
 }
@@ -684,38 +536,26 @@ async function extractFromBrowser() {
     
     let response;
     try {
-      response = await chrome.tabs.sendMessage(currentTab.id, {
-        action: 'extractFromBrowser'
-      });
+      response = await chrome.tabs.sendMessage(currentTab.id, { action: 'extractFromBrowser' });
     } catch (error) {
-      // Inject content script if not present
       if (error.message.includes('receiving end does not exist')) {
         await injectContentScript();
         await new Promise(resolve => setTimeout(resolve, 500));
-        
-        response = await chrome.tabs.sendMessage(currentTab.id, {
-          action: 'extractFromBrowser'
-        });
+        response = await chrome.tabs.sendMessage(currentTab.id, { action: 'extractFromBrowser' });
       } else {
         throw error;
       }
     }
     
     if (response?.data) {
-      // Update form fields
       updateFormWithExtractedData(response.data);
       
-      // Show in container
       const container = document.getElementById('extracted-data-container');
       if (container) {
         let html = '<h3 style="margin-bottom: 10px;">Data Extracted from Page:</h3>';
-        
         Object.entries(response.data).forEach(([key, value]) => {
-          if (value) {
-            html += `<div style="margin-bottom: 5px;"><strong>${formatKey(key)}:</strong> ${value}</div>`;
-          }
+          if (value) html += `<div style="margin-bottom: 5px;"><strong>${formatKey(key)}:</strong> ${value}</div>`;
         });
-        
         container.innerHTML = html;
       }
       
@@ -735,7 +575,6 @@ async function extractFromBrowser() {
 
 // Reset all data
 async function resetAllData() {
-  // Confirm with user
   if (!confirm('⚠️ Are you sure you want to reset ALL data?\n\nThis will:\n• Clear your profile\n• Remove uploaded CV\n• Reset settings\n• Clear usage statistics\n\nThis action cannot be undone!')) {
     return;
   }
@@ -749,39 +588,28 @@ async function resetAllData() {
   showStatus('🔄 Resetting all data...', 'loading');
   
   try {
-    // Clear storage
     await chrome.storage.local.clear();
     
-    // Reset local variables
     currentProfile = createDefaultProfile();
     settings = createDefaultSettings();
     usageStats = createDefaultStats();
     cvFile = null;
     
-    // Clear form fields
-    const formElements = document.querySelectorAll('input, textarea, select');
-    formElements.forEach(element => {
+    document.querySelectorAll('input, textarea, select').forEach(element => {
       if (element.type !== 'button' && element.type !== 'submit') {
         element.value = '';
       }
     });
     
-    // Reset checkboxes
-    const checkboxes = document.querySelectorAll('input[type="checkbox"]');
-    checkboxes.forEach(checkbox => {
-      checkbox.checked = true; // Default to checked
+    document.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+      checkbox.checked = true;
     });
     
-    // Clear extracted data container
     const container = document.getElementById('extracted-data-container');
-    if (container) {
-      container.innerHTML = 'Extracted data will appear here...';
-    }
+    if (container) container.innerHTML = 'Extracted data will appear here...';
     
-    // Update all UI
     updateAllUI();
     
-    // Save default data
     await chrome.storage.local.set({
       profile: currentProfile,
       settings: settings,
@@ -810,23 +638,19 @@ async function saveSettings() {
   showStatus('💾 Saving settings...', 'loading');
   
   try {
-    // Collect settings
     settings = {
       autoFill: document.getElementById('auto-fill-toggle').checked,
       highlightFields: document.getElementById('highlight-fields-toggle').checked,
       showNotifications: document.getElementById('show-notifications-toggle').checked,
       autoSubmit: document.getElementById('auto-submit-toggle')?.checked || false,
-      autoUploadCV: document.getElementById('auto-upload-cv-toggle').checked, // New setting
+      autoUploadCV: document.getElementById('auto-upload-cv-toggle').checked,
       keyboardShortcut: true
     };
     
-    // Save to storage
     await chrome.storage.local.set({ settings });
     
-    // Update button
     button.innerHTML = '💾 Settings Saved!';
     button.classList.remove('btn--pulse');
-    
     showStatus('✅ Settings saved successfully', 'success');
     
     setTimeout(() => {
@@ -845,14 +669,10 @@ async function saveSettings() {
 // Auto-submit form
 async function autoSubmitForm() {
   try {
-    await chrome.tabs.sendMessage(currentTab.id, {
-      action: 'autoSubmit'
-    });
-    
+    await chrome.tabs.sendMessage(currentTab.id, { action: 'autoSubmit' });
     showStatus('✅ Form submitted successfully', 'success');
   } catch (error) {
     console.warn('⚠️ Auto-submit failed:', error);
-    // Don't show error, as not all forms can be auto-submitted
   }
 }
 
@@ -862,8 +682,6 @@ function updateFormWithExtractedData(data) {
     const element = document.getElementById(key);
     if (element && value && !element.value.trim()) {
       element.value = value;
-      
-      // Highlight changed field
       element.style.borderColor = '#4CAF50';
       element.style.boxShadow = '0 0 0 2px rgba(76, 175, 80, 0.2)';
       
@@ -874,7 +692,6 @@ function updateFormWithExtractedData(data) {
     }
   });
   
-  // Update save button
   const saveBtn = document.getElementById('save-profile-btn');
   if (saveBtn) {
     saveBtn.classList.add('btn--pulse');
@@ -886,10 +703,9 @@ function updateFormWithExtractedData(data) {
 async function updateUsageStatsAfterFill(fieldsFilled, formsFilled, cvUploads = 0) {
   usageStats.fieldsFilled += fieldsFilled;
   usageStats.formsFilled += (formsFilled || 1);
-  usageStats.cvUploads += cvUploads; // New stat
+  usageStats.cvUploads += cvUploads;
   usageStats.lastUsed = new Date().toISOString();
   
-  // Add to favorite sites if not already there
   if (currentTab?.url) {
     const domain = new URL(currentTab.url).hostname;
     const existingSite = usageStats.favoriteSites.find(site => site.domain === domain);
@@ -905,16 +721,11 @@ async function updateUsageStatsAfterFill(fieldsFilled, formsFilled, cvUploads = 
       });
     }
     
-    // Sort by count
     usageStats.favoriteSites.sort((a, b) => b.count - a.count);
-    // Keep only top 5
     usageStats.favoriteSites = usageStats.favoriteSites.slice(0, 5);
   }
   
-  // Save to storage
   await chrome.storage.local.set({ usageStats });
-  
-  // Update UI
   updateUsageStats();
 }
 
@@ -962,7 +773,7 @@ function updateCVStatus() {
 function updateUsageStats() {
   const formsFilledEl = document.getElementById('forms-filled');
   const fieldsFilledEl = document.getElementById('fields-filled');
-  const cvUploadsEl = document.getElementById('cv-uploads'); // New element
+  const cvUploadsEl = document.getElementById('cv-uploads');
   const lastUsedEl = document.getElementById('last-used');
   
   if (formsFilledEl) formsFilledEl.textContent = usageStats.formsFilled;
@@ -999,7 +810,6 @@ async function checkPageForms() {
     try {
       response = await chrome.tabs.sendMessage(currentTab.id, { action: 'ping' });
     } catch (error) {
-      // Content script not injected
       return;
     }
     
@@ -1021,7 +831,7 @@ async function checkPageForms() {
       }
     }
   } catch (error) {
-    // Silently fail, as content script might not be injected
+    // Silently fail
   }
 }
 
@@ -1050,7 +860,6 @@ function showStatus(message, type = 'info') {
       statusEl.classList.add('status-indicator--info');
   }
   
-  // Auto-hide success messages after 3 seconds
   if (type === 'success') {
     setTimeout(() => {
       if (statusEl.textContent === message) {
