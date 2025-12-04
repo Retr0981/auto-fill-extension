@@ -11,33 +11,15 @@ chrome.runtime.onInstalled.addListener((details) => {
     // First time install
     chrome.storage.local.set({
       'profile': {
-        firstName: '',
-        lastName: '',
-        email: '',
-        phone: '',
-        address: '',
-        city: '',
-        state: '',
-        zipCode: '',
-        country: '',
-        company: '',
-        jobTitle: '',
-        website: '',
-        linkedin: '',
-        github: '',
-        experience: '',
-        education: '',
-        skills: '',
-        salary: '',
-        notice: ''
+        firstName: '', lastName: '', email: '', phone: '', address: '', city: '',
+        state: '', zipCode: '', country: '', company: '', jobTitle: '', website: '',
+        linkedin: '', github: '', experience: '', education: '', skills: '',
+        salary: '', notice: ''
       },
       'version': '5.3',
       'settings': {
-        autoFill: true,
-        autoSubmit: false,
-        highlightFields: true,
-        showNotifications: true,
-        autoUploadCV: true // New setting
+        autoFill: true, autoSubmit: false, highlightFields: true,
+        showNotifications: true, autoUploadCV: true
       }
     });
     
@@ -99,9 +81,15 @@ chrome.commands.onCommand.addListener(async (command) => {
         if (err.message.includes('receiving end does not exist')) {
           console.log('🔄 Injecting content script...');
           
+          // FIX: Inject config.js BEFORE content.js
           await chrome.scripting.executeScript({
             target: { tabId: tab.id },
-            files: ['config.js', 'content.js']
+            files: ['config.js']
+          });
+          
+          await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            files: ['content.js']
           });
           
           await chrome.scripting.insertCSS({
@@ -177,7 +165,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           sendResponse({ hasForms: false, formCount: 0, inputCount: 0, fileInputs: 0 });
         }
       });
-      return true; // Keep channel open for async response
+      return true;
       
     default:
       sendResponse({ error: 'Unknown action' });

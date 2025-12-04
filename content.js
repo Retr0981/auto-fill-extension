@@ -1,1012 +1,851 @@
-// AutoFill Pro Content Script - Universal Form Filling Engine
-// NOTE: This file relies on variables from config.js - inject config.js FIRST
+// AutoFill Pro Popup Script - Complete with CV Auto-Upload & Smart Dropdowns
+console.log('🎯 AutoFill Pro Popup initializing...');
 
-console.log('🎯 AutoFill Pro Content Script loaded');
+let currentTab = null;
+let currentProfile = {};
+let settings = {};
+let usageStats = {};
+let cvFile = null;
 
-// Configuration (uses values from config.js if available, otherwise defaults)
-const CONFIG = {
-  autoCheckBoxes: true,
-  autoSelectOptions: true,
-  highlightFilled: true,
-  showNotifications: true,
-  notificationDuration: 3000,
-  fieldCheckInterval: 1000,
-  maxRetryAttempts: 3,
-  autoUploadCV: true
-};
-
-// State management
-let state = {
-  isFilling: false,
-  lastFillTime: null,
-  filledFields: new Set(),
-  formDetection: {
-    detectedForms: [],
-    totalFields: 0
-  }
-};
-
-// Main message handler
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log('📨 Content script received:', request.action);
+document.addEventListener('DOMContentLoaded', async () => {
+  console.log('⚡ Initializing popup...');
   
   try {
-    switch (request.action) {
-      case 'smartFill':
-        handleSmartFill(request.data, request.settings, sendResponse);
-        break;
-        
-      case 'fillForm':
-        handleFillForm(request.data, sendResponse);
-        break;
-        
-      case 'extractFromBrowser':
-        handleExtractData(sendResponse);
-        break;
-        
-      case 'ping':
-        sendResponse({ status: 'ready', version: '5.3', timestamp: Date.now() });
-        break;
-        
-      case 'detectForms':
-        handleDetectForms(sendResponse);
-        break;
-        
-      case 'fillField':
-        handleSingleField(request.field, request.value, sendResponse);
-        break;
-        
-      case 'autoSubmit':
-        handleAutoSubmit(sendResponse);
-        break;
-        
-      default:
-        console.warn('⚠️ Unknown action:', request.action);
-        sendResponse({ error: 'Unknown action', action: request.action });
-    }
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    currentTab = tabs[0];
+    
+    await loadAllData();
+    initTabs();
+    bindAllEvents();
+    updateAllUI();
+    
+    console.log('✅ Popup initialized successfully');
   } catch (error) {
-    console.error('❌ Message handler error:', error);
-    sendResponse({ error: error.message, filled: 0 });
+    console.error('❌ Popup initialization failed:', error);
+    showStatus('Error initializing extension', 'error');
   }
-  
-  return true;
 });
 
-// Smart fill handler
-async function handleSmartFill(profileData, settings, sendResponse) {
-  if (state.isFilling) {
-    sendResponse({ error: 'Already filling forms', filled: 0 });
-    return;
-  }
-  
-  state.isFilling = true;
-  
+async function loadAllData() {
   try {
-    console.log('🚀 Starting smart fill');
+    const result = await chrome.storage.local.get(['profile', 'settings', 'usageStats', 'cvFile']);
     
-    // Update config with settings
-    if (settings) {
-      CONFIG.highlightFilled = settings.highlightFields !== false;
-      CONFIG.showNotifications = settings.showNotifications !== false;
-      CONFIG.autoUploadCV = settings.autoUploadCV !== false;
-    }
+    currentProfile = result.profile || createDefaultProfile();
+    populateProfileForm();
     
-    // Detect all forms on page
-    const forms = detectAllForms();
-    console.log(`📋 Detected ${forms.length} form(s)`);
+    settings = result.settings || createDefaultSettings();
+    populateSettingsForm();
     
-    // Fill each form
-    const results = [];
-    let totalFilled = 0;
-    let totalFields = 0;
+    usageStats = result.usageStats || createDefaultStats();
+    updateUsageStats();
     
-    for (const form of forms) {
-      const result = await fillFormComprehensive(form, profileData);
-      results.push(result);
-      totalFilled += result.filled;
-      totalFields += result.total;
-    }
-    
-    // Fill standalone fields
-    const standaloneResult = fillStandaloneFields(profileData);
-    totalFilled += standaloneResult.filled;
-    
-    // Update state
-    state.lastFillTime = Date.now();
-    state.isFilling = false;
-    
-    // Show notification
-    if (CONFIG.showNotifications && totalFilled > 0) {
-      showFillNotification(totalFilled, forms.length);
-    }
-    
-    // Send response
-    sendResponse({
-      success: true,
-      filled: totalFilled,
-      totalFields: totalFields,
-      formsProcessed: forms.length,
-      results: results,
-      timestamp: state.lastFillTime
-    });
+    cvFile = result.cvFile || null;
+    updateCVStatus();
     
   } catch (error) {
-    console.error('❌ Smart fill error:', error);
-    state.isFilling = false;
-    sendResponse({ error: error.message, filled: 0 });
+    console.error('❌ Failed to load data:', error);
+    currentProfile = createDefaultProfile();
+    settings = createDefaultSettings();
+    usageStats = createDefaultStats();
   }
 }
 
-// Comprehensive form filling
-async function fillFormComprehensive(form, profileData) {
-  const result = {
-    formId: form.id || form.name || `form_${Date.now()}`,
-    filled: 0,
-    total: 0,
-    fields: []
-  };
-  
-  // Get all input elements including file inputs
-  const fieldSelectors = [
-    'input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"])',
-    'textarea',
-    'select',
-    '[contenteditable="true"]',
-    '[role="textbox"]',
-    '[role="combobox"]',
-    '.form-control',
-    '.form-input',
-    '.input-field',
-    '.form-field',
-    '[data-field]',
-    '[data-input]'
-  ];
-  
-  const fields = form.querySelectorAll(fieldSelectors.join(', '));
-  result.total = fields.length;
-  
-  console.log(`📝 Processing ${fields.length} fields in form`);
-  
-  // Fill fields in batches
-  const batchSize = 5;
-  for (let i = 0; i < fields.length; i += batchSize) {
-    const batch = Array.from(fields).slice(i, i + batchSize);
-    
-    for (const field of batch) {
-      if (!isFieldFillable(field)) continue;
-      
-      const fieldInfo = analyzeField(field);
-      const value = findBestMatch(fieldInfo, profileData);
-      
-      if (value !== null) {
-        const success = await fillFieldWithValue(field, value, fieldInfo);
-        
-        if (success) {
-          result.filled++;
-          state.filledFields.add(field);
-          
-          if (CONFIG.highlightFilled) {
-            highlightField(field);
-          }
-        }
-      }
-    }
-    
-    await new Promise(resolve => setTimeout(resolve, 100));
-  }
-  
-  // Auto-check consent boxes
-  if (CONFIG.autoCheckBoxes) {
-    autoCheckConsentBoxes(form);
-  }
-  
-  // Auto-select common options
-  if (CONFIG.autoSelectOptions) {
-    autoSelectCommonOptions(form, profileData);
-  }
-  
-  console.log(`✅ Form: Filled ${result.filled} of ${result.total} fields`);
-  return result;
-}
-
-// Fill standalone fields not in forms
-function fillStandaloneFields(profileData) {
-  const result = { filled: 0, total: 0 };
-  
-  const standaloneSelectors = [
-    'body input:not(form input):not([type="hidden"])',
-    'body textarea:not(form textarea)',
-    'body select:not(form select)',
-    'body [contenteditable="true"]:not(form [contenteditable="true"])'
-  ];
-  
-  const fields = document.querySelectorAll(standaloneSelectors.join(', '));
-  result.total = fields.length;
-  
-  fields.forEach(field => {
-    if (!isFieldFillable(field) || state.filledFields.has(field)) return;
-    
-    const fieldInfo = analyzeField(field);
-    const value = findBestMatch(fieldInfo, profileData);
-    
-    if (value !== null) {
-      const success = fillFieldWithValue(field, value, fieldInfo);
-      
-      if (success) {
-        result.filled++;
-        state.filledFields.add(field);
-        
-        if (CONFIG.highlightFilled) {
-          highlightField(field);
-        }
-      }
-    }
-  });
-  
-  return result;
-}
-
-// Analyze field for best matching
-function analyzeField(field) {
-  const fieldType = field.type || field.tagName.toLowerCase();
-  const name = field.name || field.id || '';
-  const placeholder = field.placeholder || '';
-  const label = getFieldLabel(field);
-  const ariaLabel = field.getAttribute('aria-label') || '';
-  const dataName = field.getAttribute('data-name') || field.getAttribute('data-field') || '';
-  const className = field.className || '';
-  const autocomplete = field.getAttribute('autocomplete') || '';
-  
-  // Get all text context
-  const contextText = [
-    name,
-    placeholder,
-    label,
-    ariaLabel,
-    dataName,
-    className,
-    autocomplete,
-    field.getAttribute('data-testid') || '',
-    field.getAttribute('data-qa') || '',
-    field.getAttribute('data-cy') || '',
-    field.getAttribute('title') || ''
-  ].filter(Boolean).join(' ').toLowerCase();
-  
+function createDefaultProfile() {
   return {
-    element: field,
-    type: fieldType,
-    name: name,
-    placeholder: placeholder,
-    label: label,
-    ariaLabel: ariaLabel,
-    dataName: dataName,
-    className: className,
-    autocomplete: autocomplete,
-    context: contextText,
-    isCheckbox: fieldType === 'checkbox',
-    isRadio: fieldType === 'radio',
-    isSelect: fieldType === 'select-one' || fieldType === 'select-multiple',
-    isFile: fieldType === 'file',
-    isText: ['text', 'email', 'tel', 'url', 'number', 'date', 'password'].includes(fieldType),
-    isTextarea: fieldType === 'textarea',
-    isContentEditable: field.isContentEditable
+    firstName: '', lastName: '', email: '', phone: '', address: '', city: '', state: '',
+    zipCode: '', country: '', company: '', jobTitle: '', website: '', linkedin: '',
+    github: '', experience: '', education: '', skills: '', salary: '', notice: '',
+    gender: '', newsletter: '', remoteWork: '', terms: ''
   };
 }
 
-// Find best matching value from profile
-function findBestMatch(fieldInfo, profileData) {
-  if (!profileData || Object.keys(profileData).length === 0) {
-    return null;
-  }
-  
-  // Special handling for file uploads
-  if (fieldInfo.isFile && CONFIG.autoUploadCV) {
-    // Check if this is a CV upload field
-    const isCVField = CV_UPLOAD_PATTERNS.some(pattern => pattern.test(fieldInfo.context));
-    if (isCVField) {
-      return '__CV_AUTO_UPLOAD__';
-    }
-    return null;
-  }
-  
-  // Priority 1: Direct name/id match
-  for (const [key, value] of Object.entries(profileData)) {
-    if (!value && value !== false) continue;
-    
-    if (fieldInfo.name.toLowerCase().includes(key.toLowerCase())) {
-      return value;
-    }
-    
-    // Check aliases from config.js
-    if (typeof FIELD_ALIASES !== 'undefined' && FIELD_ALIASES[key]) {
-      const aliases = FIELD_ALIASES[key];
-      for (const alias of aliases) {
-        if (fieldInfo.context.includes(alias.toLowerCase())) {
-          return value;
-        }
-      }
-    }
-  }
-  
-  // Priority 2: Autocomplete attribute match
-  if (fieldInfo.autocomplete) {
-    const autocompleteMap = {
-      'name': profileData.firstName,
-      'given-name': profileData.firstName,
-      'additional-name': profileData.middleName,
-      'family-name': profileData.lastName,
-      'email': profileData.email,
-      'tel': profileData.phone,
-      'tel-national': profileData.phone,
-      'address-line1': profileData.address,
-      'address-level2': profileData.city,
-      'address-level1': profileData.state,
-      'postal-code': profileData.zipCode,
-      'country': profileData.country,
-      'organization': profileData.company,
-      'organization-title': profileData.jobTitle
-    };
-    
-    const value = autocompleteMap[fieldInfo.autocomplete];
-    if (value) return value;
-  }
-  
-  // Priority 3: Context-based matching
-  for (const [key, value] of Object.entries(profileData)) {
-    if (!value && value !== false) continue;
-    
-    const contextWords = fieldInfo.context.split(/\W+/);
-    for (const word of contextWords) {
-      if (word.length < 3) continue;
-      
-      if (key.toLowerCase().includes(word) || word.includes(key.toLowerCase())) {
-        return value;
-      }
-      
-      // Check aliases from config.js
-      if (typeof FIELD_ALIASES !== 'undefined' && FIELD_ALIASES[key]) {
-        const aliases = FIELD_ALIASES[key];
-        for (const alias of aliases) {
-          if (alias.toLowerCase().includes(word) || word.includes(alias.toLowerCase())) {
-            return value;
-          }
-        }
-      }
-    }
-  }
-  
-  // Priority 4: Type-based fallback
-  if (fieldInfo.type === 'email' && profileData.email) return profileData.email;
-  if (fieldInfo.type === 'tel' && profileData.phone) return profileData.phone;
-  if (fieldInfo.type === 'url' && profileData.website) return profileData.website;
-  if (fieldInfo.type === 'date' && profileData.birthDate) return profileData.birthDate;
-  
-  return null;
+function createDefaultSettings() {
+  return {
+    autoFill: true, highlightFields: true, showNotifications: true,
+    autoSubmit: false, autoUploadCV: true, smartDropdownSelection: true, keyboardShortcut: true
+  };
 }
 
-// Fill field with value
-async function fillFieldWithValue(field, value, fieldInfo) {
-  try {
-    let success = false;
-    
-    // Handle CV file upload
-    if (fieldInfo.isFile && value === '__CV_AUTO_UPLOAD__') {
-      return await handleFileUpload(field, fieldInfo);
-    }
-    
-    const stringValue = String(value).trim();
-    
-    switch (fieldInfo.type) {
-      case 'checkbox':
-        const shouldCheck = parseCheckboxValue(value);
-        if (field.checked !== shouldCheck) {
-          field.checked = shouldCheck;
-          success = true;
-        }
-        break;
-        
-      case 'radio':
-        const radioGroup = document.querySelectorAll(`input[type="radio"][name="${field.name}"]`);
-        const matchingRadio = findMatchingRadio(radioGroup, value);
-        if (matchingRadio && !matchingRadio.checked) {
-          matchingRadio.checked = true;
-          success = true;
-        }
-        break;
-        
-      case 'select-one':
-      case 'select-multiple':
-        success = selectOption(field, value);
-        break;
-        
-      default:
-        if (fieldInfo.isContentEditable) {
-          field.textContent = stringValue;
-          success = true;
-        } else if (field.tagName === 'INPUT' || field.tagName === 'TEXTAREA') {
-          field.value = stringValue;
-          success = true;
-        }
-    }
-    
-    if (success) {
-      triggerFieldEvents(field, fieldInfo.type);
-    }
-    
-    return success;
-    
-  } catch (error) {
-    console.error(`❌ Error filling field:`, error);
-    return false;
-  }
+function createDefaultStats() {
+  return {
+    formsFilled: 0, fieldsFilled: 0, cvUploads: 0,
+    lastUsed: null, totalUsageTime: 0, favoriteSites: []
+  };
 }
 
-// Handle CV file upload
-async function handleFileUpload(field, fieldInfo) {
-  try {
-    console.log('📤 Attempting CV upload for field:', fieldInfo.name || fieldInfo.id);
-    
-    // Get CV file from storage
-    const result = await chrome.storage.local.get(['cvFile']);
-    const cvFile = result.cvFile;
-    
-    if (!cvFile) {
-      console.warn('⚠️ No CV file found in storage');
-      return false;
-    }
-    
-    // Validate file type against accept attribute
-    const accept = field.getAttribute('accept');
-    if (accept && typeof isFileTypeAccepted !== 'undefined' && !isFileTypeAccepted(accept, cvFile.type)) {
-      console.warn('⚠️ CV file type not accepted by field');
-      return false;
-    }
-    
-    // Create File object from base64 data
-    console.log('📄 Creating File object from stored CV:', cvFile.name);
-    const response = await fetch(cvFile.data);
-    const blob = await response.blob();
-    const file = new File([blob], cvFile.name, { type: cvFile.type, lastModified: cvFile.lastModified });
-    
-    // Use DataTransfer to set the file
-    const dataTransfer = new DataTransfer();
-    dataTransfer.items.add(file);
-    field.files = dataTransfer.files;
-    
-    // Trigger change events
-    field.dispatchEvent(new Event('change', { bubbles: true }));
-    field.dispatchEvent(new Event('input', { bubbles: true }));
-    
-    // Add visual indicator
-    field.classList.add('autofill-cv-uploaded');
-    
-    console.log('✅ CV uploaded successfully to field:', fieldInfo.name || fieldInfo.id);
-    return true;
-    
-  } catch (error) {
-    console.error('❌ CV upload error:', error);
-    return false;
-  }
-}
-
-// Helper functions
-function isFieldFillable(field) {
-  if (!field) return false;
-  if (field.disabled) return false;
-  if (field.readOnly) return false;
-  if (field.type === 'hidden') return false;
-  if (field.style.display === 'none') return false;
-  if (field.style.visibility === 'hidden') return false;
-  if (field.offsetParent === null) return false;
-  
-  const computedStyle = window.getComputedStyle(field);
-  if (computedStyle.display === 'none') return false;
-  if (computedStyle.visibility === 'hidden') return false;
-  if (computedStyle.opacity === '0') return false;
-  
-  return true;
-}
-
-function getFieldLabel(field) {
-  try {
-    if (field.id) {
-      const label = document.querySelector(`label[for="${field.id}"]`);
-      if (label) return label.textContent.trim();
-    }
-    
-    const parentLabel = field.closest('label');
-    if (parentLabel) return parentLabel.textContent.trim();
-    
-    const ariaLabel = field.getAttribute('aria-label');
-    if (ariaLabel) return ariaLabel.trim();
-    
-    const labelledBy = field.getAttribute('aria-labelledby');
-    if (labelledBy) {
-      const labelElement = document.getElementById(labelledBy);
-      if (labelElement) return labelElement.textContent.trim();
-    }
-    
-    const parent = field.parentElement;
-    if (parent) {
-      const textNodes = Array.from(parent.childNodes)
-        .filter(node => node.nodeType === Node.TEXT_NODE)
-        .map(node => node.textContent.trim())
-        .filter(text => text.length > 0);
-      
-      if (textNodes.length > 0) {
-        return textNodes.join(' ');
-      }
-    }
-    
-    return '';
-  } catch (error) {
-    return '';
-  }
-}
-
-function parseCheckboxValue(value) {
-  if (typeof value === 'boolean') return value;
-  
-  const stringValue = String(value).toLowerCase().trim();
-  const truthyValues = ['true', 'yes', '1', 'on', 'checked', 'agree', 'accept', 'ok', 'y'];
-  const falseyValues = ['false', 'no', '0', 'off', 'unchecked', 'disagree', 'decline'];
-  
-  if (truthyValues.includes(stringValue)) return true;
-  if (falseyValues.includes(stringValue)) return false;
-  
-  return stringValue.length > 0;
-}
-
-function findMatchingRadio(radioGroup, value) {
-  const stringValue = String(value).toLowerCase().trim();
-  
-  return Array.from(radioGroup).find(radio => {
-    const radioValue = radio.value.toLowerCase().trim();
-    const radioId = radio.id.toLowerCase();
-    const radioLabel = getFieldLabel(radio).toLowerCase();
-    
-    return radioValue === stringValue ||
-           radioId === stringValue ||
-           radioLabel === stringValue ||
-           stringValue.includes(radioValue) ||
-           radioValue.includes(stringValue);
+function populateProfileForm() {
+  Object.keys(currentProfile).forEach(key => {
+    const element = document.getElementById(key);
+    if (element) element.value = currentProfile[key] || '';
   });
 }
 
-function selectOption(select, value) {
-  const stringValue = String(value).toLowerCase().trim();
-  const options = Array.from(select.options || []);
+function populateSettingsForm() {
+  const settingsMap = {
+    'auto-fill-toggle': 'autoFill',
+    'highlight-fields-toggle': 'highlightFields',
+    'show-notifications-toggle': 'showNotifications',
+    'auto-submit-toggle': 'autoSubmit',
+    'auto-upload-cv-toggle': 'autoUploadCV',
+    'smart-dropdown-toggle': 'smartDropdownSelection'
+  };
   
-  for (const option of options) {
-    if (option.value.toLowerCase() === stringValue) {
-      select.value = option.value;
-      return true;
-    }
-  }
-  
-  for (const option of options) {
-    if (option.text.toLowerCase() === stringValue) {
-      select.value = option.value;
-      return true;
-    }
-  }
-  
-  for (const option of options) {
-    if (option.text.toLowerCase().includes(stringValue) ||
-        stringValue.includes(option.text.toLowerCase())) {
-      select.value = option.value;
-      return true;
-    }
-  }
-  
-  return false;
+  Object.entries(settingsMap).forEach(([elementId, settingKey]) => {
+    const element = document.getElementById(elementId);
+    if (element) element.checked = settings[settingKey] || false;
+  });
 }
 
-function triggerFieldEvents(field, fieldType) {
-  const events = [];
+function initTabs() {
+  const tabButtons = document.querySelectorAll('.tab-button');
+  const tabPanels = document.querySelectorAll('.tab-panel');
   
-  switch (fieldType) {
-    case 'checkbox':
-    case 'radio':
-      events.push('click', 'change', 'input');
-      break;
-    case 'select-one':
-    case 'select-multiple':
-      events.push('change', 'input');
-      break;
-    default:
-      events.push('input', 'change');
-  }
-  
-  events.forEach(eventType => {
-    try {
-      field.dispatchEvent(new Event(eventType, { bubbles: true }));
-    } catch (e) {}
-  });
-  
-  if (typeof InputEvent !== 'undefined') {
-    try {
-      const inputEvent = new InputEvent('input', {
-        bubbles: true,
-        data: field.value || ''
+  tabButtons.forEach(button => {
+    button.addEventListener('click', (e) => {
+      e.preventDefault();
+      const target = button.getAttribute('data-target');
+      
+      tabButtons.forEach(btn => {
+        btn.setAttribute('aria-selected', 'false');
+        btn.classList.remove('active');
       });
-      field.dispatchEvent(inputEvent);
-    } catch (e) {}
-  }
-}
-
-function highlightField(field) {
-  field.classList.add('autofill-highlight');
-  
-  setTimeout(() => {
-    field.classList.remove('autofill-highlight');
-  }, 2000);
-}
-
-function detectAllForms() {
-  const formSelectors = [
-    'form',
-    '[role="form"]',
-    '[data-form]',
-    '.form',
-    '.application-form',
-    '.contact-form',
-    '.registration-form',
-    '.signup-form',
-    '.login-form',
-    '.checkout-form'
-  ];
-  
-  const forms = [];
-  const seen = new Set();
-  
-  formSelectors.forEach(selector => {
-    const elements = document.querySelectorAll(selector);
-    elements.forEach(element => {
-      if (!seen.has(element)) {
-        forms.push(element);
-        seen.add(element);
+      button.setAttribute('aria-selected', 'true');
+      button.classList.add('active');
+      
+      tabPanels.forEach(panel => {
+        panel.setAttribute('aria-hidden', 'true');
+        panel.style.display = 'none';
+      });
+      
+      const targetPanel = document.getElementById(target);
+      if (targetPanel) {
+        targetPanel.setAttribute('aria-hidden', 'false');
+        targetPanel.style.display = 'block';
       }
     });
   });
-  
-  return forms;
 }
 
-function autoCheckConsentBoxes(form) {
-  const consentPatterns = [
-    /agree|accept|terms|conditions|privacy|policy|consent|acknowledge|confirm/i,
-    /newsletter|subscription|updates|notifications|marketing|promotional/i,
-    /opt.?in|sign.?up|subscribe|register/i
-  ];
+function bindAllEvents() {
+  document.getElementById('smart-fill-btn')?.addEventListener('click', handleSmartFill);
+  document.getElementById('save-profile-btn')?.addEventListener('click', saveProfile);
+  document.getElementById('cv-file-input')?.addEventListener('change', handleCVUpload);
+  document.getElementById('preview-cv-btn')?.addEventListener('click', previewCV);
+  document.getElementById('extract-cv-btn')?.addEventListener('click', extractCVData);
+  document.getElementById('extract-browser-btn')?.addEventListener('click', extractFromBrowser);
+  document.getElementById('reset-all-btn')?.addEventListener('click', resetAllData);
+  document.getElementById('save-settings-btn')?.addEventListener('click', saveSettings);
   
-  const checkboxes = form.querySelectorAll('input[type="checkbox"]');
-  
-  checkboxes.forEach(checkbox => {
-    if (!isFieldFillable(checkbox) || checkbox.checked) return;
-    
-    const context = getFieldContext(checkbox).toLowerCase();
-    const isConsent = consentPatterns.some(pattern => pattern.test(context));
-    
-    if (isConsent) {
-      checkbox.checked = true;
-      triggerFieldEvents(checkbox, 'checkbox');
-    }
-  });
-}
-
-function autoSelectCommonOptions(form, profileData) {
-  const selects = form.querySelectorAll('select');
-  
-  selects.forEach(select => {
-    if (!isFieldFillable(select) || select.value) return;
-    
-    const context = getFieldContext(select).toLowerCase();
-    
-    if (context.includes('country') && profileData.country) {
-      selectOption(select, profileData.country);
-    } else if (context.includes('gender') && profileData.gender) {
-      selectOption(select, profileData.gender);
-    } else if (context.includes('state') && profileData.state) {
-      selectOption(select, profileData.state);
-    } else if (context.includes('title') && profileData.jobTitle) {
-      selectOption(select, profileData.jobTitle);
-    }
-  });
-}
-
-function getFieldContext(field) {
-  const contextParts = [
-    field.name || '',
-    field.id || '',
-    field.placeholder || '',
-    getFieldLabel(field),
-    field.getAttribute('aria-label') || '',
-    field.getAttribute('data-label') || '',
-    field.getAttribute('title') || '',
-    field.className || ''
-  ];
-  
-  return contextParts.filter(Boolean).join(' ').toLowerCase();
-}
-
-function showFillNotification(filledCount, formCount) {
-  const notification = document.createElement('div');
-  notification.className = 'autofill-notification';
-  
-  const cvUploadCount = document.querySelectorAll('input[type="file"].autofill-cv-uploaded').length;
-  let message = `Filled ${filledCount} field${filledCount !== 1 ? 's' : ''} in ${formCount} form${formCount !== 1 ? 's' : ''}`;
-  
-  if (cvUploadCount > 0) {
-    message += ` • Uploaded CV to ${cvUploadCount} field${cvUploadCount !== 1 ? 's' : ''}`;
-  }
-  
-  notification.innerHTML = `
-    <div class="autofill-notification__icon">✅</div>
-    <div class="autofill-notification__content">
-      <strong>AutoFill Pro</strong>
-      <div>${message}</div>
-    </div>
-  `;
-  
-  document.body.appendChild(notification);
-  
-  setTimeout(() => {
-    if (notification.parentNode) {
-      notification.style.animation = 'slideOut 0.3s ease';
-      setTimeout(() => {
-        if (notification.parentNode) {
-          notification.parentNode.removeChild(notification);
+  // Auto-save indicators
+  document.querySelectorAll('#profile-form input, #profile-form textarea, #profile-form select')
+    .forEach(element => {
+      element.addEventListener('input', () => {
+        const saveBtn = document.getElementById('save-profile-btn');
+        if (saveBtn) {
+          saveBtn.classList.add('btn--pulse');
+          saveBtn.innerHTML = '💾 Save Profile (Unsaved Changes)';
         }
-      }, 300);
-    }
-  }, CONFIG.notificationDuration);
-}
-
-function handleAutoSubmit(sendResponse) {
-  console.log('⚡ Auto-submitting form');
-  
-  try {
-    const submitButtons = document.querySelectorAll(`
-      input[type="submit"],
-      button[type="submit"],
-      button:not([type]):not([type="button"]):not([type="reset"]),
-      [type="submit"],
-      .submit-btn,
-      .submit-button,
-      [data-submit],
-      [onclick*="submit"],
-      [onclick*="Submit"]
-    `);
-    
-    console.log(`Found ${submitButtons.length} potential submit buttons`);
-    
-    let submitted = false;
-    
-    for (const button of submitButtons) {
-      if (isVisible(button) && !button.disabled) {
-        try {
-          console.log(`Clicking submit button`);
-          button.click();
-          submitted = true;
-          break;
-        } catch (error) {}
-      }
-    }
-    
-    if (!submitted) {
-      const forms = document.querySelectorAll('form');
-      for (const form of forms) {
-        try {
-          console.log('Submitting form via submit() method');
-          form.submit();
-          submitted = true;
-          break;
-        } catch (error) {}
-      }
-    }
-    
-    sendResponse({ submitted, buttonCount: submitButtons.length });
-    
-  } catch (error) {
-    console.error('❌ Auto-submit error:', error);
-    sendResponse({ submitted: false, error: error.message });
-  }
-}
-
-function handleDetectForms(sendResponse) {
-  try {
-    const forms = document.querySelectorAll(`
-      form,
-      [role="form"],
-      [data-form],
-      .form,
-      .application-form,
-      .contact-form,
-      .registration-form,
-      .signup-form,
-      .login-form,
-      .checkout-form,
-      .survey-form,
-      .questionnaire
-    `);
-    
-    const fields = document.querySelectorAll(`
-      input:not([type="hidden"]),
-      textarea,
-      select,
-      [contenteditable="true"]
-    `);
-    
-    sendResponse({
-      formsCount: forms.length,
-      fieldsCount: fields.length,
-      fileFieldsCount: document.querySelectorAll('input[type="file"]').length
+      });
     });
-    
-  } catch (error) {
-    console.error('❌ Form detection error:', error);
-    sendResponse({ formsCount: 0, fieldsCount: 0, error: error.message });
-  }
-}
-
-function handleExtractData(sendResponse) {
-  console.log('🔍 Extracting data from browser');
   
-  const extracted = {};
-  const inputs = document.querySelectorAll('input, textarea, select');
-  
-  inputs.forEach(input => {
-    if (!isFieldFillable(input) || !input.value?.trim()) return;
-    
-    const value = input.value.trim();
-    if (value.length < 2 || value.length > 150) return;
-    
-    const context = getFieldContext(input).toLowerCase();
-    
-    const patterns = {
-      email: /email|e.?mail|mail.?address/i,
-      phone: /phone|mobile|tel|cell|contact.?number/i,
-      firstName: /first.?name|fname|given.?name|forename/i,
-      lastName: /last.?name|lname|surname|family.?name/i,
-      address: /address|street|location|addr/i,
-      city: /city|town|locality/i,
-      state: /state|province|region/i,
-      zipCode: /zip|postal.?code|postcode/i,
-      country: /country|nation/i,
-      company: /company|organization|employer|firm/i,
-      jobTitle: /title|position|role|occupation|designation/i
-    };
-    
-    for (const [key, pattern] of Object.entries(patterns)) {
-      if (pattern.test(context)) {
-        extracted[key] = value;
-        break;
-      }
-    }
-  });
-  
-  console.log('📤 Extracted data:', extracted);
-  sendResponse({ data: extracted });
-}
-
-function isVisible(element) {
-  try {
-    if (!element) return false;
-    if (element.disabled) return false;
-    if (element.hidden) return false;
-    if (element.getAttribute('type') === 'hidden') return false;
-    if (element.style.display === 'none') return false;
-    if (element.style.visibility === 'hidden') return false;
-    if (element.style.opacity === '0') return false;
-    if (element.offsetWidth === 0 && element.offsetHeight === 0) return false;
-    
-    const style = window.getComputedStyle(element);
-    if (style.display === 'none') return false;
-    if (style.visibility === 'hidden') return false;
-    if (style.opacity === '0') return false;
-    
-    const rect = element.getBoundingClientRect();
-    if (rect.width === 0 && rect.height === 0) return false;
-    
-    return true;
-  } catch (e) {
-    return false;
-  }
-}
-
-function handleFillForm(profileData, sendResponse) {
-  try {
-    const result = fillAllForms(profileData);
-    sendResponse(result);
-  } catch (error) {
-    console.error('❌ Fill form error:', error);
-    sendResponse({ error: error.message, filled: 0, total: 0 });
-  }
-}
-
-function fillAllForms(profileData) {
-  const startTime = performance.now();
-  let filled = 0;
-  let total = 0;
-  
-  const forms = detectAllForms();
-  
-  forms.forEach(form => {
-    const fields = form.querySelectorAll('input, textarea, select');
-    total += fields.length;
-    
-    fields.forEach(field => {
-      if (isFieldFillable(field)) {
-        const fieldInfo = analyzeField(field);
-        const value = findBestMatch(fieldInfo, profileData);
-        
-        if (value !== null) {
-          const success = fillFieldWithValue(field, value, fieldInfo);
-          if (success) filled++;
-        }
+  document.querySelectorAll('input[type="checkbox"]').forEach(toggle => {
+    toggle.addEventListener('change', () => {
+      const saveBtn = document.getElementById('save-settings-btn');
+      if (saveBtn) {
+        saveBtn.classList.add('btn--pulse');
+        saveBtn.innerHTML = '💾 Save Settings (Unsaved Changes)';
       }
     });
   });
-  
-  const duration = (performance.now() - startTime).toFixed(2);
-  
-  return {
-    filled: filled,
-    total: total,
-    forms: forms.length,
-    duration: duration,
-    success: filled > 0
-  };
 }
 
-function handleSingleField(fieldInfo, value, sendResponse) {
+async function handleSmartFill() {
+  console.log('🚀 Smart Fill initiated');
+  
+  const button = document.getElementById('smart-fill-btn');
+  const originalText = button.innerHTML;
+  
+  button.innerHTML = '⏳ Filling Forms...';
+  button.disabled = true;
+  
+  showStatus('⏳ Starting form fill...', 'loading');
+  
   try {
-    const field = document.querySelector(fieldInfo.selector);
-    if (!field) {
-      sendResponse({ error: 'Field not found', success: false });
+    if (!currentTab || !currentTab.url) {
+      throw new Error('No active tab found');
+    }
+    
+    if (currentTab.url.startsWith('chrome://') || currentTab.url.startsWith('chrome-extension://')) {
+      throw new Error('Cannot fill forms on this page');
+    }
+    
+    if (!currentProfile || Object.keys(currentProfile).length === 0) {
+      showStatus('❌ Please save your profile first!', 'error');
+      resetButton(button, originalText);
       return;
     }
     
-    const success = fillFieldWithValue(field, value, fieldInfo);
-    sendResponse({ success: success, value: value });
+    const hasData = Object.values(currentProfile).some(value => value && value.trim());
+    if (!hasData && !cvFile) {
+      showStatus('❌ Profile is empty and no CV uploaded!', 'error');
+      resetButton(button, originalText);
+      return;
+    }
+    
+    showStatus('🚀 Scanning page for forms & CV fields...', 'loading');
+    
+    let response;
+    try {
+      response = await chrome.tabs.sendMessage(currentTab.id, {
+        action: 'smartFill',
+        data: currentProfile,
+        settings: settings,
+        source: 'popup'
+      });
+    } catch (error) {
+      if (error.message.includes('receiving end does not exist')) {
+        showStatus('🔄 Injecting content script...', 'loading');
+        
+        await injectContentScript();
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        response = await chrome.tabs.sendMessage(currentTab.id, {
+          action: 'smartFill',
+          data: currentProfile,
+          settings: settings,
+          source: 'popup_retry'
+        });
+      } else {
+        throw error;
+      }
+    }
+    
+    if (response?.error) {
+      throw new Error(response.error);
+    }
+    
+    if (response?.filled > 0) {
+      const cvUploads = response.cvUploads || 0;
+      await updateUsageStatsAfterFill(response.filled, response.formsProcessed || 1, cvUploads);
+      
+      let message = `✅ Filled ${response.filled} field${response.filled !== 1 ? 's' : ''} in ${response.formsProcessed || 1} form${(response.formsProcessed || 1) !== 1 ? 's' : ''}`;
+      
+      if (cvUploads > 0) {
+        message += ` and uploaded CV to ${cvUploads} field${cvUploads !== 1 ? 's' : ''}`;
+      }
+      
+      showStatus(message, 'success');
+      
+      if (settings.autoSubmit && response.filled > 0) {
+        setTimeout(() => {
+          showStatus('⚡ Auto-submitting form...', 'loading');
+          autoSubmitForm();
+        }, 1000);
+      }
+    } else {
+      showStatus('⚠️ No form fields were filled', 'warning');
+    }
+    
   } catch (error) {
-    sendResponse({ error: error.message, success: false });
+    console.error('❌ Smart fill failed:', error);
+    showStatus(`❌ Error: ${error.message}`, 'error');
+  } finally {
+    resetButton(button, originalText);
   }
 }
 
-// Add CSS for animations
-const style = document.createElement('style');
-style.textContent = `
-  @keyframes slideIn {
-    from { transform: translateX(100%); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
+// Inject content script - FIXED ORDER: config.js BEFORE content.js
+async function injectContentScript() {
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId: currentTab.id },
+      files: ['config.js']
+    });
+    
+    await chrome.scripting.executeScript({
+      target: { tabId: currentTab.id },
+      files: ['content.js']
+    });
+    
+    await chrome.scripting.insertCSS({
+      target: { tabId: currentTab.id },
+      files: ['content.css']
+    });
+    
+    console.log('✅ Content scripts injected successfully (config.js -> content.js)');
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to inject content scripts:', error);
+    throw new Error('Failed to inject content scripts');
   }
-  
-  @keyframes slideOut {
-    from { transform: translateX(0); opacity: 1; }
-    to { transform: translateX(100%); opacity: 0; }
-  }
-  
-  .autofill-highlight {
-    animation: pulse 0.5s ease-in-out;
-    box-shadow: 0 0 0 2px #4CAF50;
-    border-color: #4CAF50 !important;
-  }
-  
-  @keyframes pulse {
-    0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); }
-    70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
-  }
-  
-  /* Special styling for CV-uploaded fields */
-  .autofill-cv-uploaded {
-    background-color: rgba(76, 175, 80, 0.1) !important;
-    border-color: #4CAF50 !important;
-  }
-`;
-document.head.appendChild(style);
+}
 
-// Initialize
-console.log('✅ AutoFill Pro content script initialized');
+async function saveProfile() {
+  const button = document.getElementById('save-profile-btn');
+  const originalText = button.innerHTML;
+  
+  button.innerHTML = '💾 Saving...';
+  button.disabled = true;
+  
+  showStatus('💾 Saving profile...', 'loading');
+  
+  try {
+    const profile = {};
+    const fields = [
+      'firstName', 'lastName', 'email', 'phone', 'address', 'city', 'state',
+      'zipCode', 'country', 'company', 'jobTitle', 'website', 'linkedin',
+      'github', 'experience', 'education', 'skills', 'salary', 'notice',
+      'gender', 'newsletter', 'remoteWork', 'terms'
+    ];
+    
+    fields.forEach(field => {
+      const element = document.getElementById(field);
+      if (element) profile[field] = element.value.trim();
+    });
+    
+    await chrome.storage.local.set({ profile });
+    currentProfile = profile;
+    updateStatusIndicator();
+    
+    showStatus('✅ Profile saved successfully!', 'success');
+    
+    button.innerHTML = '💾 Profile Saved!';
+    button.classList.remove('btn--pulse');
+    
+    setTimeout(() => {
+      button.innerHTML = originalText.replace('(Unsaved Changes)', '').trim();
+      button.disabled = false;
+    }, 2000);
+    
+  } catch (error) {
+    console.error('❌ Failed to save profile:', error);
+    showStatus('❌ Failed to save profile', 'error');
+    button.innerHTML = originalText;
+    button.disabled = false;
+  }
+}
+
+async function handleCVUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  const validTypes = [
+    'application/pdf', 'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'image/jpeg', 'image/png', 'text/plain', 'text/rtf'
+  ];
+  
+  if (!validTypes.includes(file.type) && !file.name.match(/\.(pdf|doc|docx|jpg|jpeg|png|txt|rtf)$/i)) {
+    showStatus('❌ Invalid file type. Please upload PDF, DOC, DOCX, JPG, PNG, or TXT files.', 'error');
+    return;
+  }
+  
+  if (file.size > 10 * 1024 * 1024) {
+    showStatus('❌ File too large. Maximum size is 10MB.', 'error');
+    return;
+  }
+  
+  showStatus('📤 Uploading CV...', 'loading');
+  
+  try {
+    const base64Data = await readFileAsBase64(file);
+    
+    cvFile = {
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      data: base64Data,
+      lastModified: file.lastModified,
+      uploadedAt: new Date().toISOString()
+    };
+    
+    await chrome.storage.local.set({ cvFile });
+    updateCVStatus();
+    showStatus(`✅ CV uploaded: ${file.name}`, 'success');
+    updateStatusIndicator(); // Update status to show CV is ready
+    
+  } catch (error) {
+    console.error('❌ CV upload failed:', error);
+    showStatus('❌ Failed to upload CV', 'error');
+  }
+}
+
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(e.target.result);
+    reader.onerror = (e) => reject(new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function previewCV() {
+  try {
+    if (!cvFile) {
+      showStatus('❌ No CV uploaded', 'error');
+      return;
+    }
+    
+    showStatus('👁️ Opening CV preview...', 'loading');
+    
+    const previewWindow = window.open('', '_blank');
+    
+    const previewHTML = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>CV Preview - ${cvFile.name}</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
+            .header { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
+            .file-info { margin-top: 10px; color: #666; font-size: 14px; }
+            .preview-container { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); min-height: 500px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>📄 CV Preview</h1>
+            <div class="file-info">
+              <strong>File:</strong> ${cvFile.name}<br>
+              <strong>Type:</strong> ${cvFile.type}<br>
+              <strong>Size:</strong> ${(cvFile.size / 1024).toFixed(2)} KB<br>
+              <strong>Uploaded:</strong> ${new Date(cvFile.uploadedAt).toLocaleString()}
+            </div>
+          </div>
+          <div class="preview-container">
+            ${cvFile.type.includes('image') 
+              ? `<img src="${cvFile.data}" style="max-width: 100%; border-radius: 5px;" />`
+              : cvFile.type.includes('pdf')
+              ? `<embed src="${cvFile.data}" width="100%" height="600px" type="application/pdf" />`
+              : cvFile.type.includes('text')
+              ? `<pre style="white-space: pre-wrap; font-family: monospace;">${atob(cvFile.data.split(',')[1]).substring(0, 5000)}...</pre>`
+              : `<p>Preview not available for this file type. <a href="${cvFile.data}" download="${cvFile.name}" style="display: inline-block; padding: 10px 20px; background: #4361ee; color: white; text-decoration: none; border-radius: 5px; margin-top: 10px;">Download CV</a></p>`
+            }
+          </div>
+        </body>
+      </html>
+    `;
+    
+    previewWindow.document.write(previewHTML);
+    previewWindow.document.close();
+    showStatus('✅ CV preview opened in new tab', 'success');
+    
+  } catch (error) {
+    console.error('❌ CV preview failed:', error);
+    showStatus('❌ Failed to preview CV', 'error');
+  }
+}
+
+async function extractCVData() {
+  try {
+    if (!cvFile) {
+      showStatus('❌ No CV uploaded', 'error');
+      return;
+    }
+    
+    if (!cvFile.type.includes('text')) {
+      showStatus('⚠️ Text extraction only works with TXT files', 'warning');
+      return;
+    }
+    
+    showStatus('🔍 Extracting data from CV...', 'loading');
+    
+    const base64Content = cvFile.data.split(',')[1];
+    const textContent = atob(base64Content);
+    const extractedData = extractDataFromText(textContent);
+    
+    updateFormWithExtractedData(extractedData);
+    
+    const container = document.getElementById('extracted-data-container');
+    if (container) {
+      let html = '<h3 style="margin-bottom: 10px;">Extracted Data:</h3>';
+      Object.entries(extractedData).forEach(([key, value]) => {
+        if (value) html += `<div style="margin-bottom: 5px;"><strong>${formatKey(key)}:</strong> ${value}</div>`;
+      });
+      container.innerHTML = html;
+    }
+    
+    showStatus('✅ Data extracted from CV', 'success');
+    
+  } catch (error) {
+    console.error('❌ CV extraction failed:', error);
+    showStatus('❌ Failed to extract CV data', 'error');
+  }
+}
+
+function extractDataFromText(text) {
+  const extracted = {};
+  
+  const emailMatch = text.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/);
+  if (emailMatch) extracted.email = emailMatch[0];
+  
+  const phoneRegex = /(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b/g;
+  const phoneMatches = text.match(phoneRegex);
+  if (phoneMatches) extracted.phone = phoneMatches[0];
+  
+  const nameRegex = /^([A-Z][a-z]+)\s+([A-Z][a-z]+)/m;
+  const nameMatch = text.match(nameRegex);
+  if (nameMatch) {
+    extracted.firstName = nameMatch[1];
+    extracted.lastName = nameMatch[2];
+  }
+  
+  const linkedinMatch = text.match(/linkedin\.com\/in\/[A-Za-z0-9-]+/i);
+  if (linkedinMatch) extracted.linkedin = `https://${linkedinMatch[0]}`;
+  
+  const githubMatch = text.match(/github\.com\/[A-Za-z0-9-]+/i);
+  if (githubMatch) extracted.github = `https://${githubMatch[0]}`;
+  
+  const skillKeywords = ['JavaScript', 'Python', 'React', 'Node.js', 'Java', 'C++', 'HTML', 'CSS', 'SQL', 'AWS', 'Vue', 'Angular', 'TypeScript', 'PHP', 'Ruby', 'Go', 'Swift', 'Kotlin'];
+  const foundSkills = skillKeywords.filter(skill => text.includes(skill));
+  if (foundSkills.length > 0) extracted.skills = foundSkills.join(', ');
+  
+  return extracted;
+}
+
+async function extractFromBrowser() {
+  const button = document.getElementById('extract-browser-btn');
+  const originalText = button.innerHTML;
+  
+  button.innerHTML = '🌐 Extracting...';
+  button.disabled = true;
+  
+  showStatus('🌐 Extracting data from page...', 'loading');
+  
+  try {
+    if (!currentTab || currentTab.url.startsWith('chrome://')) {
+      throw new Error('Cannot extract from this page');
+    }
+    
+    let response;
+    try {
+      response = await chrome.tabs.sendMessage(currentTab.id, { action: 'extractFromBrowser' });
+    } catch (error) {
+      if (error.message.includes('receiving end does not exist')) {
+        await injectContentScript();
+        await new Promise(resolve => setTimeout(resolve, 500));
+        response = await chrome.tabs.sendMessage(currentTab.id, { action: 'extractFromBrowser' });
+      } else {
+        throw error;
+      }
+    }
+    
+    if (response?.data) {
+      updateFormWithExtractedData(response.data);
+      
+      const container = document.getElementById('extracted-data-container');
+      if (container) {
+        let html = '<h3 style="margin-bottom: 10px;">Data Extracted from Page:</h3>';
+        Object.entries(response.data).forEach(([key, value]) => {
+          if (value) html += `<div style="margin-bottom: 5px;"><strong>${formatKey(key)}:</strong> ${value}</div>`;
+        });
+        container.innerHTML = html;
+      }
+      
+      showStatus('✅ Data extracted from page', 'success');
+    } else {
+      showStatus('⚠️ No extractable data found on this page', 'warning');
+    }
+    
+  } catch (error) {
+    console.error('❌ Browser extraction failed:', error);
+    showStatus('❌ Failed to extract data from page', 'error');
+  } finally {
+    button.innerHTML = originalText;
+    button.disabled = false;
+  }
+}
+
+async function resetAllData() {
+  if (!confirm('⚠️ Are you sure you want to reset ALL data?\n\nThis will:\n• Clear your profile\n• Remove uploaded CV\n• Reset settings\n• Clear usage statistics\n\nThis action cannot be undone!')) {
+    return;
+  }
+  
+  const button = document.getElementById('reset-all-btn');
+  const originalText = button.innerHTML;
+  
+  button.innerHTML = '🗑️ Resetting...';
+  button.disabled = true;
+  
+  showStatus('🔄 Resetting all data...', 'loading');
+  
+  try {
+    await chrome.storage.local.clear();
+    
+    currentProfile = createDefaultProfile();
+    settings = createDefaultSettings();
+    usageStats = createDefaultStats();
+    cvFile = null;
+    
+    document.querySelectorAll('input, textarea, select').forEach(element => {
+      if (element.type !== 'button' && element.type !== 'submit') {
+        element.value = '';
+      }
+    });
+    
+    document.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+      checkbox.checked = true;
+    });
+    
+    const container = document.getElementById('extracted-data-container');
+    if (container) container.innerHTML = 'Extracted data will appear here...';
+    
+    updateAllUI();
+    
+    await chrome.storage.local.set({
+      profile: currentProfile,
+      settings: settings,
+      usageStats: usageStats
+    });
+    
+    showStatus('✅ All data reset successfully', 'success');
+    
+  } catch (error) {
+    console.error('❌ Reset failed:', error);
+    showStatus('❌ Failed to reset data', 'error');
+  } finally {
+    button.innerHTML = originalText;
+    button.disabled = false;
+  }
+}
+
+async function saveSettings() {
+  const button = document.getElementById('save-settings-btn');
+  const originalText = button.innerHTML;
+  
+  button.innerHTML = '💾 Saving...';
+  button.disabled = true;
+  
+  showStatus('💾 Saving settings...', 'loading');
+  
+  try {
+    settings = {
+      autoFill: document.getElementById('auto-fill-toggle').checked,
+      highlightFields: document.getElementById('highlight-fields-toggle').checked,
+      showNotifications: document.getElementById('show-notifications-toggle').checked,
+      autoSubmit: document.getElementById('auto-submit-toggle')?.checked || false,
+      autoUploadCV: document.getElementById('auto-upload-cv-toggle').checked,
+      smartDropdownSelection: document.getElementById('smart-dropdown-toggle').checked,
+      keyboardShortcut: true
+    };
+    
+    await chrome.storage.local.set({ settings });
+    
+    button.innerHTML = '💾 Settings Saved!';
+    button.classList.remove('btn--pulse');
+    showStatus('✅ Settings saved successfully', 'success');
+    
+    setTimeout(() => {
+      button.innerHTML = '💾 Save Settings';
+      button.disabled = false;
+    }, 2000);
+    
+  } catch (error) {
+    console.error('❌ Failed to save settings:', error);
+    showStatus('❌ Failed to save settings', 'error');
+    button.innerHTML = originalText;
+    button.disabled = false;
+  }
+}
+
+async function autoSubmitForm() {
+  try {
+    await chrome.tabs.sendMessage(currentTab.id, { action: 'autoSubmit' });
+    showStatus('✅ Form submitted successfully', 'success');
+  } catch (error) {
+    console.warn('⚠️ Auto-submit failed:', error);
+  }
+}
+
+function updateFormWithExtractedData(data) {
+  Object.entries(data).forEach(([key, value]) => {
+    const element = document.getElementById(key);
+    if (element && value && !element.value.trim()) {
+      element.value = value;
+      element.style.borderColor = '#4CAF50';
+      element.style.boxShadow = '0 0 0 2px rgba(76, 175, 80, 0.2)';
+      
+      setTimeout(() => {
+        element.style.borderColor = '';
+        element.style.boxShadow = '';
+      }, 2000);
+    }
+  });
+  
+  const saveBtn = document.getElementById('save-profile-btn');
+  if (saveBtn) {
+    saveBtn.classList.add('btn--pulse');
+    saveBtn.innerHTML = '💾 Save Profile (Unsaved Changes)';
+  }
+}
+
+async function updateUsageStatsAfterFill(fieldsFilled, formsFilled, cvUploads = 0) {
+  usageStats.fieldsFilled += fieldsFilled;
+  usageStats.formsFilled += (formsFilled || 1);
+  usageStats.cvUploads += cvUploads;
+  usageStats.lastUsed = new Date().toISOString();
+  
+  if (currentTab?.url) {
+    const domain = new URL(currentTab.url).hostname;
+    const existingSite = usageStats.favoriteSites.find(site => site.domain === domain);
+    
+    if (existingSite) {
+      existingSite.count += 1;
+      existingSite.lastUsed = usageStats.lastUsed;
+    } else {
+      usageStats.favoriteSites.push({
+        domain,
+        count: 1,
+        lastUsed: usageStats.lastUsed
+      });
+    }
+    
+    usageStats.favoriteSites.sort((a, b) => b.count - a.count);
+    usageStats.favoriteSites = usageStats.favoriteSites.slice(0, 5);
+  }
+  
+  await chrome.storage.local.set({ usageStats });
+  updateUsageStats();
+}
+
+function updateAllUI() {
+  updateStatusIndicator();
+  updateCVStatus();
+  updateUsageStats();
+  checkPageForms();
+}
+
+function updateStatusIndicator() {
+  const statusEl = document.getElementById('status-indicator');
+  if (!statusEl) return;
+  
+  const filledFields = Object.values(currentProfile).filter(val => val && val.trim()).length;
+  const totalFields = Object.keys(currentProfile).length;
+  
+  if (filledFields === 0 && !cvFile) {
+    statusEl.textContent = '❌ No profile data or CV saved';
+    statusEl.className = 'status-indicator status-indicator--error';
+  } else if (filledFields < totalFields / 2 && !cvFile) {
+    statusEl.textContent = `⚠️ ${filledFields}/${totalFields} fields filled, no CV`;
+    statusEl.className = 'status-indicator status-indicator--warning';
+  } else {
+    statusEl.textContent = `✅ ${filledFields}/${totalFields} fields filled, CV ready`;
+    statusEl.className = 'status-indicator status-indicator--success';
+  }
+}
+
+function updateCVStatus() {
+  const cvStatusEl = document.getElementById('cv-status');
+  if (cvStatusEl) {
+    if (cvFile) {
+      cvStatusEl.innerHTML = `📎 <strong>${cvFile.name}</strong> (${(cvFile.size / 1024).toFixed(1)} KB)`;
+    } else {
+      cvStatusEl.textContent = 'No CV stored';
+    }
+  }
+}
+
+function updateUsageStats() {
+  const formsFilledEl = document.getElementById('forms-filled');
+  const fieldsFilledEl = document.getElementById('fields-filled');
+  const cvUploadsEl = document.getElementById('cv-uploads');
+  const lastUsedEl = document.getElementById('last-used');
+  
+  if (formsFilledEl) formsFilledEl.textContent = usageStats.formsFilled;
+  if (fieldsFilledEl) fieldsFilledEl.textContent = usageStats.fieldsFilled;
+  if (cvUploadsEl) cvUploadsEl.textContent = usageStats.cvUploads;
+  
+  if (lastUsedEl) {
+    if (usageStats.lastUsed) {
+      const lastUsed = new Date(usageStats.lastUsed);
+      const now = new Date();
+      const diffHours = Math.floor((now - lastUsed) / (1000 * 60 * 60));
+      
+      if (diffHours < 1) {
+        lastUsedEl.textContent = 'Just now';
+      } else if (diffHours < 24) {
+        lastUsedEl.textContent = `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+      } else {
+        lastUsedEl.textContent = lastUsed.toLocaleDateString();
+      }
+    } else {
+      lastUsedEl.textContent = 'Never';
+    }
+  }
+}
+
+async function checkPageForms() {
+  try {
+    if (!currentTab || currentTab.url.startsWith('chrome://')) {
+      return;
+    }
+    
+    let response;
+    try {
+      response = await chrome.tabs.sendMessage(currentTab.id, { action: 'ping' });
+    } catch (error) {
+      return;
+    }
+    
+    if (response?.status === 'ready') {
+      const formsResponse = await chrome.tabs.sendMessage(currentTab.id, { action: 'detectForms' });
+      
+      const smartFillBtn = document.getElementById('smart-fill-btn');
+      if (smartFillBtn) {
+        if (formsResponse?.formsCount > 0 || formsResponse?.fieldsCount > 0) {
+          smartFillBtn.disabled = false;
+          showStatus(`📋 ${formsResponse.formsCount} forms, ${formsResponse.fieldsCount} fields, ${formsResponse.selectFieldsCount || 0} dropdowns`, 'info');
+        } else {
+          smartFillBtn.disabled = true;
+          showStatus('❌ No form fields detected', 'error');
+        }
+      }
+    }
+  } catch (error) {
+    // Silently fail
+  }
+}
+
+function showStatus(message, type = 'info') {
+  const statusEl = document.getElementById('status-indicator');
+  if (!statusEl) return;
+  
+  statusEl.textContent = message;
+  statusEl.className = 'status-indicator';
+  
+  switch (type) {
+    case 'success':
+      statusEl.classList.add('status-indicator--success');
+      break;
+    case 'error':
+      statusEl.classList.add('status-indicator--error');
+      break;
+    case 'warning':
+      statusEl.classList.add('status-indicator--warning');
+      break;
+    case 'loading':
+      statusEl.classList.add('status-indicator--loading');
+      break;
+    default:
+      statusEl.classList.add('status-indicator--info');
+  }
+  
+  if (type === 'success') {
+    setTimeout(() => {
+      if (statusEl.textContent === message) {
+        updateStatusIndicator();
+      }
+    }, 3000);
+  }
+}
+
+function resetButton(button, originalText) {
+  button.innerHTML = originalText;
+  button.disabled = false;
+}
+
+function formatKey(key) {
+  return key.replace(/([A-Z])/g, ' $1')
+    .replace(/^./, str => str.toUpperCase())
+    .replace('_', ' ');
+}
