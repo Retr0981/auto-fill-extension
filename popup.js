@@ -1057,3 +1057,23 @@ function formatKey(key) {
     .replace(/^./, str => str.toUpperCase())
     .replace('_', ' ');
 }
+
+// Validate profile before saving
+function validateProfile(profile) {
+  const errors = [];
+  
+  if (profile.firstName && profile.lastName && 
+      profile.firstName.toLowerCase() === profile.lastName.toLowerCase()) {
+    errors.push('First name and last name cannot be the same');
+  }
+  
+  if (profile.email && !profile.email.includes('@')) {
+    errors.push('Please enter a valid email address');
+  }
+  
+  if (profile.phone && !profile.phone.match(/[0-9\-\+\(\)\s]{10,}/)) {
+    errors.push('Please enter a valid phone number');
+  }
+  
+  return errors;
+}
