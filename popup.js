@@ -396,6 +396,15 @@ async function saveProfile() {
       }
     });
     
+    // Validate profile
+    const errors = validateProfile(profile);
+    if (errors.length > 0) {
+      showStatus(`❌ ${errors.join(', ')}`, 'error');
+      button.innerHTML = originalText;
+      button.disabled = false;
+      return;
+    }
+    
     // Save to storage
     await chrome.storage.local.set({ profile });
     currentProfile = profile;
@@ -421,7 +430,6 @@ async function saveProfile() {
     button.disabled = false;
   }
 }
-
 // Handle CV upload
 async function handleCVUpload(event) {
   const file = event.target.files[0];
