@@ -1,4 +1,4 @@
-// AutoFill Pro Popup Script - Complete with All Functionality
+// AutoFill Pro Popup Script - Complete with CV Auto-Upload
 console.log('🎯 AutoFill Pro Popup initializing...');
 
 // Global variables
@@ -97,6 +97,7 @@ function createDefaultSettings() {
     highlightFields: true,
     showNotifications: true,
     autoSubmit: false,
+    autoUploadCV: true, // New setting
     keyboardShortcut: true
   };
 }
@@ -106,6 +107,7 @@ function createDefaultStats() {
   return {
     formsFilled: 0,
     fieldsFilled: 0,
+    cvUploads: 0, // New stat
     lastUsed: null,
     totalUsageTime: 0,
     favoriteSites: []
@@ -128,7 +130,8 @@ function populateSettingsForm() {
     'auto-fill-toggle': 'autoFill',
     'highlight-fields-toggle': 'highlightFields',
     'show-notifications-toggle': 'showNotifications',
-    'auto-submit-toggle': 'autoSubmit'
+    'auto-submit-toggle': 'autoSubmit',
+    'auto-upload-cv-toggle': 'autoUploadCV' // New setting
   };
   
   Object.entries(settingsMap).forEach(([elementId, settingKey]) => {
@@ -279,13 +282,13 @@ async function handleSmartFill() {
     
     // Check if we have any data
     const hasData = Object.values(currentProfile).some(value => value && value.trim());
-    if (!hasData) {
-      showStatus('❌ Profile is empty! Please add your information.', 'error');
+    if (!hasData && !cvFile) {
+      showStatus('❌ Profile is empty and no CV uploaded!', 'error');
       resetButton(button, originalText);
       return;
     }
     
-    showStatus('🚀 Scanning page for forms...', 'loading');
+    showStatus('🚀 Scanning page for forms & CV fields...', 'loading');
     
     // Try to send message to content script
     let response;
@@ -324,9 +327,15 @@ async function handleSmartFill() {
     
     if (response?.filled > 0) {
       // Update usage stats
-      await updateUsageStatsAfterFill(response.filled, response.formsProcessed || 1);
+      const cvUploads = response.cvUploads || 0;
+      await updateUsageStatsAfterFill(response.filled, response.formsProcessed || 1, cvUploads);
       
-      const message = `✅ Filled ${response.filled} field${response.filled !== 1 ? 's' : ''} in ${response.formsProcessed || 1} form${(response.formsProcessed || 1) !== 1 ? 's' : ''}`;
+      let message = `✅ Filled ${response.filled} field${response.filled !== 1 ? 's' : ''} in ${response.formsProcessed || 1} form${(response.formsProcessed || 1) !== 1 ? 's' : ''}`;
+      
+      if (cvUploads > 0) {
+        message += ` and uploaded CV to ${cvUploads} field${cvUploads !== 1 ? 's' : ''}`;
+      }
+      
       showStatus(message, 'success');
       
       // Auto-submit if enabled
@@ -353,7 +362,7 @@ async function injectContentScript() {
   try {
     await chrome.scripting.executeScript({
       target: { tabId: currentTab.id },
-      files: ['content.js']
+      files: ['config.js', 'content.js']
     });
     
     await chrome.scripting.insertCSS({
@@ -807,6 +816,7 @@ async function saveSettings() {
       highlightFields: document.getElementById('highlight-fields-toggle').checked,
       showNotifications: document.getElementById('show-notifications-toggle').checked,
       autoSubmit: document.getElementById('auto-submit-toggle')?.checked || false,
+      autoUploadCV: document.getElementById('auto-upload-cv-toggle').checked, // New setting
       keyboardShortcut: true
     };
     
@@ -873,9 +883,10 @@ function updateFormWithExtractedData(data) {
 }
 
 // Update usage stats after fill
-async function updateUsageStatsAfterFill(fieldsFilled, formsFilled) {
+async function updateUsageStatsAfterFill(fieldsFilled, formsFilled, cvUploads = 0) {
   usageStats.fieldsFilled += fieldsFilled;
   usageStats.formsFilled += (formsFilled || 1);
+  usageStats.cvUploads += cvUploads; // New stat
   usageStats.lastUsed = new Date().toISOString();
   
   // Add to favorite sites if not already there
@@ -923,14 +934,14 @@ function updateStatusIndicator() {
   const filledFields = Object.values(currentProfile).filter(val => val && val.trim()).length;
   const totalFields = Object.keys(currentProfile).length;
   
-  if (filledFields === 0) {
-    statusEl.textContent = '❌ No profile data saved';
+  if (filledFields === 0 && !cvFile) {
+    statusEl.textContent = '❌ No profile data or CV saved';
     statusEl.className = 'status-indicator status-indicator--error';
-  } else if (filledFields < totalFields / 2) {
-    statusEl.textContent = `⚠️ ${filledFields}/${totalFields} fields filled`;
+  } else if (filledFields < totalFields / 2 && !cvFile) {
+    statusEl.textContent = `⚠️ ${filledFields}/${totalFields} fields filled, no CV`;
     statusEl.className = 'status-indicator status-indicator--warning';
   } else {
-    statusEl.textContent = `✅ ${filledFields}/${totalFields} fields filled`;
+    statusEl.textContent = `✅ ${filledFields}/${totalFields} fields filled, CV ready`;
     statusEl.className = 'status-indicator status-indicator--success';
   }
 }
@@ -951,10 +962,12 @@ function updateCVStatus() {
 function updateUsageStats() {
   const formsFilledEl = document.getElementById('forms-filled');
   const fieldsFilledEl = document.getElementById('fields-filled');
+  const cvUploadsEl = document.getElementById('cv-uploads'); // New element
   const lastUsedEl = document.getElementById('last-used');
   
   if (formsFilledEl) formsFilledEl.textContent = usageStats.formsFilled;
   if (fieldsFilledEl) fieldsFilledEl.textContent = usageStats.fieldsFilled;
+  if (cvUploadsEl) cvUploadsEl.textContent = usageStats.cvUploads;
   
   if (lastUsedEl) {
     if (usageStats.lastUsed) {
@@ -994,15 +1007,17 @@ async function checkPageForms() {
       const formsResponse = await chrome.tabs.sendMessage(currentTab.id, { action: 'detectForms' });
       
       const smartFillBtn = document.getElementById('smart-fill-btn');
-      if (smartFillBtn && formsResponse?.formsCount > 0) {
-        smartFillBtn.disabled = false;
-        showStatus(`📋 ${formsResponse.formsCount} form(s) detected`, 'info');
-      } else if (smartFillBtn && formsResponse?.fieldsCount > 0) {
-        smartFillBtn.disabled = false;
-        showStatus(`⌨️ ${formsResponse.fieldsCount} input field(s) found`, 'info');
-      } else if (smartFillBtn) {
-        smartFillBtn.disabled = true;
-        showStatus('❌ No form fields detected', 'error');
+      if (smartFillBtn) {
+        if (formsResponse?.formsCount > 0) {
+          smartFillBtn.disabled = false;
+          showStatus(`📋 ${formsResponse.formsCount} form(s), ${formsResponse.fieldsCount} fields`, 'info');
+        } else if (formsResponse?.fieldsCount > 0) {
+          smartFillBtn.disabled = false;
+          showStatus(`⌨️ ${formsResponse.fieldsCount} input field(s) found`, 'info');
+        } else {
+          smartFillBtn.disabled = true;
+          showStatus('❌ No form fields detected', 'error');
+        }
       }
     }
   } catch (error) {
