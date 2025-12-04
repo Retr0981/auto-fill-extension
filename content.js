@@ -9,7 +9,8 @@ const CONFIG = {
   showNotifications: true,
   notificationDuration: 3000,
   fieldCheckInterval: 1000,
-  maxRetryAttempts: 3
+  maxRetryAttempts: 3,
+  autoUploadCV: true // New setting for CV auto-upload
 };
 
 // State management
@@ -23,30 +24,95 @@ let state = {
   }
 };
 
-// Import field aliases from config
-const FIELD_ALIASES = typeof window.FIELD_ALIASES !== 'undefined' ? window.FIELD_ALIASES : {};
+// Define FIELD_ALIASES locally - DO NOT import from window
+const FIELD_ALIASES = {
+  // ... (same as config.js, included for self-containment)
+  firstName: ['firstName', 'first_name', 'firstname', 'fname', 'givenName', 'given_name', 'forename', 'name', 'fullName', 'user.firstName', 'customer.firstName', 'applicant.firstName', 'candidate.firstName', 'first', 'fn', 'given', 'firstName', 'fName', 'firstName1', 'firstname1', 'name_first'],
+  lastName: ['lastName', 'last_name', 'lastname', 'lname', 'surname', 'familyName', 'family_name', 'user.lastName', 'customer.lastName', 'applicant.lastName', 'candidate.lastName', 'last', 'ln', 'family', 'surname', 'lastName', 'lName', 'lastname1', 'name_last'],
+  fullName: ['fullName', 'full_name', 'fullname', 'name', 'completeName', 'user.name', 'customer.name', 'applicant.name', 'candidate.name', 'person.name', 'displayName', 'display_name'],
+  email: ['email', 'e-mail', 'emailAddress', 'email_address', 'e_mail', 'mail', 'e mail', 'emailaddress', 'contact', 'contactEmail', 'candidate.email', 'applicant.email', 'user.email', 'person.email', 'contact_email', 'emailAddr', 'mailAddress', 'email_address', 'e-mailAddress', 'email_addr'],
+  phone: ['phone', 'phoneNumber', 'phone_number', 'telephone', 'mobile', 'cell', 'cellphone', 'phonenumber', 'tel', 'contact', 'contactNumber', 'candidate.phone', 'applicant.phone', 'user.phone', 'person.phone', 'contact_phone', 'phone_no', 'telephone_no', 'mobileNumber', 'phoneNumber1', 'telephoneNumber', 'mobilePhone', 'cellPhone'],
+  address: ['address', 'streetAddress', 'street_address', 'addressLine1', 'address1', 'line1', 'street', 'location', 'mailingAddress', 'residentialAddress', 'homeAddress', 'workAddress', 'address_line1', 'addr1', 'streetAddr', 'streetaddress', 'addrLine1', 'street_address1'],
+  city: ['city', 'town', 'cityName', 'locality', 'addressCity', 'homeCity', 'workCity', 'city_name', 'locationCity', 'address_city', 'cityTown', 'city_town', 'address_city', 'locality_city'],
+  state: ['state', 'province', 'region', 'stateProvince', 'addressState', 'homeState', 'workState', 'state_name', 'regionState', 'address_state', 'stateProv', 'provState', 'state_province', 'region_state'],
+  zipCode: ['zip', 'zipCode', 'zipcode', 'postalCode', 'postal', 'postcode', 'addressZip', 'homeZip', 'workZip', 'zip_code', 'postal_code', 'address_zip', 'postCode', 'zipPostal', 'zip_postal'],
+  country: ['country', 'countryName', 'nation', 'addressCountry', 'homeCountry', 'workCountry', 'country_name', 'nationality', 'country_nation', 'address_country'],
+  company: ['company', 'organization', 'employer', 'companyName', 'company_name', 'organizationName', 'currentCompany', 'employerName', 'companyName1', 'compName', 'orgName', 'employer_name', 'current_employer', 'currentCompany'],
+  jobTitle: ['jobTitle', 'job_title', 'position', 'title', 'role', 'occupation', 'jobPosition', 'jobRole', 'jobtitle', 'jobName', 'designation', 'currentTitle', 'current_position', 'professional_title', 'role_title'],
+  website: ['website', 'personalWebsite', 'portfolio', 'url', 'websiteUrl', 'webSite', 'site', 'personal_site', 'portfolio_url', 'website_url'],
+  linkedin: ['linkedin', 'linkedinProfile', 'linkedin_url', 'linkedinUrl', 'social.linkedin', 'linkedin_profile', 'linkedin_link'],
+  github: ['github', 'githubProfile', 'github_url', 'githubUrl', 'social.github', 'github_profile', 'github_link'],
+  experience: ['experience', 'workExperience', 'yearsExperience', 'totalExperience', 'professionalExperience', 'relevantExperience', 'years_experience', 'total_experience', 'work_experience'],
+  education: ['education', 'degree', 'qualification', 'highestEducation', 'educationalBackground', 'academicBackground', 'highest_degree', 'education_level'],
+  skills: ['skills', 'technicalSkills', 'competencies', 'expertise', 'abilities', 'proficiencies', 'technical_skills', 'key_skills', 'core_skills'],
+  salary: ['salary', 'salaryExpectation', 'expectedSalary', 'compensation', 'desiredSalary', 'salary_expectation', 'expected_salary', 'compensation_expectation'],
+  notice: ['noticePeriod', 'notice', 'availability', 'whenAvailable', 'notice_period', 'availability_date', 'start_date', 'joining_date'],
+  // CV/Resume Upload Fields
+  cv: ['cv', 'resume', 'curriculum', 'vitae', 'attachment', 'file', 'upload', 'document', 'resumeFile', 'cvFile', 'attachmentFile', 'fileUpload', 'uploadFile', 'documentFile', 'resumeUpload', 'cvUpload', 'cv_upload', 'resume_upload', 'attachment_upload', 'file_upload', 'document_upload', 'cvFileUpload', 'resumeFileUpload', 'documentFileUpload', 'attachmentFileUpload', 'file_cv', 'file_resume', 'file_attachment', 'file_document']
+};
+
+// CV upload field detection patterns
+const CV_UPLOAD_PATTERNS = [
+  /cv|resume|curriculum|vitae|attachment|document|upload/i,
+  /file.?upload|upload.?file/i,
+  /cv.?upload|resume.?upload/i,
+  /attachment.?file|file.?attachment/i,
+  /document.?upload|upload.?document/i
+];
+
+// Field type patterns for better matching
+const FIELD_PATTERNS = {
+  email: /email|e.?mail|mail.?address/i,
+  phone: /phone|mobile|tel|cell|contact.?number/i,
+  date: /date|dob|birth.?date|birthday/i,
+  url: /url|website|web.?site|link/i,
+  file: /file|upload|attachment|cv|resume|document/i
+};
 
 // Main message handler
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log('📨 Content script received:', request.action);
   
-  const actions = {
-    'smartFill': () => handleSmartFill(request.data, request.settings, sendResponse),
-    'fillForm': () => handleFillForm(request.data, sendResponse),
-    'extractFromBrowser': () => handleExtractData(sendResponse),
-    'ping': () => sendResponse({ status: 'ready', version: '5.2', timestamp: Date.now() }),
-    'detectForms': () => handleDetectForms(sendResponse),
-    'fillField': () => handleSingleField(request.field, request.value, sendResponse),
-    'autoSubmit': () => handleAutoSubmit(sendResponse)
-  };
-  
-  if (actions[request.action]) {
-    actions[request.action]();
-  } else {
-    sendResponse({ error: 'Unknown action', action: request.action });
+  try {
+    switch (request.action) {
+      case 'smartFill':
+        handleSmartFill(request.data, request.settings, sendResponse);
+        break;
+        
+      case 'fillForm':
+        handleFillForm(request.data, sendResponse);
+        break;
+        
+      case 'extractFromBrowser':
+        handleExtractData(sendResponse);
+        break;
+        
+      case 'ping':
+        sendResponse({ status: 'ready', version: '5.3', timestamp: Date.now() });
+        break;
+        
+      case 'detectForms':
+        handleDetectForms(sendResponse);
+        break;
+        
+      case 'fillField':
+        handleSingleField(request.field, request.value, sendResponse);
+        break;
+        
+      case 'autoSubmit':
+        handleAutoSubmit(sendResponse);
+        break;
+        
+      default:
+        console.warn('⚠️ Unknown action:', request.action);
+        sendResponse({ error: 'Unknown action', action: request.action });
+    }
+  } catch (error) {
+    console.error('❌ Message handler error:', error);
+    sendResponse({ error: error.message, filled: 0 });
   }
   
-  return true; // Keep message channel open for async responses
+  return true;
 });
 
 // Smart fill handler
@@ -59,19 +125,20 @@ async function handleSmartFill(profileData, settings, sendResponse) {
   state.isFilling = true;
   
   try {
-    console.log('🚀 Starting smart fill with profile:', profileData);
+    console.log('🚀 Starting smart fill');
     
     // Update config with settings
     if (settings) {
       CONFIG.highlightFilled = settings.highlightFields !== false;
       CONFIG.showNotifications = settings.showNotifications !== false;
+      CONFIG.autoUploadCV = settings.autoUploadCV !== false; // New setting
     }
     
-    // Step 1: Detect all forms on page
+    // Detect all forms on page
     const forms = detectAllForms();
     console.log(`📋 Detected ${forms.length} form(s)`);
     
-    // Step 2: Fill each form
+    // Fill each form
     const results = [];
     let totalFilled = 0;
     let totalFields = 0;
@@ -83,39 +150,33 @@ async function handleSmartFill(profileData, settings, sendResponse) {
       totalFields += result.total;
     }
     
-    // Step 3: Fill standalone fields
+    // Fill standalone fields
     const standaloneResult = fillStandaloneFields(profileData);
     totalFilled += standaloneResult.filled;
     
-    // Step 4: Update state
+    // Update state
     state.lastFillTime = Date.now();
     state.isFilling = false;
     
-    // Step 5: Show notification
+    // Show notification
     if (CONFIG.showNotifications && totalFilled > 0) {
       showFillNotification(totalFilled, forms.length);
     }
     
-    // Step 6: Send response
-    const response = {
+    // Send response
+    sendResponse({
       success: true,
       filled: totalFilled,
       totalFields: totalFields,
       formsProcessed: forms.length,
       results: results,
       timestamp: state.lastFillTime
-    };
-    
-    sendResponse(response);
+    });
     
   } catch (error) {
     console.error('❌ Smart fill error:', error);
     state.isFilling = false;
-    sendResponse({ 
-      error: error.message, 
-      filled: 0,
-      stack: error.stack 
-    });
+    sendResponse({ error: error.message, filled: 0 });
   }
 }
 
@@ -128,7 +189,7 @@ async function fillFormComprehensive(form, profileData) {
     fields: []
   };
   
-  // Get all input elements
+  // Get all input elements including file inputs
   const fieldSelectors = [
     'input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"])',
     'textarea',
@@ -147,10 +208,10 @@ async function fillFormComprehensive(form, profileData) {
   const fields = form.querySelectorAll(fieldSelectors.join(', '));
   result.total = fields.length;
   
-  console.log(`📝 Processing ${fields.length} fields in form: ${result.formId}`);
+  console.log(`📝 Processing ${fields.length} fields in form`);
   
-  // Fill fields in batches for better performance
-  const batchSize = 10;
+  // Fill fields in batches
+  const batchSize = 5; // Reduced for better reliability
   for (let i = 0; i < fields.length; i += batchSize) {
     const batch = Array.from(fields).slice(i, i + batchSize);
     
@@ -161,21 +222,12 @@ async function fillFormComprehensive(form, profileData) {
       const value = findBestMatch(fieldInfo, profileData);
       
       if (value !== null) {
-        const success = fillFieldWithValue(field, value, fieldInfo);
+        const success = await fillFieldWithValue(field, value, fieldInfo);
         
         if (success) {
           result.filled++;
-          result.fields.push({
-            name: fieldInfo.name,
-            type: fieldInfo.type,
-            value: value,
-            element: field
-          });
-          
-          // Mark as filled
           state.filledFields.add(field);
           
-          // Highlight if enabled
           if (CONFIG.highlightFilled) {
             highlightField(field);
           }
@@ -183,8 +235,7 @@ async function fillFormComprehensive(form, profileData) {
       }
     }
     
-    // Small delay between batches
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise(resolve => setTimeout(resolve, 100)); // Increased delay
   }
   
   // Auto-check consent boxes
@@ -197,15 +248,14 @@ async function fillFormComprehensive(form, profileData) {
     autoSelectCommonOptions(form, profileData);
   }
   
-  console.log(`✅ Form ${result.formId}: Filled ${result.filled} of ${result.total} fields`);
+  console.log(`✅ Form: Filled ${result.filled} of ${result.total} fields`);
   return result;
 }
 
 // Fill standalone fields not in forms
 function fillStandaloneFields(profileData) {
-  const result = { filled: 0, total: 0, fields: [] };
+  const result = { filled: 0, total: 0 };
   
-  // Find fields outside forms
   const standaloneSelectors = [
     'body input:not(form input):not([type="hidden"])',
     'body textarea:not(form textarea)',
@@ -227,12 +277,6 @@ function fillStandaloneFields(profileData) {
       
       if (success) {
         result.filled++;
-        result.fields.push({
-          name: fieldInfo.name,
-          type: fieldInfo.type,
-          value: value
-        });
-        
         state.filledFields.add(field);
         
         if (CONFIG.highlightFilled) {
@@ -285,6 +329,7 @@ function analyzeField(field) {
     isCheckbox: fieldType === 'checkbox',
     isRadio: fieldType === 'radio',
     isSelect: fieldType === 'select-one' || fieldType === 'select-multiple',
+    isFile: fieldType === 'file', // New flag
     isText: ['text', 'email', 'tel', 'url', 'number', 'date', 'password'].includes(fieldType),
     isTextarea: fieldType === 'textarea',
     isContentEditable: field.isContentEditable
@@ -295,6 +340,16 @@ function analyzeField(field) {
 function findBestMatch(fieldInfo, profileData) {
   if (!profileData || Object.keys(profileData).length === 0) {
     return null;
+  }
+  
+  // Special handling for file uploads
+  if (fieldInfo.isFile && CONFIG.autoUploadCV) {
+    // Check if this is a CV upload field
+    const isCVField = CV_UPLOAD_PATTERNS.some(pattern => pattern.test(fieldInfo.context));
+    if (isCVField) {
+      return '__CV_AUTO_UPLOAD__'; // Special marker for CV upload
+    }
+    return null; // Don't fill other file inputs
   }
   
   // Priority 1: Direct name/id match
@@ -371,9 +426,15 @@ function findBestMatch(fieldInfo, profileData) {
 }
 
 // Fill field with value
-function fillFieldWithValue(field, value, fieldInfo) {
+async function fillFieldWithValue(field, value, fieldInfo) {
   try {
     let success = false;
+    
+    // Handle CV file upload
+    if (fieldInfo.isFile && value === '__CV_AUTO_UPLOAD__') {
+      return await handleFileUpload(field, fieldInfo);
+    }
+    
     const stringValue = String(value).trim();
     
     switch (fieldInfo.type) {
@@ -425,18 +486,78 @@ function fillFieldWithValue(field, value, fieldInfo) {
     
     if (success) {
       triggerFieldEvents(field, fieldInfo.type);
-      return true;
     }
     
-    return false;
+    return success;
     
   } catch (error) {
-    console.error(`❌ Error filling field ${fieldInfo.name}:`, error);
+    console.error(`❌ Error filling field:`, error);
     return false;
   }
 }
 
-// Helper functions
+// New function: Handle CV file upload
+async function handleFileUpload(field, fieldInfo) {
+  try {
+    console.log('📤 Attempting CV upload for field:', fieldInfo.name || fieldInfo.id);
+    
+    // Get CV file from storage
+    const result = await chrome.storage.local.get(['cvFile']);
+    const cvFile = result.cvFile;
+    
+    if (!cvFile) {
+      console.warn('⚠️ No CV file found in storage');
+      return false;
+    }
+    
+    // Validate file type against accept attribute
+    const accept = field.getAttribute('accept');
+    if (accept && !isFileTypeAccepted(accept, cvFile.type)) {
+      console.warn('⚠️ CV file type not accepted by field. Accept:', accept, 'File type:', cvFile.type);
+      return false;
+    }
+    
+    // Create File object from base64 data
+    console.log('📄 Creating File object from stored CV:', cvFile.name);
+    const response = await fetch(cvFile.data);
+    const blob = await response.blob();
+    const file = new File([blob], cvFile.name, { type: cvFile.type, lastModified: cvFile.lastModified });
+    
+    // Use DataTransfer to set the file (bypasses security restrictions)
+    const dataTransfer = new DataTransfer();
+    dataTransfer.items.add(file);
+    field.files = dataTransfer.files;
+    
+    // Trigger change events
+    field.dispatchEvent(new Event('change', { bubbles: true }));
+    field.dispatchEvent(new Event('input', { bubbles: true }));
+    
+    console.log('✅ CV uploaded successfully to field:', fieldInfo.name || fieldInfo.id);
+    return true;
+    
+  } catch (error) {
+    console.error('❌ CV upload error:', error);
+    return false;
+  }
+}
+
+// Helper: Check if file type is accepted
+function isFileTypeAccepted(accept, fileType) {
+  try {
+    const acceptTypes = accept.split(',').map(type => type.trim().toLowerCase());
+    return acceptTypes.some(acceptType => {
+      if (acceptType === fileType.toLowerCase()) return true;
+      if (acceptType.endsWith('/*') && fileType.startsWith(acceptType.replace('/*', '/'))) return true;
+      if (acceptType.startsWith('.') && fileType.includes(acceptType.substring(1))) return true;
+      return false;
+    });
+  } catch (e) {
+    console.error('❌ Error checking file type acceptance:', e);
+    return true; // Default to true if parsing fails
+  }
+}
+
+// Helper functions (remaining functions are the same as original)
 function isFieldFillable(field) {
   if (!field) return false;
   if (field.disabled) return false;
@@ -456,28 +577,23 @@ function isFieldFillable(field) {
 
 function getFieldLabel(field) {
   try {
-    // Check for associated label
     if (field.id) {
       const label = document.querySelector(`label[for="${field.id}"]`);
       if (label) return label.textContent.trim();
     }
     
-    // Check for parent label
     const parentLabel = field.closest('label');
     if (parentLabel) return parentLabel.textContent.trim();
     
-    // Check aria-label
     const ariaLabel = field.getAttribute('aria-label');
     if (ariaLabel) return ariaLabel.trim();
     
-    // Check aria-labelledby
     const labelledBy = field.getAttribute('aria-labelledby');
     if (labelledBy) {
       const labelElement = document.getElementById(labelledBy);
       if (labelElement) return labelElement.textContent.trim();
     }
     
-    // Look for nearby text
     const parent = field.parentElement;
     if (parent) {
       const textNodes = Array.from(parent.childNodes)
@@ -492,7 +608,6 @@ function getFieldLabel(field) {
     
     return '';
   } catch (error) {
-    console.warn('⚠️ Error getting field label:', error);
     return '';
   }
 }
@@ -507,7 +622,6 @@ function parseCheckboxValue(value) {
   if (truthyValues.includes(stringValue)) return true;
   if (falseyValues.includes(stringValue)) return false;
   
-  // Default to true for consent-like checkboxes
   return stringValue.length > 0;
 }
 
@@ -578,12 +692,9 @@ function triggerFieldEvents(field, fieldType) {
   events.forEach(eventType => {
     try {
       field.dispatchEvent(new Event(eventType, { bubbles: true }));
-    } catch (e) {
-      // Ignore errors for unsupported events
-    }
+    } catch (e) {}
   });
   
-  // Special handling for modern frameworks
   if (typeof InputEvent !== 'undefined') {
     try {
       const inputEvent = new InputEvent('input', {
@@ -591,9 +702,7 @@ function triggerFieldEvents(field, fieldType) {
         data: field.value || ''
       });
       field.dispatchEvent(inputEvent);
-    } catch (e) {
-      console.warn('⚠️ InputEvent failed:', e);
-    }
+    } catch (e) {}
   }
 }
 
@@ -695,32 +804,21 @@ function getFieldContext(field) {
 function showFillNotification(filledCount, formCount) {
   const notification = document.createElement('div');
   notification.className = 'autofill-notification';
+  
+  // Enhanced notification to include CV upload info
+  const cvUploadCount = document.querySelectorAll('input[type="file"].autofill-cv-uploaded').length;
+  let message = `Filled ${filledCount} field${filledCount !== 1 ? 's' : ''} in ${formCount} form${formCount !== 1 ? 's' : ''}`;
+  
+  if (cvUploadCount > 0) {
+    message += ` • Uploaded CV to ${cvUploadCount} field${cvUploadCount !== 1 ? 's' : ''}`;
+  }
+  
   notification.innerHTML = `
     <div class="autofill-notification__icon">✅</div>
     <div class="autofill-notification__content">
       <strong>AutoFill Pro</strong>
-      <div>Filled ${filledCount} field${filledCount !== 1 ? 's' : ''} in ${formCount} form${formCount !== 1 ? 's' : ''}</div>
+      <div>${message}</div>
     </div>
-  `;
-  
-  notification.style.cssText = `
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background: rgba(0, 0, 0, 0.9);
-    color: white;
-    padding: 12px 16px;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    z-index: 1000000;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    font-size: 14px;
-    animation: slideIn 0.3s ease;
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255,255,255,0.1);
   `;
   
   document.body.appendChild(notification);
@@ -737,12 +835,10 @@ function showFillNotification(filledCount, formCount) {
   }, CONFIG.notificationDuration);
 }
 
-// Handle auto-submit
 function handleAutoSubmit(sendResponse) {
   console.log('⚡ Auto-submitting form');
   
   try {
-    // Find all submit buttons
     const submitButtons = document.querySelectorAll(`
       input[type="submit"],
       button[type="submit"],
@@ -757,23 +853,19 @@ function handleAutoSubmit(sendResponse) {
     
     console.log(`Found ${submitButtons.length} potential submit buttons`);
     
-    // Try to click the most likely submit button
     let submitted = false;
     
     for (const button of submitButtons) {
       if (isVisible(button) && !button.disabled) {
         try {
-          console.log(`Clicking submit button: ${button.textContent || button.value || button.className}`);
+          console.log(`Clicking submit button`);
           button.click();
           submitted = true;
           break;
-        } catch (error) {
-          console.warn('Failed to click button:', error);
-        }
+        } catch (error) {}
       }
     }
     
-    // If no button found, try form submit
     if (!submitted) {
       const forms = document.querySelectorAll('form');
       for (const form of forms) {
@@ -782,14 +874,11 @@ function handleAutoSubmit(sendResponse) {
           form.submit();
           submitted = true;
           break;
-        } catch (error) {
-          console.warn('Failed to submit form:', error);
-        }
+        } catch (error) {}
       }
     }
     
-    const result = { submitted, buttonCount: submitButtons.length };
-    sendResponse(result);
+    sendResponse({ submitted, buttonCount: submitButtons.length });
     
   } catch (error) {
     console.error('❌ Auto-submit error:', error);
@@ -797,7 +886,6 @@ function handleAutoSubmit(sendResponse) {
   }
 }
 
-// Detect forms on page
 function handleDetectForms(sendResponse) {
   try {
     const forms = document.querySelectorAll(`
@@ -822,17 +910,11 @@ function handleDetectForms(sendResponse) {
       [contenteditable="true"]
     `);
     
-    const result = {
+    sendResponse({
       formsCount: forms.length,
       fieldsCount: fields.length,
-      forms: Array.from(forms).map(form => ({
-        id: form.id || 'no-id',
-        className: form.className,
-        fields: form.querySelectorAll('input, textarea, select').length
-      }))
-    };
-    
-    sendResponse(result);
+      fileFieldsCount: document.querySelectorAll('input[type="file"]').length
+    });
     
   } catch (error) {
     console.error('❌ Form detection error:', error);
@@ -840,7 +922,6 @@ function handleDetectForms(sendResponse) {
   }
 }
 
-// Extract data from browser
 function handleExtractData(sendResponse) {
   console.log('🔍 Extracting data from browser');
   
@@ -855,7 +936,6 @@ function handleExtractData(sendResponse) {
     
     const context = getFieldContext(input).toLowerCase();
     
-    // Check for common field patterns
     const patterns = {
       email: /email|e.?mail|mail.?address/i,
       phone: /phone|mobile|tel|cell|contact.?number/i,
@@ -882,7 +962,6 @@ function handleExtractData(sendResponse) {
   sendResponse({ data: extracted });
 }
 
-// Check if element is visible
 function isVisible(element) {
   try {
     if (!element) return false;
@@ -899,7 +978,6 @@ function isVisible(element) {
     if (style.visibility === 'hidden') return false;
     if (style.opacity === '0') return false;
     
-    // Check if element is within viewport
     const rect = element.getBoundingClientRect();
     if (rect.width === 0 && rect.height === 0) return false;
     
@@ -909,7 +987,6 @@ function isVisible(element) {
   }
 }
 
-// Handle fill form (legacy function)
 function handleFillForm(profileData, sendResponse) {
   try {
     const result = fillAllForms(profileData);
@@ -920,7 +997,6 @@ function handleFillForm(profileData, sendResponse) {
   }
 }
 
-// Legacy fill all forms function
 function fillAllForms(profileData) {
   const startTime = performance.now();
   let filled = 0;
@@ -939,9 +1015,7 @@ function fillAllForms(profileData) {
         
         if (value !== null) {
           const success = fillFieldWithValue(field, value, fieldInfo);
-          if (success) {
-            filled++;
-          }
+          if (success) filled++;
         }
       }
     });
@@ -958,7 +1032,6 @@ function fillAllForms(profileData) {
   };
 }
 
-// Handle single field fill
 function handleSingleField(fieldInfo, value, sendResponse) {
   try {
     const field = document.querySelector(fieldInfo.selector);
@@ -974,7 +1047,7 @@ function handleSingleField(fieldInfo, value, sendResponse) {
   }
 }
 
-// Add CSS for animations
+// Add CSS for CV upload highlighting
 const style = document.createElement('style');
 style.textContent = `
   @keyframes slideIn {
@@ -998,16 +1071,14 @@ style.textContent = `
     70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
     100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
   }
+  
+  /* Special styling for CV-uploaded fields */
+  .autofill-cv-uploaded {
+    background-color: rgba(76, 175, 80, 0.1) !important;
+    border-color: #4CAF50 !important;
+  }
 `;
 document.head.appendChild(style);
 
 // Initialize
 console.log('✅ AutoFill Pro content script initialized');
-
-// Export functions for debugging
-window.AutoFillPro = {
-  fillForm: handleSmartFill,
-  detectForms: handleDetectForms,
-  extractData: handleExtractData,
-  autoSubmit: handleAutoSubmit
-};
