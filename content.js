@@ -1,7 +1,9 @@
 // AutoFill Pro Content Script - Universal Form Filling Engine
+// NOTE: This file relies on variables from config.js - inject config.js FIRST
+
 console.log('🎯 AutoFill Pro Content Script loaded');
 
-// Configuration
+// Configuration (uses values from config.js if available, otherwise defaults)
 const CONFIG = {
   autoCheckBoxes: true,
   autoSelectOptions: true,
@@ -10,7 +12,7 @@ const CONFIG = {
   notificationDuration: 3000,
   fieldCheckInterval: 1000,
   maxRetryAttempts: 3,
-  autoUploadCV: true // New setting for CV auto-upload
+  autoUploadCV: true
 };
 
 // State management
@@ -22,51 +24,6 @@ let state = {
     detectedForms: [],
     totalFields: 0
   }
-};
-
-// Define FIELD_ALIASES locally - DO NOT import from window
-const FIELD_ALIASES = {
-  // ... (same as config.js, included for self-containment)
-  firstName: ['firstName', 'first_name', 'firstname', 'fname', 'givenName', 'given_name', 'forename', 'name', 'fullName', 'user.firstName', 'customer.firstName', 'applicant.firstName', 'candidate.firstName', 'first', 'fn', 'given', 'firstName', 'fName', 'firstName1', 'firstname1', 'name_first'],
-  lastName: ['lastName', 'last_name', 'lastname', 'lname', 'surname', 'familyName', 'family_name', 'user.lastName', 'customer.lastName', 'applicant.lastName', 'candidate.lastName', 'last', 'ln', 'family', 'surname', 'lastName', 'lName', 'lastname1', 'name_last'],
-  fullName: ['fullName', 'full_name', 'fullname', 'name', 'completeName', 'user.name', 'customer.name', 'applicant.name', 'candidate.name', 'person.name', 'displayName', 'display_name'],
-  email: ['email', 'e-mail', 'emailAddress', 'email_address', 'e_mail', 'mail', 'e mail', 'emailaddress', 'contact', 'contactEmail', 'candidate.email', 'applicant.email', 'user.email', 'person.email', 'contact_email', 'emailAddr', 'mailAddress', 'email_address', 'e-mailAddress', 'email_addr'],
-  phone: ['phone', 'phoneNumber', 'phone_number', 'telephone', 'mobile', 'cell', 'cellphone', 'phonenumber', 'tel', 'contact', 'contactNumber', 'candidate.phone', 'applicant.phone', 'user.phone', 'person.phone', 'contact_phone', 'phone_no', 'telephone_no', 'mobileNumber', 'phoneNumber1', 'telephoneNumber', 'mobilePhone', 'cellPhone'],
-  address: ['address', 'streetAddress', 'street_address', 'addressLine1', 'address1', 'line1', 'street', 'location', 'mailingAddress', 'residentialAddress', 'homeAddress', 'workAddress', 'address_line1', 'addr1', 'streetAddr', 'streetaddress', 'addrLine1', 'street_address1'],
-  city: ['city', 'town', 'cityName', 'locality', 'addressCity', 'homeCity', 'workCity', 'city_name', 'locationCity', 'address_city', 'cityTown', 'city_town', 'address_city', 'locality_city'],
-  state: ['state', 'province', 'region', 'stateProvince', 'addressState', 'homeState', 'workState', 'state_name', 'regionState', 'address_state', 'stateProv', 'provState', 'state_province', 'region_state'],
-  zipCode: ['zip', 'zipCode', 'zipcode', 'postalCode', 'postal', 'postcode', 'addressZip', 'homeZip', 'workZip', 'zip_code', 'postal_code', 'address_zip', 'postCode', 'zipPostal', 'zip_postal'],
-  country: ['country', 'countryName', 'nation', 'addressCountry', 'homeCountry', 'workCountry', 'country_name', 'nationality', 'country_nation', 'address_country'],
-  company: ['company', 'organization', 'employer', 'companyName', 'company_name', 'organizationName', 'currentCompany', 'employerName', 'companyName1', 'compName', 'orgName', 'employer_name', 'current_employer', 'currentCompany'],
-  jobTitle: ['jobTitle', 'job_title', 'position', 'title', 'role', 'occupation', 'jobPosition', 'jobRole', 'jobtitle', 'jobName', 'designation', 'currentTitle', 'current_position', 'professional_title', 'role_title'],
-  website: ['website', 'personalWebsite', 'portfolio', 'url', 'websiteUrl', 'webSite', 'site', 'personal_site', 'portfolio_url', 'website_url'],
-  linkedin: ['linkedin', 'linkedinProfile', 'linkedin_url', 'linkedinUrl', 'social.linkedin', 'linkedin_profile', 'linkedin_link'],
-  github: ['github', 'githubProfile', 'github_url', 'githubUrl', 'social.github', 'github_profile', 'github_link'],
-  experience: ['experience', 'workExperience', 'yearsExperience', 'totalExperience', 'professionalExperience', 'relevantExperience', 'years_experience', 'total_experience', 'work_experience'],
-  education: ['education', 'degree', 'qualification', 'highestEducation', 'educationalBackground', 'academicBackground', 'highest_degree', 'education_level'],
-  skills: ['skills', 'technicalSkills', 'competencies', 'expertise', 'abilities', 'proficiencies', 'technical_skills', 'key_skills', 'core_skills'],
-  salary: ['salary', 'salaryExpectation', 'expectedSalary', 'compensation', 'desiredSalary', 'salary_expectation', 'expected_salary', 'compensation_expectation'],
-  notice: ['noticePeriod', 'notice', 'availability', 'whenAvailable', 'notice_period', 'availability_date', 'start_date', 'joining_date'],
-  // CV/Resume Upload Fields
-  cv: ['cv', 'resume', 'curriculum', 'vitae', 'attachment', 'file', 'upload', 'document', 'resumeFile', 'cvFile', 'attachmentFile', 'fileUpload', 'uploadFile', 'documentFile', 'resumeUpload', 'cvUpload', 'cv_upload', 'resume_upload', 'attachment_upload', 'file_upload', 'document_upload', 'cvFileUpload', 'resumeFileUpload', 'documentFileUpload', 'attachmentFileUpload', 'file_cv', 'file_resume', 'file_attachment', 'file_document']
-};
-
-// CV upload field detection patterns
-const CV_UPLOAD_PATTERNS = [
-  /cv|resume|curriculum|vitae|attachment|document|upload/i,
-  /file.?upload|upload.?file/i,
-  /cv.?upload|resume.?upload/i,
-  /attachment.?file|file.?attachment/i,
-  /document.?upload|upload.?document/i
-];
-
-// Field type patterns for better matching
-const FIELD_PATTERNS = {
-  email: /email|e.?mail|mail.?address/i,
-  phone: /phone|mobile|tel|cell|contact.?number/i,
-  date: /date|dob|birth.?date|birthday/i,
-  url: /url|website|web.?site|link/i,
-  file: /file|upload|attachment|cv|resume|document/i
 };
 
 // Main message handler
@@ -131,7 +88,7 @@ async function handleSmartFill(profileData, settings, sendResponse) {
     if (settings) {
       CONFIG.highlightFilled = settings.highlightFields !== false;
       CONFIG.showNotifications = settings.showNotifications !== false;
-      CONFIG.autoUploadCV = settings.autoUploadCV !== false; // New setting
+      CONFIG.autoUploadCV = settings.autoUploadCV !== false;
     }
     
     // Detect all forms on page
@@ -211,7 +168,7 @@ async function fillFormComprehensive(form, profileData) {
   console.log(`📝 Processing ${fields.length} fields in form`);
   
   // Fill fields in batches
-  const batchSize = 5; // Reduced for better reliability
+  const batchSize = 5;
   for (let i = 0; i < fields.length; i += batchSize) {
     const batch = Array.from(fields).slice(i, i + batchSize);
     
@@ -235,7 +192,7 @@ async function fillFormComprehensive(form, profileData) {
       }
     }
     
-    await new Promise(resolve => setTimeout(resolve, 100)); // Increased delay
+    await new Promise(resolve => setTimeout(resolve, 100));
   }
   
   // Auto-check consent boxes
@@ -329,7 +286,7 @@ function analyzeField(field) {
     isCheckbox: fieldType === 'checkbox',
     isRadio: fieldType === 'radio',
     isSelect: fieldType === 'select-one' || fieldType === 'select-multiple',
-    isFile: fieldType === 'file', // New flag
+    isFile: fieldType === 'file',
     isText: ['text', 'email', 'tel', 'url', 'number', 'date', 'password'].includes(fieldType),
     isTextarea: fieldType === 'textarea',
     isContentEditable: field.isContentEditable
@@ -347,25 +304,26 @@ function findBestMatch(fieldInfo, profileData) {
     // Check if this is a CV upload field
     const isCVField = CV_UPLOAD_PATTERNS.some(pattern => pattern.test(fieldInfo.context));
     if (isCVField) {
-      return '__CV_AUTO_UPLOAD__'; // Special marker for CV upload
+      return '__CV_AUTO_UPLOAD__';
     }
-    return null; // Don't fill other file inputs
+    return null;
   }
   
   // Priority 1: Direct name/id match
   for (const [key, value] of Object.entries(profileData)) {
     if (!value && value !== false) continue;
     
-    // Check if field name/id matches key or its aliases
     if (fieldInfo.name.toLowerCase().includes(key.toLowerCase())) {
       return value;
     }
     
-    // Check aliases
-    const aliases = FIELD_ALIASES[key] || [key];
-    for (const alias of aliases) {
-      if (fieldInfo.context.includes(alias.toLowerCase())) {
-        return value;
+    // Check aliases from config.js
+    if (typeof FIELD_ALIASES !== 'undefined' && FIELD_ALIASES[key]) {
+      const aliases = FIELD_ALIASES[key];
+      for (const alias of aliases) {
+        if (fieldInfo.context.includes(alias.toLowerCase())) {
+          return value;
+        }
       }
     }
   }
@@ -397,7 +355,6 @@ function findBestMatch(fieldInfo, profileData) {
   for (const [key, value] of Object.entries(profileData)) {
     if (!value && value !== false) continue;
     
-    // Split context into words and check for matches
     const contextWords = fieldInfo.context.split(/\W+/);
     for (const word of contextWords) {
       if (word.length < 3) continue;
@@ -406,11 +363,13 @@ function findBestMatch(fieldInfo, profileData) {
         return value;
       }
       
-      // Check aliases
-      const aliases = FIELD_ALIASES[key] || [key];
-      for (const alias of aliases) {
-        if (alias.toLowerCase().includes(word) || word.includes(alias.toLowerCase())) {
-          return value;
+      // Check aliases from config.js
+      if (typeof FIELD_ALIASES !== 'undefined' && FIELD_ALIASES[key]) {
+        const aliases = FIELD_ALIASES[key];
+        for (const alias of aliases) {
+          if (alias.toLowerCase().includes(word) || word.includes(alias.toLowerCase())) {
+            return value;
+          }
         }
       }
     }
@@ -460,20 +419,6 @@ async function fillFieldWithValue(field, value, fieldInfo) {
         success = selectOption(field, value);
         break;
         
-      case 'textarea':
-      case 'text':
-      case 'email':
-      case 'tel':
-      case 'url':
-      case 'number':
-      case 'date':
-      case 'password':
-        if (field.value !== stringValue) {
-          field.value = stringValue;
-          success = true;
-        }
-        break;
-        
       default:
         if (fieldInfo.isContentEditable) {
           field.textContent = stringValue;
@@ -496,7 +441,7 @@ async function fillFieldWithValue(field, value, fieldInfo) {
   }
 }
 
-// New function: Handle CV file upload
+// Handle CV file upload
 async function handleFileUpload(field, fieldInfo) {
   try {
     console.log('📤 Attempting CV upload for field:', fieldInfo.name || fieldInfo.id);
@@ -512,8 +457,8 @@ async function handleFileUpload(field, fieldInfo) {
     
     // Validate file type against accept attribute
     const accept = field.getAttribute('accept');
-    if (accept && !isFileTypeAccepted(accept, cvFile.type)) {
-      console.warn('⚠️ CV file type not accepted by field. Accept:', accept, 'File type:', cvFile.type);
+    if (accept && typeof isFileTypeAccepted !== 'undefined' && !isFileTypeAccepted(accept, cvFile.type)) {
+      console.warn('⚠️ CV file type not accepted by field');
       return false;
     }
     
@@ -523,7 +468,7 @@ async function handleFileUpload(field, fieldInfo) {
     const blob = await response.blob();
     const file = new File([blob], cvFile.name, { type: cvFile.type, lastModified: cvFile.lastModified });
     
-    // Use DataTransfer to set the file (bypasses security restrictions)
+    // Use DataTransfer to set the file
     const dataTransfer = new DataTransfer();
     dataTransfer.items.add(file);
     field.files = dataTransfer.files;
@@ -531,6 +476,9 @@ async function handleFileUpload(field, fieldInfo) {
     // Trigger change events
     field.dispatchEvent(new Event('change', { bubbles: true }));
     field.dispatchEvent(new Event('input', { bubbles: true }));
+    
+    // Add visual indicator
+    field.classList.add('autofill-cv-uploaded');
     
     console.log('✅ CV uploaded successfully to field:', fieldInfo.name || fieldInfo.id);
     return true;
@@ -541,23 +489,7 @@ async function handleFileUpload(field, fieldInfo) {
   }
 }
 
-// Helper: Check if file type is accepted
-function isFileTypeAccepted(accept, fileType) {
-  try {
-    const acceptTypes = accept.split(',').map(type => type.trim().toLowerCase());
-    return acceptTypes.some(acceptType => {
-      if (acceptType === fileType.toLowerCase()) return true;
-      if (acceptType.endsWith('/*') && fileType.startsWith(acceptType.replace('/*', '/'))) return true;
-      if (acceptType.startsWith('.') && fileType.includes(acceptType.substring(1))) return true;
-      return false;
-    });
-  } catch (e) {
-    console.error('❌ Error checking file type acceptance:', e);
-    return true; // Default to true if parsing fails
-  }
-}
-
-// Helper functions (remaining functions are the same as original)
+// Helper functions
 function isFieldFillable(field) {
   if (!field) return false;
   if (field.disabled) return false;
@@ -645,7 +577,6 @@ function selectOption(select, value) {
   const stringValue = String(value).toLowerCase().trim();
   const options = Array.from(select.options || []);
   
-  // Try exact value match
   for (const option of options) {
     if (option.value.toLowerCase() === stringValue) {
       select.value = option.value;
@@ -653,7 +584,6 @@ function selectOption(select, value) {
     }
   }
   
-  // Try exact text match
   for (const option of options) {
     if (option.text.toLowerCase() === stringValue) {
       select.value = option.value;
@@ -661,7 +591,6 @@ function selectOption(select, value) {
     }
   }
   
-  // Try partial text match
   for (const option of options) {
     if (option.text.toLowerCase().includes(stringValue) ||
         stringValue.includes(option.text.toLowerCase())) {
@@ -805,7 +734,6 @@ function showFillNotification(filledCount, formCount) {
   const notification = document.createElement('div');
   notification.className = 'autofill-notification';
   
-  // Enhanced notification to include CV upload info
   const cvUploadCount = document.querySelectorAll('input[type="file"].autofill-cv-uploaded').length;
   let message = `Filled ${filledCount} field${filledCount !== 1 ? 's' : ''} in ${formCount} form${formCount !== 1 ? 's' : ''}`;
   
@@ -1047,7 +975,7 @@ function handleSingleField(fieldInfo, value, sendResponse) {
   }
 }
 
-// Add CSS for CV upload highlighting
+// Add CSS for animations
 const style = document.createElement('style');
 style.textContent = `
   @keyframes slideIn {
