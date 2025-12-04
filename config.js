@@ -124,6 +124,16 @@ const FIELD_ALIASES = {
   notice: [
     'noticePeriod', 'notice', 'availability', 'whenAvailable',
     'notice_period', 'availability_date', 'start_date', 'joining_date'
+  ],
+  
+  // CV/Resume Upload Fields
+  cv: [
+    'cv', 'resume', 'curriculum', 'vitae', 'attachment', 'file', 'upload',
+    'document', 'resumeFile', 'cvFile', 'attachmentFile', 'fileUpload',
+    'uploadFile', 'documentFile', 'resumeUpload', 'cvUpload', 'cv_upload',
+    'resume_upload', 'attachment_upload', 'file_upload', 'document_upload',
+    'cvFileUpload', 'resumeFileUpload', 'documentFileUpload', 'attachmentFileUpload',
+    'file_cv', 'file_resume', 'file_attachment', 'file_document'
   ]
 };
 
@@ -135,6 +145,15 @@ const FIELD_PATTERNS = {
   url: /url|website|web.?site|link/i,
   file: /file|upload|attachment|cv|resume|document/i
 };
+
+// CV upload field detection patterns
+const CV_UPLOAD_PATTERNS = [
+  /cv|resume|curriculum|vitae|attachment|document|upload/i,
+  /file.?upload|upload.?file/i,
+  /cv.?upload|resume.?upload/i,
+  /attachment.?file|file.?attachment/i,
+  /document.?upload|upload.?document/i
+];
 
 // Common checkbox patterns that should be auto-checked
 const AUTO_CHECK_PATTERNS = [
