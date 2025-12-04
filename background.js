@@ -1,26 +1,46 @@
 // Background service worker with comprehensive error handling
 console.log('🔧 AutoFill Pro Background Service Worker activated');
 
+// Keep service worker alive
 let keepAliveInterval;
 
 chrome.runtime.onInstalled.addListener((details) => {
   console.log(`📦 AutoFill Pro ${details.reason}`);
   
   if (details.reason === 'install') {
+    // First time install
     chrome.storage.local.set({
       'profile': {
-        firstName: '', lastName: '', email: '', phone: '', address: '', city: '',
-        state: '', zipCode: '', country: '', company: '', jobTitle: '', website: '',
-        linkedin: '', github: '', experience: '', education: '', skills: '',
-        salary: '', notice: ''
+        firstName: '',
+        lastName: '',
+        email: '',
+        phone: '',
+        address: '',
+        city: '',
+        state: '',
+        zipCode: '',
+        country: '',
+        company: '',
+        jobTitle: '',
+        website: '',
+        linkedin: '',
+        github: '',
+        experience: '',
+        education: '',
+        skills: '',
+        salary: '',
+        notice: ''
       },
-      'version': '5.3',
+      'version': '5.2',
       'settings': {
-        autoFill: true, autoSubmit: false, highlightFields: true,
-        showNotifications: true, autoUploadCV: true, smartDropdownSelection: true
+        autoFill: true,
+        autoSubmit: false,
+        highlightFields: true,
+        showNotifications: true
       }
     });
     
+    // Open welcome page
     chrome.tabs.create({ url: chrome.runtime.getURL('popup.html') });
   }
 });
@@ -38,43 +58,43 @@ chrome.commands.onCommand.addListener(async (command) => {
         return;
       }
       
+      // Prevent execution on Chrome internal pages
       if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) {
         console.warn('⚠️ Cannot fill forms on Chrome internal pages');
         return;
       }
       
-      const result = await chrome.storage.local.get(['profile', 'settings']);
+      // Get profile data
+      const result = await chrome.storage.local.get(['profile']);
       const profile = result.profile;
-      const settings = result.settings || {};
       
       if (!profile || Object.keys(profile).length === 0) {
+        console.warn('⚠️ No profile data available for shortcut');
+        
+        // Show notification
         chrome.notifications.create({
           type: 'basic',
           iconUrl: 'icons/icon48.png',
           title: 'AutoFill Pro',
           message: 'No profile data saved! Open the extension to add your info.'
         });
+        
         return;
       }
       
       console.log('📦 Profile data loaded for shortcut:', Object.keys(profile).length, 'fields');
       
+      // Send fill command to content script
       await chrome.tabs.sendMessage(tab.id, { 
         action: "smartFill", 
         data: profile,
-        settings: settings,
         source: "shortcut"
       }).catch(async (err) => {
         console.error('❌ Shortcut fill failed:', err.message);
         
+        // Try to inject content script if it's not there
         if (err.message.includes('receiving end does not exist')) {
           console.log('🔄 Injecting content script...');
-          
-          // FIX: Inject config.js BEFORE content.js
-          await chrome.scripting.executeScript({
-            target: { tabId: tab.id },
-            files: ['config.js']
-          });
           
           await chrome.scripting.executeScript({
             target: { tabId: tab.id },
@@ -86,12 +106,12 @@ chrome.commands.onCommand.addListener(async (command) => {
             files: ['content.css']
           });
           
+          // Wait a moment and retry
           await new Promise(resolve => setTimeout(resolve, 500));
           
           await chrome.tabs.sendMessage(tab.id, { 
             action: "smartFill", 
             data: profile,
-            settings: settings,
             source: "shortcut_retry"
           });
         }
@@ -141,20 +161,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             func: () => {
               const forms = document.querySelectorAll('form, [role="form"]').length;
               const inputs = document.querySelectorAll('input, textarea, select').length;
-              const fileInputs = document.querySelectorAll('input[type="file"]').length;
-              const selectFields = document.querySelectorAll('select').length;
-              return { hasForms: forms > 0, formCount: forms, inputCount: inputs, fileInputs: fileInputs, selectFields: selectFields };
+              return { hasForms: forms > 0, formCount: forms, inputCount: inputs };
             }
           }).then((results) => {
-            sendResponse(results[0]?.result || { hasForms: false, formCount: 0, inputCount: 0, fileInputs: 0, selectFields: 0 });
+            sendResponse(results[0]?.result || { hasForms: false, formCount: 0, inputCount: 0 });
           }).catch(() => {
-            sendResponse({ hasForms: false, formCount: 0, inputCount: 0, fileInputs: 0, selectFields: 0 });
+            sendResponse({ hasForms: false, formCount: 0, inputCount: 0 });
           });
         } else {
-          sendResponse({ hasForms: false, formCount: 0, inputCount: 0, fileInputs: 0, selectFields: 0 });
+          sendResponse({ hasForms: false, formCount: 0, inputCount: 0 });
         }
       });
-      return true;
+      return true; // Keep channel open for async response
       
     default:
       sendResponse({ error: 'Unknown action' });
@@ -163,6 +181,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   return true;
 });
 
+// Keep service worker alive (prevent idle shutdown)
 chrome.runtime.onStartup.addListener(() => {
   console.log('🚀 Extension startup');
   keepAliveInterval = setInterval(() => {
@@ -181,25 +200,24 @@ chrome.runtime.onSuspend.addListener(() => {
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: "autofill-form",
-    title: "AutoFill Form with Profile & CV",
+    title: "AutoFill Form",
     contexts: ["page"]
   });
   
   chrome.contextMenus.create({
     id: "extract-form-data",
-    title: "Extract Form Data from Page",
+    title: "Extract Form Data",
     contexts: ["page"]
   });
 });
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === "autofill-form") {
-    const result = await chrome.storage.local.get(['profile', 'settings']);
+    const result = await chrome.storage.local.get(['profile']);
     if (result.profile) {
       chrome.tabs.sendMessage(tab.id, { 
         action: "smartFill", 
         data: result.profile,
-        settings: result.settings || {},
         source: "context_menu"
       });
     }
