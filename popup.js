@@ -1,4 +1,4 @@
-// AutoFill Pro Popup Script - Complete Fixed Version
+// AutoFill Pro Popup Script - Enhanced for Mandatory Fields
 console.log('🎯 AutoFill Pro Popup initializing...');
 
 // Global variables
@@ -89,7 +89,9 @@ function createDefaultSettings() {
     highlightFields: true,
     showNotifications: true,
     autoSubmit: false,
-    keyboardShortcut: true
+    keyboardShortcut: true,
+    prioritizeMandatory: true, // NEW: Prioritize mandatory fields
+    copyPasteEnabled: true     // NEW: Enable copy/paste feature
   };
 }
 
@@ -98,6 +100,7 @@ function createDefaultStats() {
   return {
     formsFilled: 0,
     fieldsFilled: 0,
+    mandatoryFilled: 0,
     lastUsed: null,
     totalUsageTime: 0,
     favoriteSites: []
@@ -119,7 +122,9 @@ function populateSettingsForm() {
   const settingsMap = {
     'auto-fill-toggle': 'autoFill',
     'highlight-fields-toggle': 'highlightFields',
-    'show-notifications-toggle': 'showNotifications'
+    'show-notifications-toggle': 'showNotifications',
+    'prioritize-mandatory-toggle': 'prioritizeMandatory', // NEW
+    'copy-paste-toggle': 'copyPasteEnabled' // NEW
   };
   
   // Add auto-submit if element exists
@@ -174,6 +179,24 @@ function bindAllEvents() {
   const smartFillBtn = document.getElementById('smart-fill-btn');
   if (smartFillBtn) {
     smartFillBtn.addEventListener('click', handleSmartFill);
+  }
+  
+  // Fill Mandatory Only button
+  const fillMandatoryBtn = document.getElementById('fill-mandatory-btn');
+  if (fillMandatoryBtn) {
+    fillMandatoryBtn.addEventListener('click', handleFillMandatory);
+  }
+  
+  // Copy Profile button
+  const copyProfileBtn = document.getElementById('copy-profile-btn');
+  if (copyProfileBtn) {
+    copyProfileBtn.addEventListener('click', copyProfileData);
+  }
+  
+  // Paste Profile button
+  const pasteProfileBtn = document.getElementById('paste-profile-btn');
+  if (pasteProfileBtn) {
+    pasteProfileBtn.addEventListener('click', pasteProfileData);
   }
   
   // Save Profile button
@@ -312,7 +335,8 @@ async function handleSmartFill() {
           action: 'smartFill',
           data: currentProfile,
           settings: settings,
-          source: 'popup'
+          source: 'popup',
+          prioritizeMandatory: settings.prioritizeMandatory
         });
         break;
       } catch (error) {
@@ -332,9 +356,14 @@ async function handleSmartFill() {
     }
     
     if (response?.filled > 0) {
-      await updateUsageStatsAfterFill(response.filled, response.formsProcessed || 1);
+      await updateUsageStatsAfterFill(response.filled, response.formsProcessed || 1, response.mandatoryFilled || 0);
       
-      const message = `✅ Filled ${response.filled} field${response.filled !== 1 ? 's' : ''} in ${response.formsProcessed || 1} form${(response.formsProcessed || 1) !== 1 ? 's' : ''}`;
+      let message = `✅ Filled ${response.filled} field${response.filled !== 1 ? 's' : ''} in ${response.formsProcessed || 1} form${(response.formsProcessed || 1) !== 1 ? 's' : ''}`;
+      
+      if (response.mandatoryFilled > 0) {
+        message += ` (${response.mandatoryFilled} mandatory)`;
+      }
+      
       showStatus(message, 'success');
       
       if (settings.autoSubmit && response.filled > 0) {
@@ -353,6 +382,231 @@ async function handleSmartFill() {
   } finally {
     resetButton(button, originalText);
   }
+}
+
+// Handle Fill Mandatory Only
+async function handleFillMandatory() {
+  console.log('🎯 Fill Mandatory Only initiated');
+  
+  const button = document.getElementById('fill-mandatory-btn');
+  const originalText = button.innerHTML;
+  
+  button.innerHTML = '⏳ Filling Mandatory...';
+  button.disabled = true;
+  
+  showStatus('🎯 Filling mandatory fields only...', 'loading');
+  
+  try {
+    if (!currentTab || !currentTab.url) {
+      throw new Error('No active tab found');
+    }
+    
+    if (currentTab.url.startsWith('chrome://') || currentTab.url.startsWith('chrome-extension://')) {
+      throw new Error('Cannot fill forms on Chrome internal pages');
+    }
+    
+    // Check profile data
+    if (!currentProfile || Object.keys(currentProfile).length === 0) {
+      showStatus('❌ Please save your profile first!', 'error');
+      resetButton(button, originalText);
+      return;
+    }
+    
+    showStatus('🚀 Connecting to page...', 'loading');
+    
+    let response;
+    try {
+      response = await chrome.tabs.sendMessage(currentTab.id, { action: 'ping' });
+    } catch (error) {
+      showStatus('🔄 Injecting content script...', 'loading');
+      await injectContentScript();
+      await new Promise(resolve => setTimeout(resolve, 800));
+    }
+    
+    response = await chrome.tabs.sendMessage(currentTab.id, {
+      action: 'fillMandatory',
+      data: currentProfile,
+      settings: settings,
+      source: 'popup'
+    });
+    
+    if (response?.error) {
+      throw new Error(response.error);
+    }
+    
+    if (response?.filled > 0) {
+      await updateUsageStatsAfterFill(response.filled, 1, response.mandatoryFilled || response.filled);
+      
+      const message = `✅ Filled ${response.filled} mandatory field${response.filled !== 1 ? 's' : ''}`;
+      showStatus(message, 'success');
+    } else {
+      showStatus('⚠️ No mandatory fields found to fill', 'warning');
+    }
+    
+  } catch (error) {
+    console.error('❌ Fill mandatory failed:', error);
+    showStatus(`❌ Error: ${error.message}`, 'error');
+  } finally {
+    resetButton(button, originalText);
+  }
+}
+
+// Copy profile data to clipboard
+async function copyProfileData() {
+  try {
+    // Gather all profile data
+    const profile = {};
+    const fields = [
+      'firstName', 'lastName', 'email', 'phone', 'address', 'city', 'state',
+      'zipCode', 'country', 'company', 'jobTitle', 'website', 'linkedin',
+      'github', 'experience', 'education', 'skills', 'salary', 'notice',
+      'gender', 'newsletter', 'remoteWork', 'terms'
+    ];
+    
+    fields.forEach(field => {
+      const element = document.getElementById(field);
+      if (element) {
+        profile[field] = element.value.trim();
+      }
+    });
+    
+    // Format as JSON
+    const profileJSON = JSON.stringify(profile, null, 2);
+    
+    // Copy to clipboard
+    await navigator.clipboard.writeText(profileJSON);
+    
+    showStatus('✅ Profile copied to clipboard!', 'success');
+    
+    // Visual feedback
+    const button = document.getElementById('copy-profile-btn');
+    const originalText = button.innerHTML;
+    button.innerHTML = '✅ Copied!';
+    button.disabled = true;
+    
+    setTimeout(() => {
+      button.innerHTML = originalText;
+      button.disabled = false;
+    }, 2000);
+    
+  } catch (error) {
+    console.error('❌ Failed to copy profile:', error);
+    showStatus('❌ Failed to copy profile', 'error');
+  }
+}
+
+// Paste profile data from clipboard
+async function pasteProfileData() {
+  try {
+    // Read from clipboard
+    const clipboardText = await navigator.clipboard.readText();
+    
+    let profileData;
+    
+    // Try to parse as JSON first
+    try {
+      profileData = JSON.parse(clipboardText);
+    } catch (e) {
+      // If not JSON, try to parse as key-value pairs
+      profileData = parseTextToProfile(clipboardText);
+    }
+    
+    if (!profileData || Object.keys(profileData).length === 0) {
+      showStatus('❌ No valid profile data found in clipboard', 'error');
+      return;
+    }
+    
+    // Update form fields
+    Object.entries(profileData).forEach(([key, value]) => {
+      const element = document.getElementById(key);
+      if (element && value) {
+        element.value = value;
+        
+        // Highlight the field
+        element.style.borderColor = '#4CAF50';
+        element.style.boxShadow = '0 0 0 2px rgba(76, 175, 80, 0.2)';
+        
+        setTimeout(() => {
+          element.style.borderColor = '';
+          element.style.boxShadow = '';
+        }, 2000);
+      }
+    });
+    
+    // Update save button
+    const saveBtn = document.getElementById('save-profile-btn');
+    if (saveBtn) {
+      saveBtn.classList.add('btn--pulse');
+      saveBtn.innerHTML = '💾 Save Profile (Unsaved Changes)';
+    }
+    
+    showStatus('✅ Profile pasted from clipboard!', 'success');
+    
+    // Visual feedback
+    const button = document.getElementById('paste-profile-btn');
+    const originalText = button.innerHTML;
+    button.innerHTML = '✅ Pasted!';
+    button.disabled = true;
+    
+    setTimeout(() => {
+      button.innerHTML = originalText;
+      button.disabled = false;
+    }, 2000);
+    
+  } catch (error) {
+    console.error('❌ Failed to paste profile:', error);
+    showStatus('❌ Failed to paste profile', 'error');
+  }
+}
+
+// Parse text to profile data
+function parseTextToProfile(text) {
+  const profile = {};
+  const lines = text.split('\n');
+  
+  lines.forEach(line => {
+    const [key, ...valueParts] = line.split(':');
+    if (key && valueParts.length > 0) {
+      const cleanKey = key.trim().toLowerCase().replace(/\s+/g, '');
+      const value = valueParts.join(':').trim();
+      
+      // Map common keys
+      const keyMap = {
+        'firstname': 'firstName',
+        'lastname': 'lastName',
+        'email': 'email',
+        'phone': 'phone',
+        'address': 'address',
+        'city': 'city',
+        'state': 'state',
+        'zip': 'zipCode',
+        'zipcode': 'zipCode',
+        'country': 'country',
+        'company': 'company',
+        'jobtitle': 'jobTitle',
+        'title': 'jobTitle',
+        'website': 'website',
+        'linkedin': 'linkedin',
+        'github': 'github',
+        'experience': 'experience',
+        'education': 'education',
+        'skills': 'skills',
+        'salary': 'salary',
+        'notice': 'notice',
+        'gender': 'gender',
+        'newsletter': 'newsletter',
+        'remote': 'remoteWork',
+        'terms': 'terms'
+      };
+      
+      const mappedKey = keyMap[cleanKey];
+      if (mappedKey) {
+        profile[mappedKey] = value;
+      }
+    }
+  });
+  
+  return profile;
 }
 
 // Inject content script
@@ -785,7 +1039,9 @@ async function saveSettings() {
       highlightFields: document.getElementById('highlight-fields-toggle').checked,
       showNotifications: document.getElementById('show-notifications-toggle').checked,
       autoSubmit: document.getElementById('auto-submit-toggle')?.checked || false,
-      keyboardShortcut: true
+      keyboardShortcut: true,
+      prioritizeMandatory: document.getElementById('prioritize-mandatory-toggle')?.checked || false,
+      copyPasteEnabled: document.getElementById('copy-paste-toggle')?.checked || false
     };
     
     await chrome.storage.local.set({ settings });
@@ -846,9 +1102,10 @@ function updateFormWithExtractedData(data) {
 }
 
 // Update usage stats after fill
-async function updateUsageStatsAfterFill(fieldsFilled, formsFilled) {
+async function updateUsageStatsAfterFill(fieldsFilled, formsFilled, mandatoryFilled = 0) {
   usageStats.fieldsFilled += fieldsFilled;
   usageStats.formsFilled += (formsFilled || 1);
+  usageStats.mandatoryFilled += (mandatoryFilled || 0);
   usageStats.lastUsed = new Date().toISOString();
   
   if (currentTab?.url) {
@@ -918,10 +1175,12 @@ function updateCVStatus() {
 function updateUsageStats() {
   const formsFilledEl = document.getElementById('forms-filled');
   const fieldsFilledEl = document.getElementById('fields-filled');
+  const mandatoryFilledEl = document.getElementById('mandatory-filled');
   const lastUsedEl = document.getElementById('last-used');
   
   if (formsFilledEl) formsFilledEl.textContent = usageStats.formsFilled;
   if (fieldsFilledEl) fieldsFilledEl.textContent = usageStats.fieldsFilled;
+  if (mandatoryFilledEl) mandatoryFilledEl.textContent = usageStats.mandatoryFilled || 0;
   
   if (lastUsedEl) {
     if (usageStats.lastUsed) {
@@ -960,14 +1219,24 @@ async function checkPageForms() {
       const formsResponse = await chrome.tabs.sendMessage(currentTab.id, { action: 'detectForms' });
       
       const smartFillBtn = document.getElementById('smart-fill-btn');
-      if (smartFillBtn && formsResponse?.formsCount > 0) {
-        smartFillBtn.disabled = false;
-        showStatus(`📋 ${formsResponse.formsCount} form(s) detected`, 'info');
-      } else if (smartFillBtn && formsResponse?.fieldsCount > 0) {
-        smartFillBtn.disabled = false;
+      const fillMandatoryBtn = document.getElementById('fill-mandatory-btn');
+      
+      if (formsResponse?.formsCount > 0) {
+        if (smartFillBtn) smartFillBtn.disabled = false;
+        if (fillMandatoryBtn) fillMandatoryBtn.disabled = false;
+        
+        let status = `📋 ${formsResponse.formsCount} form(s) detected`;
+        if (formsResponse.mandatoryCount > 0) {
+          status += ` (${formsResponse.mandatoryCount} mandatory)`;
+        }
+        showStatus(status, 'info');
+      } else if (formsResponse?.fieldsCount > 0) {
+        if (smartFillBtn) smartFillBtn.disabled = false;
+        if (fillMandatoryBtn) fillMandatoryBtn.disabled = false;
         showStatus(`⌨️ ${formsResponse.fieldsCount} input field(s) found`, 'info');
-      } else if (smartFillBtn) {
-        smartFillBtn.disabled = true;
+      } else {
+        if (smartFillBtn) smartFillBtn.disabled = true;
+        if (fillMandatoryBtn) fillMandatoryBtn.disabled = true;
         showStatus('❌ No form fields detected', 'error');
       }
     }
