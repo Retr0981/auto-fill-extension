@@ -124,3 +124,89 @@ select.autofill-filled {
   from { transform: scaleX(0); }
   to { transform: scaleX(1); }
 }
+
+
+
+
+
+/* AutoFill Pro v6.1 Styles */
+
+/* Field highlighting animation */
+.autofill-highlight {
+  animation: autofill-pulse 0.6s ease-in-out !important;
+  box-shadow: 0 0 0 3px #4CAF50 !important;
+  border-color: #4CAF50 !important;
+  transition: all 0.3s ease !important;
+}
+
+@keyframes autofill-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.8); }
+  70% { box-shadow: 0 0 0 12px rgba(76, 175, 80, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+}
+
+/* Required field indicator */
+.autofill-required {
+  box-shadow: 0 0 0 2px #2196F3 !important;
+  border-color: #2196F3 !important;
+}
+
+/* Success notification */
+.autofill-notification {
+  position: fixed !important;
+  top: 20px !important;
+  right: 20px !important;
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.95), rgba(30, 30, 40, 0.95)) !important;
+  color: white !important;
+  padding: 20px !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
+  z-index: 1000000 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif !important;
+  font-size: 14px !important;
+  backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  max-width: 360px !important;
+  animation: slideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+}
+
+.autofill-notification__icon {
+  font-size: 24px !important;
+}
+
+@keyframes slideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+/* Checkbox/Radio styling */
+input[type="checkbox"].autofill-checked::after,
+input[type="radio"].autofill-selected::after {
+  content: '✓' !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  color: #4CAF50 !important;
+  font-weight: bold !important;
+  font-size: 14px !important;
+}
+
+input[type="radio"].autofill-selected::after {
+  content: '' !important;
+  width: 8px !important;
+  height: 8px !important;
+  background: #4CAF50 !important;
+  border-radius: 50% !important;
+}
+
+/* Select styling */
+select.autofill-filled {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234CAF50'%3E%3Cpath d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 10px center !important;
+  padding-right: 40px !important;
+}
