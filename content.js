@@ -1,5 +1,5 @@
-// AutoFill Pro Content Script - Enhanced Automatic Selection
-console.log('🎯 AutoFill Pro Content Script loaded');
+// AutoFill Pro Content Script - Enhanced for Mandatory Fields
+console.log('🎯 AutoFill Pro Content Script loaded - Mandatory Fields Focus');
 
 // Configuration
 const CONFIG = {
@@ -7,11 +7,24 @@ const CONFIG = {
   autoSelectOptions: true,
   highlightFilled: true,
   showNotifications: true,
-  prioritizeRequired: true,  
   notificationDuration: 3000,
   fieldCheckInterval: 1000,
   maxRetryAttempts: 3,
-  // NEW: Enhanced value mappings
+  prioritizeMandatory: true,
+  
+  // Mandatory field indicators
+  mandatoryIndicators: [
+    'required',
+    'aria-required="true"',
+    'data-required="true"',
+    '*', // Asterisk in label
+    'mandatory',
+    'require',
+    'must',
+    'obligatory'
+  ],
+  
+  // Enhanced value mappings
   valueMappings: {
     // Gender options
     gender: {
@@ -109,15 +122,16 @@ let state = {
   isFilling: false,
   lastFillTime: null,
   filledFields: new Set(),
+  mandatoryFields: new Set(),
   formDetection: {
     detectedForms: [],
-    totalFields: 0
+    totalFields: 0,
+    mandatoryFields: 0
   }
 };
 
-// === IMPORT FIELD_ALIASES FROM CONFIG ===
+// Field Aliases
 const FIELD_ALIASES = {
-  // Personal Information
   firstName: ['firstName', 'first_name', 'firstname', 'fname', 'givenName', 'given_name', 'forename', 'user.firstName', 'customer.firstName', 'applicant.firstName', 'candidate.firstName', 'first', 'fn', 'given', 'fName', 'firstName1', 'firstname1', 'name_first'],
   lastName: ['lastName', 'last_name', 'lastname', 'lname', 'surname', 'familyName', 'family_name', 'user.lastName', 'customer.lastName', 'applicant.lastName', 'candidate.lastName', 'last', 'ln', 'family', 'lName', 'lastname1', 'name_last'],
   fullName: ['fullName', 'full_name', 'fullname', 'name', 'completeName', 'user.name', 'customer.name', 'applicant.name', 'candidate.name', 'person.name', 'displayName', 'display_name'],
@@ -125,18 +139,14 @@ const FIELD_ALIASES = {
   phone: ['phone', 'phoneNumber', 'phone_number', 'telephone', 'mobile', 'cell', 'cellphone', 'phonenumber', 'tel', 'contact', 'contactNumber', 'candidate.phone', 'applicant.phone', 'user.phone', 'person.phone', 'contact_phone', 'phone_no', 'telephone_no', 'mobileNumber', 'phoneNumber1', 'telephoneNumber', 'mobilePhone', 'cellPhone'],
   address: ['address', 'streetAddress', 'street_address', 'addressLine1', 'address1', 'line1', 'street', 'location', 'mailingAddress', 'residentialAddress', 'homeAddress', 'workAddress', 'address_line1', 'addr1', 'streetAddr', 'streetaddress', 'addrLine1', 'street_address1'],
   city: ['city', 'town', 'cityName', 'locality', 'addressCity', 'homeCity', 'workCity', 'city_name', 'locationCity', 'address_city', 'cityTown', 'city_town', 'address_city', 'locality_city'],
-  
-  // === ENHANCED: State/Province/County with broader matching ===
   state: [
     'state', 'province', 'region', 'stateProvince', 'addressState', 'homeState',
     'workState', 'state_name', 'regionState', 'address_state', 'stateProv',
     'provState', 'state_province', 'region_state', 'provincia', 'county',
     'department', 'prefecture', 'territory', 'division', 'district', 'zone'
   ],
-  
   zipCode: ['zip', 'zipCode', 'zipcode', 'postalCode', 'postal', 'postcode', 'addressZip', 'homeZip', 'workZip', 'zip_code', 'postal_code', 'address_zip', 'postCode', 'zipPostal', 'zip_postal', 'postalcode'],
   country: ['country', 'countryName', 'nation', 'addressCountry', 'homeCountry', 'workCountry', 'country_name', 'nationality', 'country_nation', 'address_country', 'residenceCountry', 'residence_country', 'citizenship'],
-  
   company: ['company', 'organization', 'employer', 'companyName', 'company_name', 'organizationName', 'currentCompany', 'employerName', 'companyName1', 'compName', 'orgName', 'employer_name', 'current_employer', 'currentCompany'],
   jobTitle: ['jobTitle', 'job_title', 'position', 'title', 'role', 'occupation', 'jobPosition', 'jobRole', 'jobtitle', 'jobName', 'designation', 'currentTitle', 'current_position', 'professional_title', 'role_title'],
   website: ['website', 'personalWebsite', 'portfolio', 'url', 'websiteUrl', 'webSite', 'site', 'personal_site', 'portfolio_url', 'website_url'],
@@ -156,16 +166,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   try {
     switch (request.action) {
       case 'smartFill':
-        handleSmartFill(request.data, request.settings, sendResponse);
+        handleSmartFill(request.data, request.settings, request.prioritizeMandatory, sendResponse);
         break;
-      case 'fillForm':
-        handleFillForm(request.data, sendResponse);
+      case 'fillMandatory':
+        handleFillMandatory(request.data, request.settings, sendResponse);
         break;
       case 'extractFromBrowser':
         handleExtractData(sendResponse);
         break;
       case 'ping':
-        sendResponse({ status: 'ready', version: '5.2', timestamp: Date.now() });
+        sendResponse({ status: 'ready', version: '5.3', timestamp: Date.now() });
         break;
       case 'detectForms':
         handleDetectForms(sendResponse);
@@ -188,8 +198,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   return true;
 });
 
-// Smart fill handler
-async function handleSmartFill(profileData, settings, sendResponse) {
+// Smart fill handler with mandatory priority
+async function handleSmartFill(profileData, settings, prioritizeMandatory = true, sendResponse) {
   if (state.isFilling) {
     sendResponse({ error: 'Already filling forms', filled: 0 });
     return;
@@ -203,6 +213,7 @@ async function handleSmartFill(profileData, settings, sendResponse) {
     if (settings) {
       CONFIG.highlightFilled = settings.highlightFields !== false;
       CONFIG.showNotifications = settings.showNotifications !== false;
+      CONFIG.prioritizeMandatory = prioritizeMandatory;
     }
     
     const forms = detectAllForms();
@@ -211,27 +222,31 @@ async function handleSmartFill(profileData, settings, sendResponse) {
     const results = [];
     let totalFilled = 0;
     let totalFields = 0;
+    let mandatoryFilled = 0;
     
     for (const form of forms) {
-      const result = await fillFormComprehensive(form, profileData);
+      const result = await fillFormComprehensive(form, profileData, prioritizeMandatory);
       results.push(result);
       totalFilled += result.filled;
       totalFields += result.total;
+      mandatoryFilled += result.mandatoryFilled;
     }
     
-    const standaloneResult = fillStandaloneFields(profileData);
+    const standaloneResult = fillStandaloneFields(profileData, prioritizeMandatory);
     totalFilled += standaloneResult.filled;
+    mandatoryFilled += standaloneResult.mandatoryFilled;
     
     state.lastFillTime = Date.now();
     state.isFilling = false;
     
     if (CONFIG.showNotifications && totalFilled > 0) {
-      showFillNotification(totalFilled, forms.length);
+      showFillNotification(totalFilled, forms.length, mandatoryFilled);
     }
     
     sendResponse({
       success: true,
       filled: totalFilled,
+      mandatoryFilled: mandatoryFilled,
       totalFields: totalFields,
       formsProcessed: forms.length,
       results: results,
@@ -245,11 +260,207 @@ async function handleSmartFill(profileData, settings, sendResponse) {
   }
 }
 
-// Comprehensive form filling
-async function fillFormComprehensive(form, profileData) {
+// Fill mandatory fields only
+async function handleFillMandatory(profileData, settings, sendResponse) {
+  if (state.isFilling) {
+    sendResponse({ error: 'Already filling forms', filled: 0 });
+    return;
+  }
+  
+  state.isFilling = true;
+  
+  try {
+    console.log('🎯 Filling mandatory fields only');
+    
+    if (settings) {
+      CONFIG.highlightFilled = settings.highlightFields !== false;
+      CONFIG.showNotifications = settings.showNotifications !== false;
+    }
+    
+    const forms = detectAllForms();
+    console.log(`📋 Detected ${forms.length} form(s)`);
+    
+    const results = [];
+    let totalFilled = 0;
+    let mandatoryFilled = 0;
+    
+    for (const form of forms) {
+      const result = await fillMandatoryFields(form, profileData);
+      results.push(result);
+      totalFilled += result.filled;
+      mandatoryFilled += result.mandatoryFilled;
+    }
+    
+    const standaloneResult = fillStandaloneMandatoryFields(profileData);
+    totalFilled += standaloneResult.filled;
+    mandatoryFilled += standaloneResult.mandatoryFilled;
+    
+    state.lastFillTime = Date.now();
+    state.isFilling = false;
+    
+    if (CONFIG.showNotifications && totalFilled > 0) {
+      showMandatoryFillNotification(totalFilled, mandatoryFilled);
+    }
+    
+    sendResponse({
+      success: true,
+      filled: totalFilled,
+      mandatoryFilled: mandatoryFilled,
+      formsProcessed: forms.length,
+      results: results,
+      timestamp: state.lastFillTime
+    });
+    
+  } catch (error) {
+    console.error('❌ Fill mandatory error:', error);
+    state.isFilling = false;
+    sendResponse({ error: error.message, filled: 0 });
+  }
+}
+
+// NEW: Detect if field is mandatory
+function isFieldMandatory(field) {
+  if (!field) return false;
+  
+  // Check HTML5 required attribute
+  if (field.required) return true;
+  
+  // Check aria-required
+  if (field.getAttribute('aria-required') === 'true') return true;
+  
+  // Check data-required
+  if (field.getAttribute('data-required') === 'true') return true;
+  
+  // Check class names for "required"
+  if (field.className && field.className.toLowerCase().includes('required')) return true;
+  
+  // Check label for asterisk or "required" text
+  const label = getFieldLabel(field).toLowerCase();
+  if (label.includes('*') || label.includes('required') || 
+      label.includes('mandatory') || label.includes('must')) {
+    return true;
+  }
+  
+  // Check placeholder for asterisk
+  if (field.placeholder && field.placeholder.includes('*')) return true;
+  
+  // Check parent elements for required indicators
+  let parent = field.parentElement;
+  for (let i = 0; i < 3; i++) { // Check up to 3 levels up
+    if (!parent) break;
+    
+    const text = parent.textContent.toLowerCase();
+    if (text.includes('*') || text.includes('required') || 
+        text.includes('mandatory') || text.includes('must')) {
+      return true;
+    }
+    
+    parent = parent.parentElement;
+  }
+  
+  return false;
+}
+
+// NEW: Get all mandatory fields from a form
+function getMandatoryFields(form) {
+  const allFields = form.querySelectorAll('input, textarea, select, [contenteditable="true"]');
+  return Array.from(allFields).filter(field => 
+    isFieldFillable(field) && isFieldMandatory(field)
+  );
+}
+
+// NEW: Fill mandatory fields only
+async function fillMandatoryFields(form, profileData) {
   const result = {
     formId: form.id || form.name || `form_${Date.now()}`,
     filled: 0,
+    mandatoryFilled: 0,
+    total: 0,
+    fields: []
+  };
+  
+  const mandatoryFields = getMandatoryFields(form);
+  result.total = mandatoryFields.length;
+  
+  console.log(`🎯 Processing ${mandatoryFields.length} mandatory fields`);
+  
+  // Fill mandatory fields first
+  for (const field of mandatoryFields) {
+    if (!isFieldFillable(field) || state.filledFields.has(field)) continue;
+    
+    const fieldInfo = analyzeField(field);
+    const value = findBestMatch(fieldInfo, profileData);
+    
+    if (value !== null) {
+      const success = fillFieldWithValue(field, value, fieldInfo);
+      
+      if (success) {
+        result.filled++;
+        result.mandatoryFilled++;
+        state.filledFields.add(field);
+        state.mandatoryFields.add(field);
+        
+        if (CONFIG.highlightFilled) {
+          highlightField(field, true); // Highlight mandatory fields differently
+        }
+      }
+    }
+    
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+  
+  console.log(`✅ Mandatory Form: Filled ${result.filled} of ${result.total} mandatory fields`);
+  return result;
+}
+
+// NEW: Fill standalone mandatory fields
+function fillStandaloneMandatoryFields(profileData) {
+  const result = { filled: 0, mandatoryFilled: 0, total: 0 };
+  
+  const standaloneSelectors = [
+    'body input:not(form input):not([type="hidden"])',
+    'body textarea:not(form textarea)',
+    'body select:not(form select)',
+    'body [contenteditable="true"]:not(form [contenteditable="true"])'
+  ];
+  
+  const fields = document.querySelectorAll(standaloneSelectors.join(', '));
+  
+  fields.forEach(field => {
+    if (!isFieldFillable(field) || state.filledFields.has(field)) return;
+    
+    if (isFieldMandatory(field)) {
+      result.total++;
+      
+      const fieldInfo = analyzeField(field);
+      const value = findBestMatch(fieldInfo, profileData);
+      
+      if (value !== null) {
+        const success = fillFieldWithValue(field, value, fieldInfo);
+        
+        if (success) {
+          result.filled++;
+          result.mandatoryFilled++;
+          state.filledFields.add(field);
+          state.mandatoryFields.add(field);
+          
+          if (CONFIG.highlightFilled) {
+            highlightField(field, true);
+          }
+        }
+      }
+    }
+  });
+  
+  return result;
+}
+
+// Enhanced form filling with mandatory priority
+async function fillFormComprehensive(form, profileData, prioritizeMandatory = true) {
+  const result = {
+    formId: form.id || form.name || `form_${Date.now()}`,
+    filled: 0,
+    mandatoryFilled: 0,
     total: 0,
     fields: []
   };
@@ -269,18 +480,39 @@ async function fillFormComprehensive(form, profileData) {
     '[data-input]'
   ];
   
-  const fields = form.querySelectorAll(fieldSelectors.join(', '));
-  result.total = fields.length;
+  const allFields = form.querySelectorAll(fieldSelectors.join(', '));
+  result.total = allFields.length;
   
-  console.log(`📝 Processing ${fields.length} fields in form`);
+  console.log(`📝 Processing ${allFields.length} fields in form`);
+  
+  // Separate mandatory and optional fields
+  const mandatoryFields = [];
+  const optionalFields = [];
+  
+  Array.from(allFields).forEach(field => {
+    if (!isFieldFillable(field)) return;
+    
+    if (isFieldMandatory(field)) {
+      mandatoryFields.push(field);
+    } else {
+      optionalFields.push(field);
+    }
+  });
+  
+  console.log(`📊 Found ${mandatoryFields.length} mandatory, ${optionalFields.length} optional fields`);
+  
+  // Fill mandatory fields first if prioritizing
+  const fieldsToFill = prioritizeMandatory 
+    ? [...mandatoryFields, ...optionalFields]
+    : Array.from(allFields).filter(isFieldFillable);
   
   // Fill in batches
   const batchSize = 10;
-  for (let i = 0; i < fields.length; i += batchSize) {
-    const batch = Array.from(fields).slice(i, i + batchSize);
+  for (let i = 0; i < fieldsToFill.length; i += batchSize) {
+    const batch = fieldsToFill.slice(i, i + batchSize);
     
     for (const field of batch) {
-      if (!isFieldFillable(field)) continue;
+      if (state.filledFields.has(field)) continue;
       
       const fieldInfo = analyzeField(field);
       const value = findBestMatch(fieldInfo, profileData);
@@ -292,8 +524,13 @@ async function fillFormComprehensive(form, profileData) {
           result.filled++;
           state.filledFields.add(field);
           
+          if (isFieldMandatory(field)) {
+            result.mandatoryFilled++;
+            state.mandatoryFields.add(field);
+          }
+          
           if (CONFIG.highlightFilled) {
-            highlightField(field);
+            highlightField(field, isFieldMandatory(field));
           }
         }
       }
@@ -302,7 +539,7 @@ async function fillFormComprehensive(form, profileData) {
     await new Promise(resolve => setTimeout(resolve, 50));
   }
   
-  // Auto-check consent boxes
+  // Auto-check consent boxes (often mandatory)
   if (CONFIG.autoCheckBoxes) {
     autoCheckConsentBoxes(form);
   }
@@ -312,13 +549,13 @@ async function fillFormComprehensive(form, profileData) {
     autoSelectCommonOptions(form, profileData);
   }
   
-  console.log(`✅ Form: Filled ${result.filled} of ${result.total} fields`);
+  console.log(`✅ Form: Filled ${result.filled} of ${result.total} fields (${result.mandatoryFilled} mandatory)`);
   return result;
 }
 
-// Fill standalone fields
-function fillStandaloneFields(profileData) {
-  const result = { filled: 0, total: 0 };
+// Enhanced fill standalone fields
+function fillStandaloneFields(profileData, prioritizeMandatory = true) {
+  const result = { filled: 0, mandatoryFilled: 0, total: 0 };
   
   const standaloneSelectors = [
     'body input:not(form input):not([type="hidden"])',
@@ -327,11 +564,20 @@ function fillStandaloneFields(profileData) {
     'body [contenteditable="true"]:not(form [contenteditable="true"])'
   ];
   
-  const fields = document.querySelectorAll(standaloneSelectors.join(', '));
-  result.total = fields.length;
+  const allFields = document.querySelectorAll(standaloneSelectors.join(', '));
+  result.total = allFields.length;
   
-  fields.forEach(field => {
-    if (!isFieldFillable(field) || state.filledFields.has(field)) return;
+  // Separate mandatory and optional
+  const fieldsArray = Array.from(allFields);
+  const mandatoryFields = fieldsArray.filter(field => isFieldFillable(field) && isFieldMandatory(field));
+  const optionalFields = fieldsArray.filter(field => isFieldFillable(field) && !isFieldMandatory(field));
+  
+  const fieldsToFill = prioritizeMandatory 
+    ? [...mandatoryFields, ...optionalFields]
+    : fieldsArray.filter(isFieldFillable);
+  
+  fieldsToFill.forEach(field => {
+    if (state.filledFields.has(field)) return;
     
     const fieldInfo = analyzeField(field);
     const value = findBestMatch(fieldInfo, profileData);
@@ -343,8 +589,13 @@ function fillStandaloneFields(profileData) {
         result.filled++;
         state.filledFields.add(field);
         
+        if (isFieldMandatory(field)) {
+          result.mandatoryFilled++;
+          state.mandatoryFields.add(field);
+        }
+        
         if (CONFIG.highlightFilled) {
-          highlightField(field);
+          highlightField(field, isFieldMandatory(field));
         }
       }
     }
@@ -353,416 +604,116 @@ function fillStandaloneFields(profileData) {
   return result;
 }
 
-// Analyze field - ENHANCED
-function analyzeField(field) {
-  const fieldType = field.type || field.tagName.toLowerCase();
-  const name = field.name || field.id || '';
-  const placeholder = field.placeholder || '';
-  const label = getFieldLabel(field);
-  const ariaLabel = field.getAttribute('aria-label') || '';
-  const dataName = field.getAttribute('data-name') || field.getAttribute('data-field') || '';
-  const className = field.className || '';
-  const autocomplete = field.getAttribute('autocomplete') || '';
-  
-  // Get comprehensive context
-  const contextText = [
-    name,
-    placeholder,
-    label,
-    ariaLabel,
-    dataName,
-    className,
-    autocomplete,
-    field.getAttribute('data-testid') || '',
-    field.getAttribute('data-qa') || '',
-    field.getAttribute('data-cy') || '',
-    field.getAttribute('title') || ''
-  ].filter(Boolean).join(' ').toLowerCase();
-  
-  return {
-    element: field,
-    type: fieldType,
-    name: name,
-    placeholder: placeholder,
-    label: label,
-    ariaLabel: ariaLabel,
-    dataName: dataName,
-    className: className,
-    autocomplete: autocomplete,
-    context: contextText,
-    isCheckbox: fieldType === 'checkbox',
-    isRadio: fieldType === 'radio',
-    isSelect: fieldType === 'select-one' || fieldType === 'select-multiple',
-    isText: ['text', 'email', 'tel', 'url', 'number', 'date', 'password'].includes(fieldType),
-    isTextarea: fieldType === 'textarea',
-    isContentEditable: field.isContentEditable
-  };
-}
-
-// ENHANCED findBestMatch with better selection handling
-function findBestMatch(fieldInfo, profileData) {
-  if (!profileData || Object.keys(profileData).length === 0) return null;
-  
-  let bestMatch = null;
-  let bestScore = 0;
-  const debugMatches = [];
-  
-  const weights = {
-    exactNameMatch: 100,
-    partialNameMatch: 60,
-    exactContextMatch: 40,
-    partialContextMatch: 25,
-    fieldNameHint: 50,
-    typeMatch: 30,
-    minScoreThreshold: 20,
-    selectionFieldBonus: 15 // NEW: Bonus for selection fields
-  };
-  
-  // Lower threshold for selection fields
-  if (fieldInfo.isSelect || fieldInfo.isRadio || fieldInfo.isCheckbox) {
-    weights.minScoreThreshold = 15;
-  }
-  
-  console.log(`🔍 Analyzing field: ${fieldInfo.name} (${fieldInfo.type})`);
-  
-  for (const [key, value] of Object.entries(profileData)) {
-    if (!value && value !== false && value !== 0) continue;
+// Enhanced highlight field for mandatory fields
+function highlightField(field, isMandatory = false) {
+  if (isMandatory) {
+    field.classList.add('autofill-highlight-mandatory');
     
-    let score = 0;
-    const aliases = FIELD_ALIASES[key] || [key];
-    const fieldName = fieldInfo.name.toLowerCase();
-    const context = fieldInfo.context;
-    
-    // Priority 1: Field name matches
-    for (const alias of aliases) {
-      const aliasLower = alias.toLowerCase();
-      
-      if (fieldName === aliasLower) {
-        score = Math.max(score, weights.exactNameMatch);
-        debugMatches.push({key, alias, type: 'exactName', score});
-      } else if (fieldName.includes(aliasLower)) {
-        score = Math.max(score, weights.partialNameMatch);
-        debugMatches.push({key, alias, type: 'partialName', score});
-      }
-    }
-    
-    // Priority 2: Special hints
-    if (fieldName.includes('surname') && key === 'lastName') {
-      score += weights.fieldNameHint;
-      debugMatches.push({key, hint: 'surname', type: 'fieldHint', score});
-    }
-    if (fieldName.includes('forename') && key === 'firstName') {
-      score += weights.fieldNameHint;
-      debugMatches.push({key, hint: 'forename', type: 'fieldHint', score});
-    }
-    
-    // Priority 3: Context matches
-    for (const alias of aliases) {
-      const aliasLower = alias.toLowerCase();
-      const contextWords = context.split(/\W+/).filter(w => w.length > 2);
-      
-      if (context.includes(aliasLower)) {
-        const isGeneric = aliasLower.length <= 4 && contextWords.length > 5;
-        const contextualScore = isGeneric ? weights.partialContextMatch : weights.exactContextMatch;
-        score = Math.max(score, contextualScore);
-        debugMatches.push({key, alias, type: 'context', score});
-      }
-      else if (contextWords.some(word => 
-        word.includes(aliasLower) || aliasLower.includes(word)
-      )) {
-        score = Math.max(score, weights.partialContextMatch + 5);
-        debugMatches.push({key, alias, type: 'partialContext', score});
-      }
-    }
-    
-    // Priority 4: Type-based matching
-    if (fieldInfo.type === 'email' && key === 'email') score += weights.typeMatch;
-    if (fieldInfo.type === 'tel' && key === 'phone') score += weights.typeMatch;
-    if (fieldInfo.type === 'url' && key === 'website') score += weights.typeMatch;
-    
-    // NEW: Bonus for selection fields matching known keys
-    if ((fieldInfo.isSelect || fieldInfo.isRadio || fieldInfo.isCheckbox) && 
-        ['gender', 'newsletter', 'terms', 'remoteWork', 'country', 'state'].includes(key)) {
-      score += weights.selectionFieldBonus;
-    }
-    
-    if (score > bestScore) {
-      bestScore = score;
-      bestMatch = value;
-    }
-  }
-  
-  // Fallback to autocomplete attribute
-  if (bestScore < weights.minScoreThreshold && fieldInfo.autocomplete) {
-    const autocompleteMap = {
-      'name': profileData.fullName,
-      'given-name': profileData.firstName,
-      'family-name': profileData.lastName,
-      'email': profileData.email,
-      'tel': profileData.phone,
-      'address-line1': profileData.address,
-      'address-level2': profileData.city,
-      'address-level1': profileData.state,
-      'postal-code': profileData.zipCode,
-      'country': profileData.country,
-      'organization': profileData.company,
-      'organization-title': profileData.jobTitle
-    };
-    
-    const value = autocompleteMap[fieldInfo.autocomplete];
-    if (value) {
-      bestMatch = value;
-      bestScore = weights.exactNameMatch;
-      console.log(`✅ Matched via autocomplete: ${fieldInfo.autocomplete} = ${value}`);
-    }
-  }
-  
-  // Apply value mappings if it's a selection field
-  if (bestMatch !== null && (fieldInfo.isSelect || fieldInfo.isRadio || fieldInfo.isCheckbox)) {
-    const mappedValue = applyValueMapping(bestMatch, fieldInfo);
-    if (mappedValue !== bestMatch) {
-      console.log(`🔄 Mapped value: ${bestMatch} → ${mappedValue}`);
-      bestMatch = mappedValue;
-    }
-  }
-  
-  if (bestScore > 0) {
-    console.log(`✅ Best match for "${fieldInfo.name}": ${bestMatch} (score: ${bestScore})`);
-    console.log('📊 All matches:', debugMatches.filter(m => m.score > 15));
+    setTimeout(() => {
+      field.classList.remove('autofill-highlight-mandatory');
+    }, 3000);
   } else {
-    console.log(`❌ No match found for "${fieldInfo.name}"`);
-  }
-  
-  return bestScore >= weights.minScoreThreshold ? bestMatch : null;
-}
-
-// NEW: Apply value mappings for intelligent selection
-function applyValueMapping(value, fieldInfo) {
-  const context = fieldInfo.context;
-  const stringValue = String(value).toLowerCase().trim();
-  
-  // Determine which mapping to use based on context
-  let mappingKey = null;
-  
-  if (context.includes('gender') || context.includes('sex')) {
-    mappingKey = 'gender';
-  } else if (context.includes('newsletter') || context.includes('subscribe') || context.includes('marketing')) {
-    mappingKey = 'boolean';
-  } else if (context.includes('terms') || context.includes('conditions') || context.includes('privacy') || context.includes('agree')) {
-    mappingKey = 'boolean';
-  } else if (context.includes('remote') || context.includes('work type') || context.includes('location') || context.includes('work preference')) {
-    mappingKey = 'remoteWork';
-  } else if (context.includes('country') || context.includes('nation') || context.includes('nationality')) {
-    mappingKey = 'country';
-  } else if (context.includes('state') || context.includes('province') || context.includes('region') || context.includes('county') || context.includes('department')) {
-    mappingKey = 'state';
-  } else if (fieldInfo.isCheckbox) {
-    // Default boolean for unknown checkboxes
-    mappingKey = 'boolean';
-  }
-  
-  if (mappingKey && CONFIG.valueMappings[mappingKey]) {
-    const mappings = CONFIG.valueMappings[mappingKey];
+    field.classList.add('autofill-highlight');
     
-    // Find best match in the mapping
-    for (const [target, aliases] of Object.entries(mappings)) {
-      if (aliases.some(alias => stringValue.includes(alias) || alias.includes(stringValue))) {
-        // Return the canonical value for the target
-        if (mappingKey === 'boolean') {
-          return target === 'true';
-        }
-        return target;
-      }
-    }
+    setTimeout(() => {
+      field.classList.remove('autofill-highlight');
+    }, 2000);
   }
-  
-  return value;
 }
 
-// Fill field with value
-function fillFieldWithValue(field, value, fieldInfo) {
+// Enhanced form detection
+function handleDetectForms(sendResponse) {
   try {
-    let success = false;
-    const stringValue = String(value).trim();
+    const forms = document.querySelectorAll(`
+      form,
+      [role="form"],
+      [data-form],
+      .form,
+      .application-form,
+      .contact-form,
+      .registration-form,
+      .signup-form,
+      .login-form,
+      .checkout-form,
+      .survey-form,
+      .questionnaire
+    `);
     
-    switch (fieldInfo.type) {
-      case 'checkbox':
-        const shouldCheck = parseCheckboxValue(value);
-        if (field.checked !== shouldCheck) {
-          field.checked = shouldCheck;
-          success = true;
-        }
-        break;
-        
-      case 'radio':
-        const radioGroup = document.querySelectorAll(`input[type="radio"][name="${field.name}"]`);
-        const matchingRadio = findMatchingRadio(radioGroup, value);
-        if (matchingRadio && !matchingRadio.checked) {
-          matchingRadio.checked = true;
-          success = true;
-        }
-        break;
-        
-      case 'select-one':
-      case 'select-multiple':
-        success = selectOption(field, value);
-        break;
-        
-      default:
-        if (fieldInfo.isContentEditable) {
-          field.textContent = stringValue;
-          success = true;
-        } else if (field.tagName === 'INPUT' || field.tagName === 'TEXTAREA') {
-          if (field.value !== stringValue) {
-            field.value = stringValue;
-            success = true;
-          }
-        }
-    }
+    const allFields = document.querySelectorAll(`
+      input:not([type="hidden"]),
+      textarea,
+      select,
+      [contenteditable="true"]
+    `);
     
-    if (success) {
-      triggerFieldEvents(field, fieldInfo.type);
-      return true;
-    }
+    const mandatoryFields = Array.from(allFields).filter(isFieldMandatory);
     
-    return false;
+    sendResponse({
+      formsCount: forms.length,
+      fieldsCount: allFields.length,
+      mandatoryCount: mandatoryFields.length,
+      forms: Array.from(forms).map(form => ({
+        id: form.id || 'no-id',
+        className: form.className,
+        fields: form.querySelectorAll('input, textarea, select').length,
+        mandatory: Array.from(form.querySelectorAll('input, textarea, select')).filter(isFieldMandatory).length
+      }))
+    });
     
   } catch (error) {
-    console.error(`❌ Error filling field:`, error);
-    return false;
+    console.error('❌ Form detection error:', error);
+    sendResponse({ formsCount: 0, fieldsCount: 0, mandatoryCount: 0, error: error.message });
   }
 }
 
-// ENHANCED: Intelligent dropdown selection with fuzzy matching
-function selectOption(select, value) {
-  const stringValue = String(value).toLowerCase().trim();
-  const options = Array.from(select.options || []);
+// Enhanced notifications
+function showFillNotification(filledCount, formCount, mandatoryFilled = 0) {
+  const notification = document.createElement('div');
+  notification.className = 'autofill-notification';
   
-  if (options.length === 0) return false;
+  let details = `Filled ${filledCount} field${filledCount !== 1 ? 's' : ''} in ${formCount} form${formCount !== 1 ? 's' : ''}`;
+  if (mandatoryFilled > 0) {
+    details += ` (${mandatoryFilled} mandatory)`;
+  }
   
-  // Try multiple matching strategies in order of preference
-  const matchStrategies = [
-    // 1. Exact match (value or text)
-    () => options.find(opt => opt.value.toLowerCase() === stringValue || opt.text.toLowerCase() === stringValue),
-    
-    // 2. Starts with match
-    () => options.find(opt => opt.value.toLowerCase().startsWith(stringValue) || opt.text.toLowerCase().startsWith(stringValue)),
-    
-    // 3. Contains match
-    () => options.find(opt => opt.value.toLowerCase().includes(stringValue) || opt.text.toLowerCase().includes(stringValue)),
-    
-    // 4. Word match (split by spaces and check each word)
-    () => {
-      const valueWords = stringValue.split(/\W+/).filter(w => w.length > 2);
-      return options.find(opt => {
-        const optText = opt.text.toLowerCase();
-        return valueWords.some(word => optText.includes(word));
-      });
-    },
-    
-    // 5. Acronym match (e.g., "US" for "United States")
-    () => {
-      if (stringValue.length <= 3) {
-        return options.find(opt => {
-          const text = opt.text.toLowerCase();
-          // Check if stringValue is acronym of option text
-          const words = text.split(/\W+/);
-          const acronym = words.map(w => w[0]).join('');
-          return acronym === stringValue;
-        });
-      }
-      return null;
-    },
-    
-    // 6. Fuzzy match (Levenshtein distance for typos)
-    () => {
-      let bestMatch = null;
-      let bestScore = 0;
-      
-      options.forEach(opt => {
-        const score = calculateSimilarity(opt.text.toLowerCase(), stringValue);
-        if (score > bestScore && score > 0.7) { // 70% similarity threshold
-          bestScore = score;
-          bestMatch = opt;
-        }
-      });
-      
-      return bestMatch;
+  notification.innerHTML = `
+    <div class="autofill-notification__icon">✅</div>
+    <div class="autofill-notification__content">
+      <strong>AutoFill Pro</strong>
+      <div>${details}</div>
+    </div>
+  `;
+  
+  document.body.appendChild(notification);
+  
+  setTimeout(() => {
+    if (notification.parentNode) {
+      notification.style.animation = 'slideOut 0.3s ease';
+      setTimeout(() => notification.remove(), 300);
     }
-  ];
+  }, CONFIG.notificationDuration);
+}
+
+function showMandatoryFillNotification(filledCount, mandatoryFilled) {
+  const notification = document.createElement('div');
+  notification.className = 'autofill-notification';
   
-  // Execute strategies in order
-  for (const strategy of matchStrategies) {
-    const match = strategy();
-    if (match) {
-      console.log(`✅ Matched dropdown option: "${match.text}" for value: "${value}"`);
-      select.value = match.value;
-      return true;
+  notification.innerHTML = `
+    <div class="autofill-notification__icon">🎯</div>
+    <div class="autofill-notification__content">
+      <strong>Mandatory Fields Filled</strong>
+      <div>Successfully filled ${filledCount} mandatory field${filledCount !== 1 ? 's' : ''}</div>
+    </div>
+  `;
+  
+  document.body.appendChild(notification);
+  
+  setTimeout(() => {
+    if (notification.parentNode) {
+      notification.style.animation = 'slideOut 0.3s ease';
+      setTimeout(() => notification.remove(), 300);
     }
-  }
-  
-  return false;
-}
-
-// Calculate string similarity (Levenshtein distance)
-function calculateSimilarity(str1, str2) {
-  const longer = str1.length > str2.length ? str1 : str2;
-  const shorter = str1.length > str2.length ? str2 : str1;
-  
-  if (longer.length === 0) return 1.0;
-  
-  const editDistance = getEditDistance(longer, shorter);
-  return (longer.length - editDistance) / longer.length;
-}
-
-// Get edit distance between two strings
-function getEditDistance(str1, str2) {
-  const matrix = [];
-  
-  for (let i = 0; i <= str2.length; i++) {
-    matrix[i] = [i];
-  }
-  
-  for (let j = 0; j <= str1.length; j++) {
-    matrix[0][j] = j;
-  }
-  
-  for (let i = 1; i <= str2.length; i++) {
-    for (let j = 1; j <= str1.length; j++) {
-      if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
-        matrix[i][j] = matrix[i - 1][j - 1];
-      } else {
-        matrix[i][j] = Math.min(
-          matrix[i - 1][j - 1] + 1, // substitution
-          matrix[i][j - 1] + 1,     // insertion
-          matrix[i - 1][j] + 1      // deletion
-        );
-      }
-    }
-  }
-  
-  return matrix[str2.length][str1.length];
-}
-
-// ENHANCED: Find matching radio button
-function findMatchingRadio(radioGroup, value) {
-  const stringValue = String(value).toLowerCase().trim();
-  
-  return Array.from(radioGroup).find(radio => {
-    const radioValue = radio.value.toLowerCase().trim();
-    const radioId = radio.id.toLowerCase();
-    const radioLabel = getFieldLabel(radio).toLowerCase();
-    
-    // Check multiple match conditions
-    return radioValue === stringValue ||
-           radioId === stringValue ||
-           radioLabel === stringValue ||
-           stringValue.includes(radioValue) ||
-           radioValue.includes(stringValue) ||
-           radioLabel.includes(stringValue) ||
-           // Check if radio value maps to the target value
-           applyValueMapping(radioValue, {context: radioLabel}) === value;
-  });
+  }, CONFIG.notificationDuration);
 }
 
 // Helper functions
