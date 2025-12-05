@@ -1,14 +1,83 @@
-// AutoFill Pro v6.0 - Intelligent Form Filler
-console.log('🎯 AutoFill Pro v6.0 Content Script Loaded');
+// AutoFill Pro v6.1 - Content Script with Built-in Configuration
+console.log('🎯 AutoFill Pro v6.1 Content Script Loaded');
 
-// Import configuration (loaded via manifest)
-let FIELD_ALIASES, VALUE_MAPPINGS, REQUIRED_INDICATORS;
+// =========================================
+// CONFIGURATION (Consolidated to avoid loading issues)
+// =========================================
+const FIELD_ALIASES = {
+  firstName: ['firstName', 'first_name', 'firstname', 'fname', 'givenName', 'name_first', 'first', 'forename'],
+  lastName: ['lastName', 'last_name', 'lastname', 'lname', 'surname', 'name_last', 'last', 'familyName'],
+  fullName: ['fullName', 'full_name', 'name', 'completeName', 'displayName'],
+  email: ['email', 'e-mail', 'emailAddress', 'mail', 'contact_email', 'e_mail', 'emailaddress'],
+  phone: ['phone', 'phoneNumber', 'telephone', 'mobile', 'cell', 'contactNumber', 'tel', 'phonenumber'],
+  
+  address: ['address', 'streetAddress', 'address1', 'street', 'mailingAddress', 'streetaddress'],
+  city: ['city', 'town', 'locality', 'addressCity'],
+  state: ['state', 'province', 'region', 'county', 'department', 'prefecture', 'territory'],
+  zipCode: ['zip', 'zipCode', 'postalCode', 'postcode', 'postal', 'zipcode'],
+  country: ['country', 'nation', 'nationality', 'countryName'],
+  
+  company: ['company', 'organization', 'employer', 'currentCompany'],
+  jobTitle: ['jobTitle', 'position', 'title', 'role', 'designation', 'occupation'],
+  
+  // Boolean/Selection fields
+  gender: ['gender', 'sex'],
+  newsletter: ['newsletter', 'subscribe', 'subscription', 'marketing', 'updates', 'notifications'],
+  terms: ['terms', 'conditions', 'agreement', 'consent', 'privacy', 'policy', 'termsAndConditions'],
+  remoteWork: ['remoteWork', 'workType', 'workPreference', 'locationType', 'work_mode'],
+  
+  experience: ['experience', 'yearsExperience', 'workExperience', 'totalexperience'],
+  education: ['education', 'degree', 'highestEducation', 'qualification'],
+  skills: ['skills', 'technicalSkills', 'competencies', 'expertise', 'abilities'],
+  salary: ['salary', 'expectedSalary', 'compensation', 'desiredSalary'],
+  notice: ['notice', 'noticePeriod', 'availability', 'joiningDate']
+};
 
-// State management
+const VALUE_MAPPINGS = {
+  boolean: {
+    true: ['yes', 'true', 'agree', 'accept', 'subscribe', 'i agree', 'i accept', 'enable', 'on', '1', 'checked', 'consent', 'approve'],
+    false: ['no', 'false', 'decline', 'reject', 'unsubscribe', 'disable', 'off', '0', 'unchecked', 'disagree']
+  },
+  
+  gender: {
+    male: ['male', 'man', 'm', 'he/him', 'mr', 'sir', 'boy'],
+    female: ['female', 'woman', 'f', 'she/her', 'ms', 'mrs', 'miss', 'girl'],
+    other: ['other', 'non-binary', 'prefer not to say', 'decline to answer', 'they/them', 'nonbinary', 'genderqueer']
+  },
+  
+  remoteWork: {
+    remote: ['remote', 'work from home', 'wfh', 'fully remote', 'home office', 'telecommute', 'virtual'],
+    hybrid: ['hybrid', 'mixed', 'partial remote', 'flexible', 'hybrid-remote', 'some remote'],
+    onsite: ['onsite', 'office', 'in office', 'in-person', 'on-site', 'collocated', 'on location']
+  },
+  
+  country: {
+    'united states': ['usa', 'us', 'united states of america', 'america', 'u.s.a.', 'united states of america (usa)'],
+    'canada': ['ca', 'can', 'canada'],
+    'united kingdom': ['uk', 'great britain', 'gb', 'britain', 'england', 'scotland', 'wales'],
+    'australia': ['au', 'aus', 'australia'],
+    'germany': ['de', 'deutschland', 'deu', 'germany']
+  }
+};
+
+const REQUIRED_INDICATORS = [
+  'required',
+  'mandatory',
+  'obligatory',
+  '*', // Direct asterisk
+  '(*)', // Asterisk in parentheses
+  'required field',
+  'must be filled',
+  'cannot be empty',
+  'field is required'
+];
+
+// =========================================
+// STATE MANAGEMENT
+// =========================================
 const state = {
   isFilling: false,
   filledFields: new Set(),
-  detectedForms: [],
   config: {
     highlightFilled: true,
     showNotifications: true,
@@ -20,33 +89,37 @@ const state = {
   }
 };
 
-// Initialize configuration from window
-function initializeConfig() {
-  FIELD_ALIASES = window.FIELD_ALIASES || FIELD_ALIASES;
-  VALUE_MAPPINGS = window.VALUE_MAPPINGS || VALUE_MAPPINGS;
-  REQUIRED_INDICATORS = window.REQUIRED_INDICATORS || REQUIRED_INDICATORS;
-}
-
-// Main message handler
+// =========================================
+// MAIN MESSAGE HANDLER
+// =========================================
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  const handlers = {
-    'smartFill': () => handleSmartFill(request.data, request.settings, sendResponse),
-    'ping': () => sendResponse({ status: 'ready', version: '6.0' }),
-    'extractFromBrowser': () => handleExtractData(sendResponse)
-  };
+  console.log('📨 Received message:', request.action);
   
-  const handler = handlers[request.action];
-  if (handler) {
-    handler();
-    return true;
+  switch (request.action) {
+    case 'smartFill':
+      handleSmartFill(request.data, request.settings, sendResponse);
+      return true; // Keep channel open for async
+    
+    case 'ping':
+      sendResponse({ status: 'ready', version: '6.1' });
+      return false;
+    
+    case 'extractFromBrowser':
+      handleExtractData(sendResponse);
+      return true;
+    
+    default:
+      sendResponse({ error: 'Unknown action' });
+      return false;
   }
-  sendResponse({ error: 'Unknown action' });
 });
 
-// Smart fill orchestrator
+// =========================================
+// SMART FILL ORCHESTRATOR
+// =========================================
 async function handleSmartFill(profileData, settings, sendResponse) {
   if (state.isFilling) {
-    sendResponse({ error: 'Already filling', filled: 0 });
+    sendResponse({ error: 'Already filling forms', filled: 0 });
     return;
   }
   
@@ -54,27 +127,24 @@ async function handleSmartFill(profileData, settings, sendResponse) {
   state.filledFields.clear();
   
   try {
-    // Update configuration
+    // Apply settings
     Object.assign(state.config, settings);
     
-    // Detect all forms and standalone fields
+    // Detect forms and standalone fields
     const forms = detectForms();
     const standaloneFields = detectStandaloneFields();
     
     let totalFilled = 0;
-    let totalFields = 0;
     
-    // Process forms
+    // Process forms (required fields first)
     for (const form of forms) {
-      const result = fillForm(form, profileData);
+      const result = fillFormPrioritized(form, profileData);
       totalFilled += result.filled;
-      totalFields += result.total;
     }
     
     // Process standalone fields
     const standaloneResult = fillFields(standaloneFields, profileData);
     totalFilled += standaloneResult.filled;
-    totalFields += standaloneResult.total;
     
     // Show notification
     if (state.config.showNotifications && totalFilled > 0) {
@@ -84,8 +154,8 @@ async function handleSmartFill(profileData, settings, sendResponse) {
     sendResponse({
       success: true,
       filled: totalFilled,
-      totalFields: totalFields,
-      formsProcessed: forms.length
+      formsProcessed: forms.length,
+      timestamp: Date.now()
     });
     
   } catch (error) {
@@ -96,7 +166,9 @@ async function handleSmartFill(profileData, settings, sendResponse) {
   }
 }
 
-// Form detection
+// =========================================
+// FORM DETECTION
+// =========================================
 function detectForms() {
   const selectors = [
     'form',
@@ -104,7 +176,9 @@ function detectForms() {
     '.form',
     '.application-form',
     '.registration-form',
-    '.signup-form'
+    '.signup-form',
+    '.contact-form',
+    '.checkout-form'
   ];
   
   const forms = [];
@@ -122,165 +196,181 @@ function detectForms() {
   return forms;
 }
 
-// Standalone field detection
 function detectStandaloneFields() {
   return Array.from(document.querySelectorAll(`
-    input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not(form input),
+    input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not(form input),
     textarea:not(form textarea),
     select:not(form select)
   `)).filter(isFieldVisible);
 }
 
-// Main form filling logic
-function fillForm(form, profileData) {
-  const fields = getFillableFields(form);
-  const requiredFields = fields.filter(field => isRequiredField(field));
-  const optionalFields = fields.filter(field => !isRequiredField(field));
+// =========================================
+// PRIORITIZED FORM FILLING
+// =========================================
+function fillFormPrioritized(form, profileData) {
+  const allFields = getFillableFields(form);
   
-  console.log(`📋 Form: ${fields.length} fields (${requiredFields.length} required)`);
+  // Separate required and optional
+  const requiredFields = [];
+  const optionalFields = [];
   
-  const result = { filled: 0, total: fields.length };
+  allFields.forEach(field => {
+    if (state.filledFields.has(field)) return;
+    
+    const analysis = analyzeField(field);
+    if (analysis.isRequired) {
+      requiredFields.push(analysis);
+    } else {
+      optionalFields.push(analysis);
+    }
+  });
   
-  // Fill required fields first with higher priority
-  for (const field of requiredFields) {
-    if (fillField(field, profileData)) {
-      result.filled++;
+  console.log(`📋 Form: ${allFields.length} fields (${requiredFields.length} required, ${optionalFields.length} optional)`);
+  
+  let filled = 0;
+  
+  // Fill required fields FIRST (highest priority)
+  for (const fieldAnalysis of requiredFields) {
+    if (fillFieldWithAnalysis(fieldAnalysis, profileData)) {
+      filled++;
     }
   }
   
   // Then fill optional fields
-  for (const field of optionalFields) {
-    if (fillField(field, profileData)) {
-      result.filled++;
+  for (const fieldAnalysis of optionalFields) {
+    if (fillFieldWithAnalysis(fieldAnalysis, profileData)) {
+      filled++;
     }
   }
   
-  // Auto-handle consent boxes if enabled
+  // Auto-handle required consent boxes
   if (state.config.autoCheckConsent) {
-    autoHandleConsentBoxes(form);
+    autoHandleRequiredConsent(form);
   }
   
-  return result;
+  return { filled, total: allFields.length };
 }
 
 // Fill multiple fields
-function fillFields(fields, profileData) {
-  const result = { filled: 0, total: fields.length };
+function fillFields(fieldElements, profileData) {
+  let filled = 0;
   
-  for (const field of fields) {
-    if (fillField(field, profileData)) {
-      result.filled++;
+  fieldElements.forEach(field => {
+    if (state.filledFields.has(field) || !isFieldVisible(field)) return;
+    
+    const analysis = analyzeField(field);
+    if (fillFieldWithAnalysis(analysis, profileData)) {
+      filled++;
     }
-  }
+  });
   
-  return result;
+  return { filled, total: fieldElements.length };
 }
 
-// Individual field filling with intelligent required handling
-function fillField(field, profileData) {
-  if (state.filledFields.has(field) || !isFieldVisible(field)) {
-    return false;
-  }
-  
-  const analysis = analyzeField(field);
+// =========================================
+// FIELD FILLING WITH ANALYSIS
+// =========================================
+function fillFieldWithAnalysis(analysis, profileData) {
   let value = findBestMatch(analysis, profileData);
   
-  // Special handling for required fields
+  // SPECIAL HANDLING FOR REQUIRED FIELDS
   if (analysis.isRequired) {
     console.log(`🔴 Required field: ${analysis.name} (${analysis.type})`);
     
-    // If no profile match found, use intelligent defaults
+    // If no profile match, use intelligent defaults
     if (value === null) {
       value = getDefaultForRequiredField(analysis);
     }
     
-    // For required boolean/dropdown fields, ensure we have a value
-    if (value !== null && (analysis.isSelect || analysis.isCheckbox || analysis.isRadio)) {
+    // For required selection fields, ensure valid value
+    if (value !== null && (analysis.isSelect || analysis.isCheckbox)) {
       value = ensureValidSelection(analysis, value);
     }
   }
   
-  if (value !== null) {
-    const success = setFieldValue(field, value, analysis);
-    if (success) {
-      state.filledFields.add(field);
-      if (state.config.highlightFilled) {
-        highlightField(field);
-      }
-      return true;
+  // Skip if still no value
+  if (value === null) {
+    console.log(`❌ No value for: ${analysis.name}`);
+    return false;
+  }
+  
+  // Set the field value
+  if (setFieldValue(analysis.element, value, analysis)) {
+    state.filledFields.add(analysis.element);
+    
+    if (state.config.highlightFilled) {
+      highlightField(analysis.element);
     }
+    
+    return true;
   }
   
   return false;
 }
 
-// Intelligent default values for required fields
+// Get intelligent defaults for required fields
 function getDefaultForRequiredField(analysis) {
-  // For boolean/checkbox fields that are required, default to true (agree)
+  // Required checkbox (consent/terms) → auto-check
   if (analysis.isCheckbox) {
     const context = analysis.context;
-    if (REQUIRED_INDICATORS.some(ind => context.includes(ind)) ||
-        context.includes('agree') || context.includes('accept') ||
-        context.includes('terms') || context.includes('conditions')) {
+    if (context.includes('agree') || context.includes('accept') || 
+        context.includes('terms') || context.includes('consent') ||
+        context.includes('privacy') || context.includes('policy')) {
       console.log(`✅ Auto-agreeing to required: ${analysis.name}`);
       return true;
     }
   }
   
-  // For required dropdowns with yes/no, default to "yes"
+  // Required dropdown with yes/no → auto-select "yes"
   if (analysis.isSelect) {
     const options = Array.from(analysis.element.options).map(opt => opt.text.toLowerCase());
     if (options.includes('yes') && !options.includes('no')) {
-      console.log(`✅ Auto-selecting "yes" for required: ${analysis.name}`);
       return 'yes';
     }
     if (options.includes('true') && !options.includes('false')) {
-      console.log(`✅ Auto-selecting "true" for required: ${analysis.name}`);
       return 'true';
+    }
+    if (options.includes('agree') && !options.includes('disagree')) {
+      return 'agree';
     }
   }
   
   return null;
 }
 
-// Ensure valid selection for dropdowns
+// Ensure valid selection for required dropdowns
 function ensureValidSelection(analysis, value) {
   if (!analysis.isSelect) return value;
   
-  const select = analysis.element;
-  const options = Array.from(select.options).map(opt => ({
-    value: opt.value.toLowerCase(),
-    text: opt.text.toLowerCase()
-  }));
-  
+  const options = Array.from(analysis.element.options);
   const stringValue = String(value).toLowerCase();
   
-  // Find exact match
-  const match = options.find(opt => 
-    opt.value === stringValue || opt.text === stringValue ||
-    opt.value.includes(stringValue) || opt.text.includes(stringValue)
-  );
+  // Find matching option
+  const match = options.find(opt => {
+    const optText = opt.text.toLowerCase();
+    const optValue = opt.value.toLowerCase();
+    return optText === stringValue || optValue === stringValue ||
+           optText.includes(stringValue) || optValue.includes(stringValue);
+  });
   
-  if (match) {
-    return match.value || match.text;
-  }
+  if (match) return match.value || match.text;
   
-  // For boolean values, try mapped options
+  // For boolean values, map to yes/no
   if (typeof value === 'boolean') {
     const target = value ? 'yes' : 'no';
-    const booleanMatch = options.find(opt => 
-      VALUE_MAPPINGS.boolean.true.includes(opt.text) || 
-      VALUE_MAPPINGS.boolean.true.includes(opt.value)
-    );
-    if (booleanMatch) {
-      return booleanMatch.value || booleanMatch.text;
-    }
+    const booleanMatch = options.find(opt => {
+      const optText = opt.text.toLowerCase();
+      return VALUE_MAPPINGS.boolean.true.includes(optText);
+    });
+    if (booleanMatch) return booleanMatch.value || booleanMatch.text;
   }
   
   return value;
 }
 
-// Field analysis
+// =========================================
+// FIELD ANALYSIS
+// =========================================
 function analyzeField(field) {
   const type = field.type || field.tagName.toLowerCase();
   const name = (field.name || field.id || '').toLowerCase();
@@ -288,20 +378,20 @@ function analyzeField(field) {
   const label = getFieldLabel(field).toLowerCase();
   const ariaLabel = (field.getAttribute('aria-label') || '').toLowerCase();
   
-  // Check for required indicators (multiple methods)
+  // DETECT REQUIRED FIELDS (multiple methods)
   const isRequired = (
     field.hasAttribute('required') ||
     field.getAttribute('aria-required') === 'true' ||
     field.classList.contains('required') ||
     field.classList.contains('mandatory') ||
+    field.classList.contains('validate-required') ||
+    // Check text content for asterisk or required indicators
+    label.includes('*') ||
+    placeholder.includes('*') ||
+    ariaLabel.includes('*') ||
     REQUIRED_INDICATORS.some(ind => 
-      label.includes(ind) || 
-      placeholder.includes(ind) ||
-      ariaLabel.includes(ind) ||
-      name.includes(ind.replace(/\W/g, ''))
+      label.includes(ind) || placeholder.includes(ind) || ariaLabel.includes(ind)
     ) ||
-    // Check for asterisk in label text or nearby
-    (label.includes('*') || placeholder.includes('*') || ariaLabel.includes('*')) ||
     // Check parent labels for asterisk
     hasAsteriskInLabel(field)
   );
@@ -312,31 +402,41 @@ function analyzeField(field) {
     name: name,
     label: label,
     placeholder: placeholder,
+    ariaLabel: ariaLabel,
     context: [name, label, placeholder, ariaLabel].join(' '),
     isRequired: isRequired,
     isSelect: type === 'select-one' || type === 'select-multiple',
     isCheckbox: type === 'checkbox',
     isRadio: type === 'radio',
-    isText: ['text', 'email', 'tel', 'url', 'number', 'date'].includes(type)
+    isText: ['text', 'email', 'tel', 'url', 'number', 'date', 'password'].includes(type)
   };
 }
 
-// Check if field's label contains an asterisk
+// Check for asterisk in field's label element
 function hasAsteriskInLabel(field) {
   try {
-    const label = field.closest('label');
-    if (label && label.textContent.includes('*')) return true;
+    // Method 1: Parent label
+    const parentLabel = field.closest('label');
+    if (parentLabel && parentLabel.textContent.includes('*')) return true;
     
-    const labelFor = field.id && document.querySelector(`label[for="${field.id}"]`);
-    if (labelFor && labelFor.textContent.includes('*')) return true;
+    // Method 2: Label for=""
+    if (field.id) {
+      const labelFor = document.querySelector(`label[for="${field.id}"]`);
+      if (labelFor && labelFor.textContent.includes('*')) return true;
+    }
     
-    return false;
-  } catch (e) {
-    return false;
-  }
+    // Method 3: Look for text node before field
+    const previous = field.previousSibling;
+    if (previous && previous.nodeType === Node.TEXT_NODE && previous.textContent.includes('*')) {
+      return true;
+    }
+  } catch (e) {}
+  return false;
 }
 
-// Find best match for a field
+// =========================================
+// MATCHING ALGORITHM
+// =========================================
 function findBestMatch(analysis, profileData) {
   let bestScore = 0;
   let bestValue = null;
@@ -347,7 +447,7 @@ function findBestMatch(analysis, profileData) {
     let score = 0;
     const aliases = FIELD_ALIASES[key] || [key];
     
-    // Exact name match (highest priority)
+    // Exact name match (highest score)
     if (aliases.some(alias => analysis.name === alias.toLowerCase())) {
       score = 100;
     }
@@ -360,15 +460,16 @@ function findBestMatch(analysis, profileData) {
       score = 40;
     }
     
-    // Bonus for required fields
+    // Boost for required fields
     if (analysis.isRequired) {
       score += state.config.requiredBonus;
     }
     
-    // Type-specific bonuses
+    // Type-specific boosts
     if (analysis.type === 'email' && key === 'email') score += 20;
     if (analysis.type === 'tel' && key === 'phone') score += 20;
     
+    // Accept if above threshold
     if (score > bestScore && score >= state.config.minScoreThreshold) {
       bestScore = score;
       bestValue = value;
@@ -378,11 +479,18 @@ function findBestMatch(analysis, profileData) {
   return bestValue;
 }
 
-// Set field value with proper event triggering
-function setFieldValue(field, value, analysis) {
+// =========================================
+// FIELD VALUE SETTING
+// =========================================
+function setFieldValue(field, rawValue, analysis) {
   try {
-    const stringValue = String(value).trim();
+    // Normalize value
+    let value = rawValue;
+    if (typeof value !== 'boolean') {
+      value = String(value).trim();
+    }
     
+    // Handle different field types
     switch (analysis.type) {
       case 'checkbox':
         const shouldCheck = Boolean(value);
@@ -394,13 +502,15 @@ function setFieldValue(field, value, analysis) {
         break;
         
       case 'radio':
-        return handleRadio(field, value);
+        return handleRadioGroup(analysis.element, value);
         
       case 'select-one':
       case 'select-multiple':
-        return handleSelect(field, value);
+        return handleSelect(analysis.element, value);
         
       default:
+        // Text/email/number inputs
+        const stringValue = String(value);
         if (field.value !== stringValue) {
           field.value = stringValue;
           triggerEvents(field, ['input', 'change']);
@@ -415,32 +525,58 @@ function setFieldValue(field, value, analysis) {
   }
 }
 
-// Enhanced select handling for yes/no and required fields
+// Handle radio button groups
+function handleRadioGroup(radio, value) {
+  const name = radio.name;
+  const group = document.querySelectorAll(`input[type="radio"][name="${name}"]`);
+  const stringValue = String(value).toLowerCase();
+  
+  for (const option of group) {
+    const optionValue = option.value.toLowerCase();
+    const optionLabel = getFieldLabel(option).toLowerercase();
+    
+    if (optionValue === stringValue || optionLabel === stringValue ||
+        optionValue.includes(stringValue) || optionLabel.includes(stringValue)) {
+      if (!option.checked) {
+        option.checked = true;
+        triggerEvents(option, ['click', 'change']);
+        return true;
+      }
+      return false;
+    }
+  }
+  
+  return false;
+}
+
+// Enhanced select handling with YES/NO support
 function handleSelect(select, value) {
   const options = Array.from(select.options);
   const stringValue = String(value).toLowerCase();
   
-  // Try multiple matching strategies
-  const strategies = [
-    // Exact match
-    () => options.find(opt => opt.value.toLowerCase() === stringValue || opt.text.toLowerCase() === stringValue),
-    // Contains
-    () => options.find(opt => opt.value.toLowerCase().includes(stringValue) || opt.text.toLowerCase().includes(stringValue)),
-    // Boolean mapping for yes/no
-    () => {
-      const isTrue = VALUE_MAPPINGS.boolean.true.some(v => v === stringValue);
-      if (isTrue) {
-        return options.find(opt => 
-          VALUE_MAPPINGS.boolean.true.includes(opt.text.toLowerCase()) ||
-          opt.value.toLowerCase() === 'yes' || opt.text.toLowerCase() === 'yes'
-        );
-      }
-      return null;
-    }
-  ];
+  // Strategy 1: Exact match
+  let match = options.find(opt => 
+    opt.value.toLowerCase() === stringValue || opt.text.toLowerCase() === stringValue
+  );
+  if (match) {
+    select.value = match.value;
+    triggerEvents(select, ['change']);
+    return true;
+  }
   
-  for (const strategy of strategies) {
-    const match = strategy();
+  // Strategy 2: Contains match
+  match = options.find(opt => 
+    opt.value.toLowerCase().includes(stringValue) || opt.text.toLowerCase().includes(stringValue)
+  );
+  if (match) {
+    select.value = match.value;
+    triggerEvents(select, ['change']);
+    return true;
+  }
+  
+  // Strategy 3: Boolean mapping for yes/no
+  if (VALUE_MAPPINGS.boolean.true.includes(stringValue)) {
+    match = options.find(opt => VALUE_MAPPINGS.boolean.true.includes(opt.text.toLowerCase()));
     if (match) {
       select.value = match.value;
       triggerEvents(select, ['change']);
@@ -451,41 +587,20 @@ function handleSelect(select, value) {
   return false;
 }
 
-// Radio button handling
-function handleRadio(radio, value) {
-  if (radio.checked) return false;
-  
-  const name = radio.name;
-  const group = document.querySelectorAll(`input[type="radio"][name="${name}"]`);
-  const stringValue = String(value).toLowerCase();
-  
-  for (const option of group) {
-    if (option.value.toLowerCase() === stringValue ||
-        option.id.toLowerCase() === stringValue ||
-        getFieldLabel(option).toLowerCase() === stringValue) {
-      option.checked = true;
-      triggerEvents(option, ['click', 'change']);
-      return true;
-    }
-  }
-  
-  return false;
-}
-
-// Auto-handle consent boxes (checkboxes that need to be checked)
-function autoHandleConsentBoxes(form) {
+// =========================================
+// AUTO-HANDLE REQUIRED CONSENT BOXES
+// =========================================
+function autoHandleRequiredConsent(form) {
   const checkboxes = form.querySelectorAll('input[type="checkbox"]');
   
   for (const checkbox of checkboxes) {
     if (checkbox.checked || !isFieldVisible(checkbox)) continue;
     
-    const label = getFieldLabel(checkbox).toLowerCase();
-    const isConsent = /agree|accept|terms|conditions|privacy|consent|i have read|i understand/i.test(label);
-    const isRequired = isRequiredField(checkbox);
+    const analysis = analyzeField(checkbox);
     
-    // Always check required consent boxes
-    if (isConsent && isRequired) {
-      console.log(`✅ Auto-checking required consent: ${checkbox.name}`);
+    // Only auto-check if required AND consent-related
+    if (analysis.isRequired && /agree|accept|terms|conditions|privacy|consent|i have read|i understand/i.test(analysis.context)) {
+      console.log(`✅ Auto-checking required consent: ${analysis.name}`);
       checkbox.checked = true;
       triggerEvents(checkbox, ['click', 'change']);
       highlightField(checkbox);
@@ -493,7 +608,9 @@ function autoHandleConsentBoxes(form) {
   }
 }
 
-// Get field label with fallback methods
+// =========================================
+// UTILITY FUNCTIONS
+// =========================================
 function getFieldLabel(field) {
   try {
     // Method 1: label for=""
@@ -506,46 +623,41 @@ function getFieldLabel(field) {
     const parentLabel = field.closest('label');
     if (parentLabel) return parentLabel.textContent.trim();
     
-    // Method 3: aria-labelledby
+    // Method 3: aria-label
+    const ariaLabel = field.getAttribute('aria-label');
+    if (ariaLabel) return ariaLabel.trim();
+    
+    // Method 4: aria-labelledby
     const labelledBy = field.getAttribute('aria-labelledby');
     if (labelledBy) {
       const labelElement = document.getElementById(labelledBy);
       if (labelElement) return labelElement.textContent.trim();
     }
     
-    // Method 4: aria-label
-    const ariaLabel = field.getAttribute('aria-label');
-    if (ariaLabel) return ariaLabel.trim();
-    
-    // Method 5: placeholder
+    // Method 5: placeholder fallback
     if (field.placeholder) return field.placeholder.trim();
   } catch (e) {}
   
   return '';
 }
 
-// Check if field is visible and fillable
 function isFieldVisible(field) {
   try {
     if (field.disabled || field.hidden || field.type === 'hidden') return false;
     if (field.style.display === 'none' || field.style.visibility === 'hidden') return false;
     
+    const rect = field.getBoundingClientRect();
+    if (rect.width === 0 && rect.height === 0) return false;
+    
     const style = window.getComputedStyle(field);
     if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
     
-    return field.offsetWidth > 0 || field.offsetHeight > 0;
+    return true;
   } catch (e) {
     return false;
   }
 }
 
-// Check if field is required
-function isRequiredField(field) {
-  const analysis = analyzeField(field);
-  return analysis.isRequired;
-}
-
-// Get all fillable fields from a form
 function getFillableFields(form) {
   return Array.from(form.querySelectorAll(`
     input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]),
@@ -554,36 +666,30 @@ function getFillableFields(form) {
   `)).filter(isFieldVisible);
 }
 
-// Trigger DOM events
 function triggerEvents(field, events) {
   events.forEach(eventType => {
     try {
-      field.dispatchEvent(new Event(eventType, { bubbles: true }));
+      field.dispatchEvent(new Event(eventType, { bubbles: true, cancelable: true }));
     } catch (e) {}
   });
 }
 
-// Highlight filled field
 function highlightField(field) {
   field.classList.add('autofill-highlight');
   if (isRequiredField(field)) {
     field.classList.add('autofill-required');
   }
-  
-  setTimeout(() => {
-    field.classList.remove('autofill-highlight');
-  }, 2000);
+  setTimeout(() => field.classList.remove('autofill-highlight'), 2000);
 }
 
-// Show success notification
-function showNotification(filledCount, formCount) {
+function showNotification(filled, forms) {
   const notification = document.createElement('div');
   notification.className = 'autofill-notification';
   notification.innerHTML = `
     <div class="autofill-notification__icon">✅</div>
     <div>
       <strong>AutoFill Pro</strong><br>
-      Filled ${filledCount} field${filledCount !== 1 ? 's' : ''} in ${formCount} form${formCount !== 1 ? 's' : ''}
+      Filled ${filled} field${filled !== 1 ? 's' : ''} in ${forms} form${forms !== 1 ? 's' : ''}
     </div>
   `;
   
@@ -595,16 +701,23 @@ function showNotification(filledCount, formCount) {
   }, 4000);
 }
 
-// Data extraction for browser extraction feature
+function isRequiredField(field) {
+  const analysis = analyzeField(field);
+  return analysis.isRequired;
+}
+
+// =========================================
+// DATA EXTRACTION
+// =========================================
 function handleExtractData(sendResponse) {
   const extracted = {};
   const inputs = document.querySelectorAll('input, textarea, select');
   
   const patterns = {
     email: /email|e.?mail/i,
-    phone: /phone|mobile|tel|cell/i,
+    phone: /phone|mobile|tel|cell|contact/i,
     firstName: /first.?name|fname|given.?name/i,
-    lastName: /last.?name|lname|surname/i,
+    lastName: /last.?name|lname|surname|family/i,
     company: /company|organization|employer/i,
     jobTitle: /title|position|role|occupation/i
   };
@@ -613,7 +726,7 @@ function handleExtractData(sendResponse) {
     if (!input.value || !isFieldVisible(input)) return;
     
     const label = getFieldLabel(input).toLowerCase();
-    const name = (input.name || '').toLowerCase();
+    const name = (input.name || '').toLowerase();
     const context = `${label} ${name}`;
     
     for (const [key, pattern] of Object.entries(patterns)) {
@@ -627,6 +740,7 @@ function handleExtractData(sendResponse) {
   sendResponse({ data: extracted });
 }
 
-// Initialize
-initializeConfig();
+// =========================================
+// INITIALIZATION
+// =========================================
 console.log('✅ AutoFill Pro content script initialized with required field detection');
