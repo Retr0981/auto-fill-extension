@@ -1178,13 +1178,39 @@ style.textContent = `
     border-color: #4CAF50 !important;
   }
   
+  .autofill-highlight-mandatory {
+    animation: pulse-mandatory 0.5s ease-in-out;
+    box-shadow: 0 0 0 3px #FF9800;
+    border-color: #FF9800 !important;
+    background-color: rgba(255, 152, 0, 0.05) !important;
+  }
+  
   @keyframes pulse {
     0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); }
     70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
     100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
   }
+  
+  @keyframes pulse-mandatory {
+    0% { box-shadow: 0 0 0 0 rgba(255, 152, 0, 0.7); }
+    70% { box-shadow: 0 0 0 12px rgba(255, 152, 0, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 152, 0, 0); }
+  }
+  
+  .mandatory-indicator {
+    position: absolute;
+    background: #FF9800;
+    color: white;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    top: -8px;
+    right: -8px;
+    z-index: 1000;
+    font-weight: bold;
+  }
 `;
 document.head.appendChild(style);
 
 // Initialize
-console.log('✅ AutoFill Pro content script initialized');
+console.log('✅ AutoFill Pro content script initialized with mandatory field support');
