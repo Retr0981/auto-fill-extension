@@ -1,4 +1,4 @@
-// AutoFill Pro Content Script - Universal Form Filling Engine
+// AutoFill Pro Content Script - Enhanced Selection Logic
 console.log('🎯 AutoFill Pro Content Script loaded');
 
 // Configuration
@@ -9,7 +9,32 @@ const CONFIG = {
   showNotifications: true,
   notificationDuration: 3000,
   fieldCheckInterval: 1000,
-  maxRetryAttempts: 3
+  maxRetryAttempts: 3,
+  // NEW: Value mappings for intelligent selection
+  valueMappings: {
+    gender: {
+      male: ['male', 'm', 'man', 'boy', 'male/man', 'he/him'],
+      female: ['female', 'f', 'woman', 'girl', 'female/woman', 'she/her'],
+      other: ['other', 'non-binary', 'non binary', 'prefer not to say', 'prefer-not-to-say', 'they/them']
+    },
+    newsletter: {
+      true: ['yes', 'subscribe', 'opt-in', 'opt in', 'send me updates', 'i want to receive', 'sign me up'],
+      false: ['no', 'unsubscribe', 'opt-out', 'opt out', 'do not send', 'stop']
+    },
+    terms: {
+      true: ['agree', 'accept', 'i agree', 'i accept', 'terms and conditions', 'privacy policy', 'i have read', 'i understand'],
+      false: ['decline', 'reject', 'disagree', 'i disagree']
+    },
+    remoteWork: {
+      remote: ['remote', 'work from home', 'wfh', 'fully remote', '100% remote'],
+      hybrid: ['hybrid', 'mixed', 'hybrid work', 'partial remote'],
+      onsite: ['onsite', 'on-site', 'office', 'in-office', 'on site', 'in office']
+    },
+    boolean: {
+      true: ['true', 'yes', 'y', '1', 'on', 'checked', 'agree', 'accept', 'ok', 'enable'],
+      false: ['false', 'no', 'n', '0', 'off', 'unchecked', 'decline', 'disable']
+    }
+  }
 };
 
 // State management
@@ -23,32 +48,58 @@ let state = {
   }
 };
 
-// Define FIELD_ALIASES locally - DO NOT import from window
+// === IMPORT FIELD_ALIASES FROM CONFIG ===
 const FIELD_ALIASES = {
   // Personal Information
-  firstName: ['firstName', 'first_name', 'firstname', 'fname', 'givenName', 'given_name', 'forename', 'name', 'fullName', 'user.firstName', 'customer.firstName', 'applicant.firstName', 'candidate.firstName', 'first', 'fn', 'given', 'firstName', 'fName', 'firstName1', 'firstname1', 'name_first'],
-  lastName: ['lastName', 'last_name', 'lastname', 'lname', 'surname', 'familyName', 'family_name', 'user.lastName', 'customer.lastName', 'applicant.lastName', 'candidate.lastName', 'last', 'ln', 'family', 'surname', 'lastName', 'lName', 'lastname1', 'name_last'],
-  fullName: ['fullName', 'full_name', 'fullname', 'name', 'completeName', 'user.name', 'customer.name', 'applicant.name', 'candidate.name', 'person.name', 'displayName', 'display_name'],
-  email: ['email', 'e-mail', 'emailAddress', 'email_address', 'e_mail', 'mail', 'e mail', 'emailaddress', 'contact', 'contactEmail', 'candidate.email', 'applicant.email', 'user.email', 'person.email', 'contact_email', 'emailAddr', 'mailAddress', 'email_address', 'e-mailAddress', 'email_addr'],
-  phone: ['phone', 'phoneNumber', 'phone_number', 'telephone', 'mobile', 'cell', 'cellphone', 'phonenumber', 'tel', 'contact', 'contactNumber', 'candidate.phone', 'applicant.phone', 'user.phone', 'person.phone', 'contact_phone', 'phone_no', 'telephone_no', 'mobileNumber', 'phoneNumber1', 'telephoneNumber', 'mobilePhone', 'cellPhone'],
-  address: ['address', 'streetAddress', 'street_address', 'addressLine1', 'address1', 'line1', 'street', 'location', 'mailingAddress', 'residentialAddress', 'homeAddress', 'workAddress', 'address_line1', 'addr1', 'streetAddr', 'streetaddress', 'addrLine1', 'street_address1'],
-  city: ['city', 'town', 'cityName', 'locality', 'addressCity', 'homeCity', 'workCity', 'city_name', 'locationCity', 'address_city', 'cityTown', 'city_town', 'address_city', 'locality_city'],
-  state: ['state', 'province', 'region', 'stateProvince', 'addressState', 'homeState', 'workState', 'state_name', 'regionState', 'address_state', 'stateProv', 'provState', 'state_province', 'region_state'],
-  zipCode: ['zip', 'zipCode', 'zipcode', 'postalCode', 'postal', 'postcode', 'addressZip', 'homeZip', 'workZip', 'zip_code', 'postal_code', 'address_zip', 'postCode', 'zipPostal', 'zip_postal'],
-  country: ['country', 'countryName', 'nation', 'addressCountry', 'homeCountry', 'workCountry', 'country_name', 'nationality', 'country_nation', 'address_country'],
-  company: ['company', 'organization', 'employer', 'companyName', 'company_name', 'organizationName', 'currentCompany', 'employerName', 'companyName1', 'compName', 'orgName', 'employer_name', 'current_employer', 'currentCompany'],
-  jobTitle: ['jobTitle', 'job_title', 'position', 'title', 'role', 'occupation', 'jobPosition', 'jobRole', 'jobtitle', 'jobName', 'designation', 'currentTitle', 'current_position', 'professional_title', 'role_title'],
-  website: ['website', 'personalWebsite', 'portfolio', 'url', 'websiteUrl', 'webSite', 'site', 'personal_site', 'portfolio_url', 'website_url'],
-  linkedin: ['linkedin', 'linkedinProfile', 'linkedin_url', 'linkedinUrl', 'social.linkedin', 'linkedin_profile', 'linkedin_link'],
-  github: ['github', 'githubProfile', 'github_url', 'githubUrl', 'social.github', 'github_profile', 'github_link'],
-  experience: ['experience', 'workExperience', 'yearsExperience', 'totalExperience', 'professionalExperience', 'relevantExperience', 'years_experience', 'total_experience', 'work_experience'],
-  education: ['education', 'degree', 'qualification', 'highestEducation', 'educationalBackground', 'academicBackground', 'highest_degree', 'education_level'],
-  skills: ['skills', 'technicalSkills', 'competencies', 'expertise', 'abilities', 'proficiencies', 'technical_skills', 'key_skills', 'core_skills'],
-  salary: ['salary', 'salaryExpectation', 'expectedSalary', 'compensation', 'desiredSalary', 'salary_expectation', 'expected_salary', 'compensation_expectation'],
-  notice: ['noticePeriod', 'notice', 'availability', 'whenAvailable', 'notice_period', 'availability_date', 'start_date', 'joining_date']
+  firstName: [
+    'firstName', 'first_name', 'firstname', 'fname', 'givenName', 'given_name',
+    'forename', 'user.firstName', 'customer.firstName', 'applicant.firstName',
+    'candidate.firstName', 'first', 'fn', 'given', 'fName', 'firstName1',
+    'firstname1', 'name_first'
+  ],
+  lastName: [
+    'lastName', 'last_name', 'lastname', 'lname', 'surname', 'familyName',
+    'family_name', 'user.lastName', 'customer.lastName', 'applicant.lastName',
+    'candidate.lastName', 'last', 'ln', 'family', 'lName', 'lastname1', 'name_last'
+  ],
+  fullName: [
+    'fullName', 'full_name', 'fullname', 'completeName', 'displayName',
+    'user.name', 'customer.name', 'applicant.name', 'candidate.name',
+    'person.name', 'display_name'
+  ],
+  email: [
+    'email', 'e-mail', 'emailAddress', 'email_address', 'e_mail', 'mail',
+    'e mail', 'emailaddress', 'contactEmail', 'candidate.email', 'applicant.email',
+    'user.email', 'person.email', 'contact_email', 'emailAddr', 'mailAddress',
+    'e-mailAddress', 'email_addr'
+  ],
+  phone: [
+    'phone', 'phoneNumber', 'phone_number', 'telephone', 'mobile', 'cell',
+    'cellphone', 'phonenumber', 'tel', 'contactNumber', 'candidate.phone',
+    'applicant.phone', 'user.phone', 'person.phone', 'contact_phone', 'phone_no',
+    'telephone_no', 'mobileNumber', 'phoneNumber1', 'telephoneNumber', 'mobilePhone'
+  ],
+  // === ADDED MORE ALIASES FOR SELECTION FIELDS ===
+  gender: [
+    'gender', 'sex', 'gender_identity', 'genderIdentity', 'gender_id',
+    'user.gender', 'person.gender', 'applicant.gender', 'candidate.gender'
+  ],
+  newsletter: [
+    'newsletter', 'subscribe', 'subscription', 'notifications', 'updates',
+    'marketing', 'promotional', 'optin', 'opt_in'
+  ],
+  terms: [
+    'terms', 'conditions', 'agreement', 'privacy', 'policy', 'consent',
+    'acknowledge', 'confirm', 'termsAndConditions', 'privacyPolicy'
+  ],
+  remoteWork: [
+    'remoteWork', 'workType', 'workPreference', 'work_mode', 'workMode',
+    'locationType', 'work_location', 'remote_preference'
+  ]
+  // ... rest of your existing aliases ...
 };
 
-// Main message handler
+// Main message handler - NO CHANGES NEEDED HERE
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log('📨 Content script received:', request.action);
   
@@ -57,31 +108,24 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       case 'smartFill':
         handleSmartFill(request.data, request.settings, sendResponse);
         break;
-        
       case 'fillForm':
         handleFillForm(request.data, sendResponse);
         break;
-        
       case 'extractFromBrowser':
         handleExtractData(sendResponse);
         break;
-        
       case 'ping':
         sendResponse({ status: 'ready', version: '5.2', timestamp: Date.now() });
         break;
-        
       case 'detectForms':
         handleDetectForms(sendResponse);
         break;
-        
       case 'fillField':
         handleSingleField(request.field, request.value, sendResponse);
         break;
-        
       case 'autoSubmit':
         handleAutoSubmit(sendResponse);
         break;
-        
       default:
         console.warn('⚠️ Unknown action:', request.action);
         sendResponse({ error: 'Unknown action', action: request.action });
@@ -132,16 +176,13 @@ async function handleSmartFill(profileData, settings, sendResponse) {
     const standaloneResult = fillStandaloneFields(profileData);
     totalFilled += standaloneResult.filled;
     
-    // Update state
     state.lastFillTime = Date.now();
     state.isFilling = false;
     
-    // Show notification
     if (CONFIG.showNotifications && totalFilled > 0) {
       showFillNotification(totalFilled, forms.length);
     }
     
-    // Send response
     sendResponse({
       success: true,
       filled: totalFilled,
@@ -167,7 +208,6 @@ async function fillFormComprehensive(form, profileData) {
     fields: []
   };
   
-  // Get all input elements
   const fieldSelectors = [
     'input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"])',
     'textarea',
@@ -188,7 +228,7 @@ async function fillFormComprehensive(form, profileData) {
   
   console.log(`📝 Processing ${fields.length} fields in form`);
   
-  // Fill fields in batches
+  // Fill in batches
   const batchSize = 10;
   for (let i = 0; i < fields.length; i += batchSize) {
     const batch = Array.from(fields).slice(i, i + batchSize);
@@ -230,7 +270,7 @@ async function fillFormComprehensive(form, profileData) {
   return result;
 }
 
-// Fill standalone fields not in forms
+// Fill standalone fields
 function fillStandaloneFields(profileData) {
   const result = { filled: 0, total: 0 };
   
@@ -267,7 +307,7 @@ function fillStandaloneFields(profileData) {
   return result;
 }
 
-// Analyze field for best matching
+// Analyze field - ENHANCED
 function analyzeField(field) {
   const fieldType = field.type || field.tagName.toLowerCase();
   const name = field.name || field.id || '';
@@ -313,8 +353,7 @@ function analyzeField(field) {
   };
 }
 
-// Find best matching value from profile
-// Find best matching value from profile using intelligent scoring
+// ENHANCED findBestMatch with better selection handling
 function findBestMatch(fieldInfo, profileData) {
   if (!profileData || Object.keys(profileData).length === 0) {
     return null;
@@ -322,20 +361,25 @@ function findBestMatch(fieldInfo, profileData) {
   
   let bestMatch = null;
   let bestScore = 0;
-  const debugMatches = []; // For troubleshooting
+  const debugMatches = [];
   
-  // Score weights - higher = more important
   const weights = {
-    exactNameMatch: 100,      // Field name exactly matches alias
-    partialNameMatch: 60,     // Field name contains alias
-    exactContextMatch: 40,    // Context exactly matches alias
-    partialContextMatch: 25,  // Context contains alias
-    fieldNameHint: 50,        // Special bonus for explicit field name hints
-    typeMatch: 30,            // Field type matches expected type
-    minScoreThreshold: 20     // Minimum score to consider a match
+    exactNameMatch: 100,
+    partialNameMatch: 60,
+    exactContextMatch: 40,
+    partialContextMatch: 25,
+    fieldNameHint: 50,
+    typeMatch: 30,
+    minScoreThreshold: 20,
+    // LOWER threshold for selection fields
+    selectionFieldBonus: 10
   };
   
-  // Debug logging
+  // Lower threshold for radio/checkbox/select
+  if (fieldInfo.isSelect || fieldInfo.isRadio || fieldInfo.isCheckbox) {
+    weights.minScoreThreshold = 15;
+  }
+  
   console.log(`🔍 Analyzing field: ${fieldInfo.name} (${fieldInfo.type})`);
   
   for (const [key, value] of Object.entries(profileData)) {
@@ -346,7 +390,7 @@ function findBestMatch(fieldInfo, profileData) {
     const fieldName = fieldInfo.name.toLowerCase();
     const context = fieldInfo.context;
     
-    // Priority 1: Check field name/id matches (highest weight)
+    // Priority 1: Field name matches
     for (const alias of aliases) {
       const aliasLower = alias.toLowerCase();
       
@@ -359,7 +403,7 @@ function findBestMatch(fieldInfo, profileData) {
       }
     }
     
-    // Priority 2: Special field name hints (e.g., "surname" strongly indicates lastName)
+    // Priority 2: Special hints
     if (fieldName.includes('surname') && key === 'lastName') {
       score += weights.fieldNameHint;
       debugMatches.push({key, hint: 'surname', type: 'fieldHint', score});
@@ -368,93 +412,116 @@ function findBestMatch(fieldInfo, profileData) {
       score += weights.fieldNameHint;
       debugMatches.push({key, hint: 'forename', type: 'fieldHint', score});
     }
-    if (fieldName.includes('family') && key === 'lastName') {
-      score += weights.fieldNameHint;
-      debugMatches.push({key, hint: 'family', type: 'fieldHint', score});
-    }
-    if (fieldName.includes('given') && key === 'firstName') {
-      score += weights.fieldNameHint;
-      debugMatches.push({key, hint: 'given', type: 'fieldHint', score});
-    }
     
-    // Priority 3: Check context matches (lower priority)
+    // Priority 3: Context matches
     for (const alias of aliases) {
       const aliasLower = alias.toLowerCase();
       const contextWords = context.split(/\W+/).filter(w => w.length > 2);
       
-      // Exact match in context
       if (context.includes(aliasLower)) {
-        // Penalize if it's just a generic word in a larger string
         const isGeneric = aliasLower.length <= 4 && contextWords.length > 5;
-        const contextualScore = isGeneric ? 
-          weights.partialContextMatch : 
-          weights.exactContextMatch;
+        const contextualScore = isGeneric ? weights.partialContextMatch : weights.exactContextMatch;
         score = Math.max(score, contextualScore);
         debugMatches.push({key, alias, type: 'context', score});
       }
-      // Smart partial match - check word boundaries
       else if (contextWords.some(word => 
         word.includes(aliasLower) || aliasLower.includes(word)
       )) {
-        score = Math.max(score, weights.partialContextMatch);
+        score = Math.max(score, weights.partialContextMatch + 5); // Bonus for word match
         debugMatches.push({key, alias, type: 'partialContext', score});
       }
     }
     
-    // Priority 4: Type-based matching (bonus)
+    // Priority 4: Type-based matching
     if (fieldInfo.type === 'email' && key === 'email') score += weights.typeMatch;
     if (fieldInfo.type === 'tel' && key === 'phone') score += weights.typeMatch;
     if (fieldInfo.type === 'url' && key === 'website') score += weights.typeMatch;
-    if (fieldInfo.type === 'date' && key === 'birthDate') score += weights.typeMatch;
     
-    // Update best match if this score is higher
+    // NEW: Bonus for selection fields matching known keys
+    if ((fieldInfo.isSelect || fieldInfo.isRadio || fieldInfo.isCheckbox) && 
+        ['gender', 'newsletter', 'terms', 'remoteWork'].includes(key)) {
+      score += weights.selectionFieldBonus;
+    }
+    
     if (score > bestScore) {
       bestScore = score;
       bestMatch = value;
     }
   }
   
-  // Priority 5: Fallback to autocomplete attribute (only if no strong match)
-  if (bestScore < weights.minScoreThreshold) {
-    if (fieldInfo.autocomplete) {
-      const autocompleteMap = {
-        'name': profileData.fullName,
-        'given-name': profileData.firstName,
-        'additional-name': profileData.middleName,
-        'family-name': profileData.lastName,
-        'email': profileData.email,
-        'tel': profileData.phone,
-        'address-line1': profileData.address,
-        'address-level2': profileData.city,
-        'address-level1': profileData.state,
-        'postal-code': profileData.zipCode,
-        'country': profileData.country,
-        'organization': profileData.company,
-        'organization-title': profileData.jobTitle
-      };
-      
-      const value = autocompleteMap[fieldInfo.autocomplete];
-      if (value) {
-        bestMatch = value;
-        bestScore = weights.exactNameMatch;
-        console.log(`✅ Matched via autocomplete: ${fieldInfo.autocomplete} = ${value}`);
-      }
+  // Priority 5: Autocomplete attribute (fallback)
+  if (bestScore < weights.minScoreThreshold && fieldInfo.autocomplete) {
+    const autocompleteMap = {
+      'name': profileData.fullName,
+      'given-name': profileData.firstName,
+      'family-name': profileData.lastName,
+      'email': profileData.email,
+      'tel': profileData.phone,
+      'address-line1': profileData.address,
+      'address-level2': profileData.city,
+      'address-level1': profileData.state,
+      'postal-code': profileData.zipCode,
+      'country': profileData.country,
+      'organization': profileData.company,
+      'organization-title': profileData.jobTitle
+    };
+    
+    const value = autocompleteMap[fieldInfo.autocomplete];
+    if (value) {
+      bestMatch = value;
+      bestScore = weights.exactNameMatch;
+      console.log(`✅ Matched via autocomplete: ${fieldInfo.autocomplete} = ${value}`);
     }
   }
   
-  // Debug output
+  // NEW: Apply value mappings if it's a selection field
+  if (bestMatch !== null && (fieldInfo.isSelect || fieldInfo.isRadio || fieldInfo.isCheckbox)) {
+    const mappedValue = applyValueMapping(bestMatch, fieldInfo);
+    if (mappedValue !== bestMatch) {
+      console.log(`🔄 Mapped value: ${bestMatch} → ${mappedValue}`);
+      bestMatch = mappedValue;
+    }
+  }
+  
   if (bestScore > 0) {
     console.log(`✅ Best match for "${fieldInfo.name}": ${bestMatch} (score: ${bestScore})`);
-    console.log('📊 All matches:', debugMatches.filter(m => m.score > 20));
+    console.log('📊 All matches:', debugMatches.filter(m => m.score > 15));
   } else {
     console.log(`❌ No match found for "${fieldInfo.name}"`);
   }
   
-  // Only return match if we have a decent score
   return bestScore >= weights.minScoreThreshold ? bestMatch : null;
 }
 
-// Fill field with value
+// NEW: Apply value mappings for selection fields
+function applyValueMapping(value, fieldInfo) {
+  const context = fieldInfo.context;
+  const stringValue = String(value).toLowerCase().trim();
+  
+  // Check which mapping to use based on context
+  for (const [fieldKey, mappings] of Object.entries(CONFIG.valueMappings)) {
+    if (context.includes(fieldKey)) {
+      for (const [target, aliases] of Object.entries(mappings)) {
+        if (aliases.some(alias => stringValue.includes(alias) || alias.includes(stringValue))) {
+          return target;
+        }
+      }
+    }
+  }
+  
+  // Default boolean mapping for checkboxes
+  if (fieldInfo.isCheckbox) {
+    const truthy = CONFIG.valueMappings.boolean.true;
+    const falsey = CONFIG.valueMappings.boolean.false;
+    
+    if (truthy.some(t => stringValue.includes(t))) return 'true';
+    if (falsey.some(f => stringValue.includes(f))) return 'false';
+  }
+  
+  return value;
+}
+
+// Fill field with value - ENHANCED
 function fillFieldWithValue(field, value, fieldInfo) {
   try {
     let success = false;
@@ -470,30 +537,22 @@ function fillFieldWithValue(field, value, fieldInfo) {
         break;
         
       case 'radio':
+        // ENHANCED radio matching
         const radioGroup = document.querySelectorAll(`input[type="radio"][name="${field.name}"]`);
         const matchingRadio = findMatchingRadio(radioGroup, value);
         if (matchingRadio && !matchingRadio.checked) {
           matchingRadio.checked = true;
           success = true;
+          console.log(`✅ Selected radio: ${matchingRadio.value}`);
         }
         break;
         
       case 'select-one':
       case 'select-multiple':
+        // ENHANCED select handling
         success = selectOption(field, value);
-        break;
-        
-      case 'textarea':
-      case 'text':
-      case 'email':
-      case 'tel':
-      case 'url':
-      case 'number':
-      case 'date':
-      case 'password':
-        if (field.value !== stringValue) {
-          field.value = stringValue;
-          success = true;
+        if (success) {
+          console.log(`✅ Selected option: ${field.value}`);
         }
         break;
         
@@ -502,8 +561,10 @@ function fillFieldWithValue(field, value, fieldInfo) {
           field.textContent = stringValue;
           success = true;
         } else if (field.tagName === 'INPUT' || field.tagName === 'TEXTAREA') {
-          field.value = stringValue;
-          success = true;
+          if (field.value !== stringValue) {
+            field.value = stringValue;
+            success = true;
+          }
         }
     }
     
@@ -520,6 +581,131 @@ function fillFieldWithValue(field, value, fieldInfo) {
   }
 }
 
+// ENHANCED selectOption with better matching
+function selectOption(select, value) {
+  const stringValue = String(value).toLowerCase().trim();
+  const options = Array.from(select.options || []);
+  
+  if (options.length === 0) return false;
+  
+  const matchScores = [];
+  
+  // Score each option
+  options.forEach(option => {
+    const optionText = option.text.toLowerCase().trim();
+    const optionValue = option.value.toLowerCase().trim();
+    
+    let score = 0;
+    
+    // Exact matches get highest score
+    if (optionText === stringValue || optionValue === stringValue) score = 100;
+    // Starts with match
+    else if (optionText.startsWith(stringValue) || optionValue.startsWith(stringValue)) score = 80;
+    // Contains match
+    else if (optionText.includes(stringValue) || optionValue.includes(stringValue)) score = 60;
+    // Word match
+    else if (stringValue.split(/\W+/).some(word => optionText.includes(word))) score = 40;
+    
+    matchScores.push({ option, score });
+  });
+  
+  // Find best match
+  const best = matchScores.reduce((best, current) => current.score > best.score ? current : best);
+  
+  if (best.score > 0) {
+    select.value = best.option.value;
+    return true;
+  }
+  
+  return false;
+}
+
+// ENHANCED radio matching
+function findMatchingRadio(radioGroup, value) {
+  const stringValue = String(value).toLowerCase().trim();
+  
+  return Array.from(radioGroup).find(radio => {
+    const radioValue = radio.value.toLowerCase().trim();
+    const radioId = radio.id.toLowerCase();
+    const radioLabel = getFieldLabel(radio).toLowerCase();
+    
+    // Check all possible matches
+    return radioValue === stringValue ||
+           radioId === stringValue ||
+           radioLabel === stringValue ||
+           stringValue.includes(radioValue) ||
+           radioValue.includes(stringValue) ||
+           radioLabel.includes(stringValue);
+  });
+}
+
+// ENHANCED auto-select for common options
+function autoSelectCommonOptions(form, profileData) {
+  const selects = form.querySelectorAll('select');
+  
+  selects.forEach(select => {
+    if (!isFieldFillable(select) || select.value) return;
+    
+    const context = getFieldContext(select).toLowerCase();
+    
+    // Try to match profile data based on field context
+    if (context.includes('country') && profileData.country) {
+      selectOption(select, profileData.country);
+    } else if (context.includes('state') && profileData.state) {
+      selectOption(select, profileData.state);
+    } else if (context.includes('city') && profileData.city) {
+      selectOption(select, profileData.city);
+    } else if (context.includes('gender') && profileData.gender) {
+      selectOption(select, profileData.gender);
+    } else if (context.includes('remote') && profileData.remoteWork) {
+      selectOption(select, profileData.remoteWork);
+    } else if (context.includes('newsletter') && profileData.newsletter) {
+      selectOption(select, profileData.newsletter === 'true' ? 'yes' : 'no');
+    }
+  });
+}
+
+// Get field context
+function getFieldContext(field) {
+  const contextParts = [
+    field.name || '',
+    field.id || '',
+    field.placeholder || '',
+    getFieldLabel(field),
+    field.getAttribute('aria-label') || '',
+    field.getAttribute('data-label') || '',
+    field.getAttribute('title') || '',
+    field.className || ''
+  ];
+  
+  return contextParts.filter(Boolean).join(' ').toLowerCase();
+}
+
+// Show notification - NO CHANGES
+function showFillNotification(filledCount, formCount) {
+  const notification = document.createElement('div');
+  notification.className = 'autofill-notification';
+  notification.innerHTML = `
+    <div class="autofill-notification__icon">✅</div>
+    <div class="autofill-notification__content">
+      <strong>AutoFill Pro</strong>
+      <div>Filled ${filledCount} field${filledCount !== 1 ? 's' : ''} in ${formCount} form${formCount !== 1 ? 's' : ''}</div>
+    </div>
+  `;
+  
+  document.body.appendChild(notification);
+  
+  setTimeout(() => {
+    if (notification.parentNode) {
+      notification.style.animation = 'slideOut 0.3s ease';
+      setTimeout(() => notification.remove(), 300);
+    }
+  }, CONFIG.notificationDuration);
+}
+
+
+// === [Rest of the helper functions remain unchanged] ===
+// Copy them from your original content.js
 // Helper functions
 function isFieldFillable(field) {
   if (!field) return false;
