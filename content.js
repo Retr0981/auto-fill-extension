@@ -1,5 +1,5 @@
-// AutoFill Pro Content Script - Enhanced Automatic Selection
-console.log('🎯 AutoFill Pro Content Script loaded');
+// AutoFill Pro Content Script - FIXED VERSION with Mandatory Field Support
+console.log('🎯 AutoFill Pro Content Script loaded (Fixed Version)');
 
 // Configuration
 const CONFIG = {
@@ -8,33 +8,33 @@ const CONFIG = {
   highlightFilled: true,
   showNotifications: true,
   notificationDuration: 3000,
-  fieldCheckInterval: 1000,
+  fieldCheckInterval: 500, // Reduced for faster filling
   maxRetryAttempts: 3,
-  // NEW: Enhanced value mappings
+  requiredFieldBonus: 25, // NEW: Bonus score for required fields
   valueMappings: {
     // Gender options
     gender: {
-      male: ['male', 'm', 'man', 'boy', 'male/man', 'he/him', 'mr', 'sir', 'gentleman'],
-      female: ['female', 'f', 'woman', 'girl', 'female/woman', 'she/her', 'mrs', 'ms', 'miss', 'lady'],
-      other: ['other', 'non-binary', 'non binary', 'prefer not to say', 'prefer-not-to-say', 'they/them', 'prefer not to answer', 'decline to answer']
+      male: ['male', 'm', 'man', 'boy', 'male/man', 'he/him', 'mr', 'sir', 'gentleman', 'male-identified'],
+      female: ['female', 'f', 'woman', 'girl', 'female/woman', 'she/her', 'mrs', 'ms', 'miss', 'lady', 'female-identified'],
+      other: ['other', 'non-binary', 'non binary', 'prefer not to say', 'prefer-not-to-say', 'they/them', 'prefer not to answer', 'decline to answer', 'nonbinary', 'genderqueer']
     },
     
     // Boolean/Terms
     boolean: {
-      true: ['true', 'yes', 'y', '1', 'on', 'checked', 'agree', 'accept', 'ok', 'enable', 'i agree', 'i accept', 'subscribe', 'opt-in', 'opt in'],
+      true: ['true', 'yes', 'y', '1', 'on', 'checked', 'agree', 'accept', 'ok', 'enable', 'i agree', 'i accept', 'subscribe', 'opt-in', 'opt in', 'i have read', 'i understand'],
       false: ['false', 'no', 'n', '0', 'off', 'unchecked', 'decline', 'disable', 'i disagree', 'unsubscribe', 'opt-out', 'opt out']
     },
     
     // Work location
     remoteWork: {
-      remote: ['remote', 'work from home', 'wfh', 'fully remote', '100% remote', 'home office', 'telecommute'],
-      hybrid: ['hybrid', 'mixed', 'hybrid work', 'partial remote', 'flexible', 'hybrid-remote', 'some remote'],
-      onsite: ['onsite', 'on-site', 'office', 'in-office', 'on site', 'in office', 'in-person', 'on location', 'in person']
+      remote: ['remote', 'work from home', 'wfh', 'fully remote', '100% remote', 'home office', 'telecommute', 'virtual'],
+      hybrid: ['hybrid', 'mixed', 'hybrid work', 'partial remote', 'flexible', 'hybrid-remote', 'some remote', 'blended'],
+      onsite: ['onsite', 'on-site', 'office', 'in-office', 'on site', 'in office', 'in-person', 'on location', 'in person', 'collocated']
     },
     
     // Countries (expanded)
     country: {
-      'united states': ['usa', 'us', 'united states', 'united states of america', 'america', 'u.s.', 'u.s.a.', 'united states of america (usa)'],
+      'united states': ['usa', 'us', 'united states', 'united states of america', 'america', 'u.s.', 'u.s.a.', 'united states of america (usa)', 'us of a'],
       'canada': ['canada', 'ca', 'can'],
       'united kingdom': ['uk', 'united kingdom', 'great britain', 'gb', 'england', 'scotland', 'wales', 'northern ireland', 'britain'],
       'australia': ['australia', 'au', 'aus'],
@@ -49,11 +49,11 @@ const CONFIG = {
     
     // US States (expanded)
     state: {
-      'alabama': ['al', 'alabama', 'ala'],
+      'alabama': ['al', 'alabama', 'ala', 'alab'],
       'alaska': ['ak', 'alaska'],
       'arizona': ['az', 'arizona', 'ariz'],
       'arkansas': ['ar', 'arkansas', 'ark'],
-      'california': ['ca', 'california', 'calif', 'cal'],
+      'california': ['ca', 'california', 'calif', 'cal', 'ca.'],
       'colorado': ['co', 'colorado', 'colo'],
       'connecticut': ['ct', 'connecticut', 'conn'],
       'delaware': ['de', 'delaware', 'del'],
@@ -80,7 +80,7 @@ const CONFIG = {
       'new hampshire': ['nh', 'new hampshire', 'n.h.'],
       'new jersey': ['nj', 'new jersey', 'n.j.'],
       'new mexico': ['nm', 'new mexico', 'n.m.'],
-      'new york': ['ny', 'new york', 'n.y.'],
+      'new york': ['ny', 'new york', 'n.y.', 'ny state'],
       'north carolina': ['nc', 'north carolina', 'n.c.'],
       'north dakota': ['nd', 'north dakota', 'n.d.'],
       'ohio': ['oh', 'ohio'],
@@ -123,7 +123,7 @@ const FIELD_ALIASES = {
   email: ['email', 'e-mail', 'emailAddress', 'email_address', 'e_mail', 'mail', 'e mail', 'emailaddress', 'contact', 'contactEmail', 'candidate.email', 'applicant.email', 'user.email', 'person.email', 'contact_email', 'emailAddr', 'mailAddress', 'email_address', 'e-mailAddress', 'email_addr'],
   phone: ['phone', 'phoneNumber', 'phone_number', 'telephone', 'mobile', 'cell', 'cellphone', 'phonenumber', 'tel', 'contact', 'contactNumber', 'candidate.phone', 'applicant.phone', 'user.phone', 'person.phone', 'contact_phone', 'phone_no', 'telephone_no', 'mobileNumber', 'phoneNumber1', 'telephoneNumber', 'mobilePhone', 'cellPhone'],
   address: ['address', 'streetAddress', 'street_address', 'addressLine1', 'address1', 'line1', 'street', 'location', 'mailingAddress', 'residentialAddress', 'homeAddress', 'workAddress', 'address_line1', 'addr1', 'streetAddr', 'streetaddress', 'addrLine1', 'street_address1'],
-  city: ['city', 'town', 'cityName', 'locality', 'addressCity', 'homeCity', 'workCity', 'city_name', 'locationCity', 'address_city', 'cityTown', 'city_town', 'address_city', 'locality_city'],
+  city: ['city', 'town', 'cityName', 'locality', 'addressCity', 'homeCity', 'workCity', 'city_name', 'locationCity', 'address_city', 'cityTown', 'city_town', 'locality_city'],
   
   // === ENHANCED: State/Province/County with broader matching ===
   state: [
@@ -143,7 +143,7 @@ const FIELD_ALIASES = {
   github: ['github', 'githubProfile', 'github_url', 'githubUrl', 'social.github', 'github_profile', 'github_link'],
   experience: ['experience', 'workExperience', 'yearsExperience', 'totalExperience', 'professionalExperience', 'relevantExperience', 'years_experience', 'total_experience', 'work_experience'],
   education: ['education', 'degree', 'qualification', 'highestEducation', 'educationalBackground', 'academicBackground', 'highest_degree', 'education_level'],
-  skills: ['skills', 'technicalSkills', 'competencies', 'expertise', 'abilities', 'proficiencies', 'technical_skills', 'key_skills', 'core_skills'],
+  skills: ['skills', 'technicalSkills', 'competencies', 'expertise', 'abilities', 'proficiencies', 'technical_skills', 'key_skills', 'core_skills', 'skillset'],
   salary: ['salary', 'salaryExpectation', 'expectedSalary', 'compensation', 'desiredSalary', 'salary_expectation', 'expected_salary', 'compensation_expectation'],
   notice: ['noticePeriod', 'notice', 'availability', 'whenAvailable', 'notice_period', 'availability_date', 'start_date', 'joining_date']
 };
@@ -244,13 +244,15 @@ async function handleSmartFill(profileData, settings, sendResponse) {
   }
 }
 
-// Comprehensive form filling
+// Comprehensive form filling - FIXED: Prioritizes required fields
 async function fillFormComprehensive(form, profileData) {
   const result = {
     formId: form.id || form.name || `form_${Date.now()}`,
     filled: 0,
     total: 0,
-    fields: []
+    fields: [],
+    requiredFilled: 0,
+    requiredTotal: 0
   };
   
   const fieldSelectors = [
@@ -268,37 +270,57 @@ async function fillFormComprehensive(form, profileData) {
     '[data-input]'
   ];
   
-  const fields = form.querySelectorAll(fieldSelectors.join(', '));
-  result.total = fields.length;
+  const allFields = Array.from(form.querySelectorAll(fieldSelectors.join(', ')));
   
-  console.log(`📝 Processing ${fields.length} fields in form`);
+  // Separate required and optional fields
+  const requiredFields = [];
+  const optionalFields = [];
   
-  // Fill in batches
-  const batchSize = 10;
-  for (let i = 0; i < fields.length; i += batchSize) {
-    const batch = Array.from(fields).slice(i, i + batchSize);
+  allFields.forEach(field => {
+    if (!isFieldFillable(field)) return;
     
-    for (const field of batch) {
-      if (!isFieldFillable(field)) continue;
-      
-      const fieldInfo = analyzeField(field);
-      const value = findBestMatch(fieldInfo, profileData);
-      
-      if (value !== null) {
-        const success = fillFieldWithValue(field, value, fieldInfo);
-        
-        if (success) {
-          result.filled++;
-          state.filledFields.add(field);
-          
-          if (CONFIG.highlightFilled) {
-            highlightField(field);
-          }
+    const fieldInfo = analyzeField(field);
+    
+    if (fieldInfo.isRequired) {
+      requiredFields.push(fieldInfo);
+      result.requiredTotal++;
+    } else {
+      optionalFields.push(fieldInfo);
+    }
+    result.total++;
+  });
+  
+  console.log(`📝 Processing ${allFields.length} fields (${requiredFields.length} required, ${optionalFields.length} optional)`);
+  
+  // Fill required fields FIRST (higher priority)
+  for (const fieldInfo of requiredFields) {
+    const value = findBestMatch(fieldInfo, profileData);
+    if (value !== null) {
+      const success = fillFieldWithValue(fieldInfo.element, value, fieldInfo);
+      if (success) {
+        result.filled++;
+        result.requiredFilled++;
+        state.filledFields.add(fieldInfo.element);
+        if (CONFIG.highlightFilled) {
+          highlightField(fieldInfo.element);
         }
       }
     }
-    
-    await new Promise(resolve => setTimeout(resolve, 50));
+  }
+  
+  // Then fill optional fields
+  for (const fieldInfo of optionalFields) {
+    const value = findBestMatch(fieldInfo, profileData);
+    if (value !== null) {
+      const success = fillFieldWithValue(fieldInfo.element, value, fieldInfo);
+      if (success) {
+        result.filled++;
+        state.filledFields.add(fieldInfo.element);
+        if (CONFIG.highlightFilled) {
+          highlightField(fieldInfo.element);
+        }
+      }
+    }
   }
   
   // Auto-check consent boxes
@@ -311,7 +333,7 @@ async function fillFormComprehensive(form, profileData) {
     autoSelectCommonOptions(form, profileData);
   }
   
-  console.log(`✅ Form: Filled ${result.filled} of ${result.total} fields`);
+  console.log(`✅ Form: Filled ${result.filled} of ${result.total} fields (${result.requiredFilled} required)`);
   return result;
 }
 
@@ -337,11 +359,9 @@ function fillStandaloneFields(profileData) {
     
     if (value !== null) {
       const success = fillFieldWithValue(field, value, fieldInfo);
-      
       if (success) {
         result.filled++;
         state.filledFields.add(field);
-        
         if (CONFIG.highlightFilled) {
           highlightField(field);
         }
@@ -352,7 +372,7 @@ function fillStandaloneFields(profileData) {
   return result;
 }
 
-// Analyze field - ENHANCED
+// Analyze field - ENHANCED: Now detects required fields
 function analyzeField(field) {
   const fieldType = field.type || field.tagName.toLowerCase();
   const name = field.name || field.id || '';
@@ -362,6 +382,13 @@ function analyzeField(field) {
   const dataName = field.getAttribute('data-name') || field.getAttribute('data-field') || '';
   const className = field.className || '';
   const autocomplete = field.getAttribute('autocomplete') || '';
+  
+  // NEW: Detect required fields
+  const isRequired = field.hasAttribute('required') || 
+                    field.getAttribute('aria-required') === 'true' ||
+                    field.classList.contains('required') ||
+                    field.classList.contains('mandatory') ||
+                    field.classList.contains('validate-required');
   
   // Get comprehensive context
   const contextText = [
@@ -375,7 +402,8 @@ function analyzeField(field) {
     field.getAttribute('data-testid') || '',
     field.getAttribute('data-qa') || '',
     field.getAttribute('data-cy') || '',
-    field.getAttribute('title') || ''
+    field.getAttribute('title') || '',
+    isRequired ? 'required' : '' // Add required to context
   ].filter(Boolean).join(' ').toLowerCase();
   
   return {
@@ -389,6 +417,7 @@ function analyzeField(field) {
     className: className,
     autocomplete: autocomplete,
     context: contextText,
+    isRequired: isRequired, // NEW: Flag for required fields
     isCheckbox: fieldType === 'checkbox',
     isRadio: fieldType === 'radio',
     isSelect: fieldType === 'select-one' || fieldType === 'select-multiple',
@@ -398,7 +427,7 @@ function analyzeField(field) {
   };
 }
 
-// ENHANCED findBestMatch with better selection handling
+// ENHANCED findBestMatch with required field bonus
 function findBestMatch(fieldInfo, profileData) {
   if (!profileData || Object.keys(profileData).length === 0) return null;
   
@@ -413,16 +442,16 @@ function findBestMatch(fieldInfo, profileData) {
     partialContextMatch: 25,
     fieldNameHint: 50,
     typeMatch: 30,
+    requiredFieldBonus: CONFIG.requiredFieldBonus, // NEW: Bonus for required fields
+    selectionFieldBonus: 15,
     minScoreThreshold: 20,
-    selectionFieldBonus: 15 // NEW: Bonus for selection fields
+    requiredMinScoreThreshold: 15 // NEW: Lower threshold for required fields
   };
   
-  // Lower threshold for selection fields
-  if (fieldInfo.isSelect || fieldInfo.isRadio || fieldInfo.isCheckbox) {
-    weights.minScoreThreshold = 15;
-  }
+  // Use lower threshold for required fields
+  const minThreshold = fieldInfo.isRequired ? weights.requiredMinScoreThreshold : weights.minScoreThreshold;
   
-  console.log(`🔍 Analyzing field: ${fieldInfo.name} (${fieldInfo.type})`);
+  console.log(`🔍 Analyzing field: ${fieldInfo.name} (${fieldInfo.type}) ${fieldInfo.isRequired ? '[REQUIRED]' : ''}`);
   
   for (const [key, value] of Object.entries(profileData)) {
     if (!value && value !== false && value !== 0) continue;
@@ -439,7 +468,7 @@ function findBestMatch(fieldInfo, profileData) {
       if (fieldName === aliasLower) {
         score = Math.max(score, weights.exactNameMatch);
         debugMatches.push({key, alias, type: 'exactName', score});
-      } else if (fieldName.includes(aliasLower)) {
+      } else if (fieldName.includes(aliasLower) || aliasLower.includes(fieldName)) {
         score = Math.max(score, weights.partialNameMatch);
         debugMatches.push({key, alias, type: 'partialName', score});
       }
@@ -479,6 +508,12 @@ function findBestMatch(fieldInfo, profileData) {
     if (fieldInfo.type === 'tel' && key === 'phone') score += weights.typeMatch;
     if (fieldInfo.type === 'url' && key === 'website') score += weights.typeMatch;
     
+    // NEW: Bonus for required fields
+    if (fieldInfo.isRequired) {
+      score += weights.requiredFieldBonus;
+      debugMatches.push({key, type: 'requiredBonus', score});
+    }
+    
     // NEW: Bonus for selection fields matching known keys
     if ((fieldInfo.isSelect || fieldInfo.isRadio || fieldInfo.isCheckbox) && 
         ['gender', 'newsletter', 'terms', 'remoteWork', 'country', 'state'].includes(key)) {
@@ -492,7 +527,7 @@ function findBestMatch(fieldInfo, profileData) {
   }
   
   // Fallback to autocomplete attribute
-  if (bestScore < weights.minScoreThreshold && fieldInfo.autocomplete) {
+  if (bestScore < minThreshold && fieldInfo.autocomplete) {
     const autocompleteMap = {
       'name': profileData.fullName,
       'given-name': profileData.firstName,
@@ -526,13 +561,15 @@ function findBestMatch(fieldInfo, profileData) {
   }
   
   if (bestScore > 0) {
-    console.log(`✅ Best match for "${fieldInfo.name}": ${bestMatch} (score: ${bestScore})`);
-    console.log('📊 All matches:', debugMatches.filter(m => m.score > 15));
+    console.log(`✅ Best match for "${fieldInfo.name}": ${bestMatch} (score: ${bestScore}) ${fieldInfo.isRequired ? '[REQUIRED]' : ''}`);
+    if (bestScore >= minThreshold) {
+      return bestMatch;
+    }
   } else {
-    console.log(`❌ No match found for "${fieldInfo.name}"`);
+    console.log(`❌ No match found for "${fieldInfo.name}" ${fieldInfo.isRequired ? '[REQUIRED]' : ''}`);
   }
   
-  return bestScore >= weights.minScoreThreshold ? bestMatch : null;
+  return null;
 }
 
 // NEW: Apply value mappings for intelligent selection
@@ -545,9 +582,9 @@ function applyValueMapping(value, fieldInfo) {
   
   if (context.includes('gender') || context.includes('sex')) {
     mappingKey = 'gender';
-  } else if (context.includes('newsletter') || context.includes('subscribe') || context.includes('marketing')) {
+  } else if (context.includes('newsletter') || context.includes('subscribe') || context.includes('marketing') || context.includes('updates')) {
     mappingKey = 'boolean';
-  } else if (context.includes('terms') || context.includes('conditions') || context.includes('privacy') || context.includes('agree')) {
+  } else if (context.includes('terms') || context.includes('conditions') || context.includes('privacy') || context.includes('agree') || context.includes('consent')) {
     mappingKey = 'boolean';
   } else if (context.includes('remote') || context.includes('work type') || context.includes('location') || context.includes('work preference')) {
     mappingKey = 'remoteWork';
@@ -632,28 +669,38 @@ function fillFieldWithValue(field, value, fieldInfo) {
   }
 }
 
-// ENHANCED: Intelligent dropdown selection with fuzzy matching
+// ENHANCED: Intelligent dropdown selection with better matching
 function selectOption(select, value) {
   const stringValue = String(value).toLowerCase().trim();
   const options = Array.from(select.options || []);
   
   if (options.length === 0) return false;
   
+  // Remove placeholder options like "Please select..."
+  const validOptions = options.filter(opt => {
+    const text = opt.text.toLowerCase();
+    return !text.includes('select') && !text.includes('choose') && 
+           !text.includes('none') && !text.includes('empty') &&
+           opt.value !== '' && text !== '';
+  });
+  
+  if (validOptions.length === 0) return false;
+  
   // Try multiple matching strategies in order of preference
   const matchStrategies = [
     // 1. Exact match (value or text)
-    () => options.find(opt => opt.value.toLowerCase() === stringValue || opt.text.toLowerCase() === stringValue),
+    () => validOptions.find(opt => opt.value.toLowerCase() === stringValue || opt.text.toLowerCase() === stringValue),
     
     // 2. Starts with match
-    () => options.find(opt => opt.value.toLowerCase().startsWith(stringValue) || opt.text.toLowerCase().startsWith(stringValue)),
+    () => validOptions.find(opt => opt.value.toLowerCase().startsWith(stringValue) || opt.text.toLowerCase().startsWith(stringValue)),
     
     // 3. Contains match
-    () => options.find(opt => opt.value.toLowerCase().includes(stringValue) || opt.text.toLowerCase().includes(stringValue)),
+    () => validOptions.find(opt => opt.value.toLowerCase().includes(stringValue) || opt.text.toLowerCase().includes(stringValue)),
     
     // 4. Word match (split by spaces and check each word)
     () => {
       const valueWords = stringValue.split(/\W+/).filter(w => w.length > 2);
-      return options.find(opt => {
+      return validOptions.find(opt => {
         const optText = opt.text.toLowerCase();
         return valueWords.some(word => optText.includes(word));
       });
@@ -662,12 +709,12 @@ function selectOption(select, value) {
     // 5. Acronym match (e.g., "US" for "United States")
     () => {
       if (stringValue.length <= 3) {
-        return options.find(opt => {
+        return validOptions.find(opt => {
           const text = opt.text.toLowerCase();
           // Check if stringValue is acronym of option text
           const words = text.split(/\W+/);
           const acronym = words.map(w => w[0]).join('');
-          return acronym === stringValue;
+          return acronym === stringValue || text.split(/\W+/).join('') === stringValue;
         });
       }
       return null;
@@ -676,17 +723,32 @@ function selectOption(select, value) {
     // 6. Fuzzy match (Levenshtein distance for typos)
     () => {
       let bestMatch = null;
-      let bestScore = 0;
+      let bestScore = 0.7; // Minimum 70% similarity
       
-      options.forEach(opt => {
+      validOptions.forEach(opt => {
         const score = calculateSimilarity(opt.text.toLowerCase(), stringValue);
-        if (score > bestScore && score > 0.7) { // 70% similarity threshold
+        if (score > bestScore) {
           bestScore = score;
           bestMatch = opt;
         }
       });
       
       return bestMatch;
+    },
+    
+    // 7. Normalized match (remove diacritics, special chars)
+    () => {
+      const normalize = (str) => str.toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Remove accents
+        .replace(/[^a-z0-9\s]/g, ' ') // Remove special chars
+        .replace(/\s+/g, ' ')
+        .trim();
+      
+      const normalizedValue = normalize(stringValue);
+      return validOptions.find(opt => {
+        const normalizedText = normalize(opt.text);
+        return normalizedText.includes(normalizedValue) || normalizedValue.includes(normalizedText);
+      });
     }
   ];
   
@@ -905,8 +967,8 @@ function detectAllForms() {
 
 function autoCheckConsentBoxes(form) {
   const consentPatterns = [
-    /agree|accept|terms|conditions|privacy|policy|consent|acknowledge|confirm|i agree|i accept/i,
-    /newsletter|subscription|updates|notifications|marketing|promotional|opt.?in|sign.?up|subscribe|register/i
+    /agree|accept|terms|conditions|privacy|policy|consent|acknowledge|confirm|i agree|i accept|i have read|i understand/i,
+    /newsletter|subscription|updates|notifications|marketing|promotional|opt.?in|sign.?up|subscribe|register|send me/i
   ];
   
   const checkboxes = form.querySelectorAll('input[type="checkbox"]');
@@ -924,7 +986,7 @@ function autoCheckConsentBoxes(form) {
   });
 }
 
-// ENHANCED: Auto-select dropdown options
+// ENHANCED: Auto-select common options
 function autoSelectCommonOptions(form, profileData) {
   const selects = form.querySelectorAll('select');
   
@@ -937,7 +999,7 @@ function autoSelectCommonOptions(form, profileData) {
     if (context.includes('country') && profileData.country) {
       console.log(`🌐 Trying to match country: ${profileData.country}`);
       selectOption(select, profileData.country);
-    } else if (context.includes('state') || context.includes('province') || context.includes('county') || context.includes('region')) {
+    } else if (context.includes('state') || context.includes('province') || context.includes('county') || context.includes('region') || context.includes('department')) {
       if (profileData.state) {
         console.log(`📍 Trying to match state/province: ${profileData.state}`);
         selectOption(select, profileData.state);
@@ -947,12 +1009,12 @@ function autoSelectCommonOptions(form, profileData) {
     } else if (context.includes('gender') && profileData.gender) {
       console.log(`⚥ Trying to match gender: ${profileData.gender}`);
       selectOption(select, profileData.gender);
-    } else if (context.includes('remote') || context.includes('work type') || context.includes('work preference')) {
+    } else if (context.includes('remote') || context.includes('work type') || context.includes('work preference') || context.includes('location')) {
       if (profileData.remoteWork) {
         console.log(`🏠 Trying to match work location: ${profileData.remoteWork}`);
         selectOption(select, profileData.remoteWork);
       }
-    } else if (context.includes('newsletter') || context.includes('subscribe') || context.includes('marketing')) {
+    } else if (context.includes('newsletter') || context.includes('subscribe') || context.includes('marketing') || context.includes('updates')) {
       if (profileData.newsletter) {
         console.log(`📧 Trying to match newsletter preference: ${profileData.newsletter}`);
         selectOption(select, profileData.newsletter === 'true' ? 'yes' : 'no');
@@ -970,7 +1032,8 @@ function getFieldContext(field) {
     field.getAttribute('aria-label') || '',
     field.getAttribute('data-label') || '',
     field.getAttribute('title') || '',
-    field.className || ''
+    field.className || '',
+    field.getAttribute('required') ? 'required' : ''
   ];
   
   return contextParts.filter(Boolean).join(' ').toLowerCase();
@@ -1230,6 +1293,16 @@ style.textContent = `
     0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); }
     70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
     100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+  }
+  
+  /* NEW: Required field indicator */
+  .autofill-required {
+    box-shadow: 0 0 0 2px #ff6b6b !important;
+    border-color: #ff6b6b !important;
+  }
+  
+  .autofill-required.autofill-highlight {
+    box-shadow: 0 0 0 2px #4CAF50 !important;
   }
 `;
 document.head.appendChild(style);
