@@ -1,297 +1,486 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AutoFill Pro - Smart Form Filler</title>
-  <style>
-    /* Add these new styles to the existing CSS */
-    
-    /* Smart Fill Container - Add button group */
-    .smart-fill-container {
-      padding: var(--space-md);
-      padding-bottom: var(--space-lg);
-      border-bottom: 1px solid var(--border-color);
-      display: flex;
-      flex-direction: column;
-      gap: var(--space-sm);
-    }
-    
-    .smart-fill-btn {
-      width: 100%;
-      padding: 16px;
-      background: linear-gradient(135deg, #4361ee 0%, #7209b7 100%);
-      color: white;
-      border: none;
-      border-radius: var(--border-radius);
-      font-size: 16px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: all var(--transition-normal);
-      box-shadow: var(--shadow-md);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-    }
-    
-    .smart-fill-btn.mandatory {
-      background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%);
-    }
-    
-    .smart-fill-btn.copy-paste {
-      background: linear-gradient(135deg, #4CAF50 0%, #388E3C 100%);
-      font-size: 14px;
-    }
-    
-    /* Button Group for Copy/Paste */
-    .copy-paste-group {
-      display: flex;
-      gap: var(--space-sm);
-      margin-top: var(--space-sm);
-    }
-    
-    .copy-paste-group .btn {
-      flex: 1;
-      margin: 0;
-      padding: 10px;
-      font-size: 13px;
-    }
-    
-    /* Settings Panel Additions */
-    .settings-group {
-      margin-bottom: var(--space-lg);
-      padding: var(--space-md);
-      background: rgba(255, 255, 255, 0.03);
-      border-radius: var(--border-radius-sm);
-    }
-    
-    .settings-group h3 {
-      font-size: 14px;
-      font-weight: 600;
-      margin-bottom: var(--space-md);
-      color: var(--text-primary);
-    }
-    
-    /* Mandatory Field Stats */
-    .stats-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: var(--space-md);
-      margin-top: var(--space-md);
-    }
-    
-    .stat-card {
-      background: rgba(255, 255, 255, 0.05);
-      border-radius: var(--border-radius-sm);
-      padding: var(--space-md);
-      text-align: center;
-    }
-    
-    .stat-value {
-      font-size: 24px;
-      font-weight: 700;
-      color: var(--primary);
-      margin-bottom: 4px;
-    }
-    
-    .stat-label {
-      font-size: 12px;
-      color: var(--text-muted);
-    }
-    
-    /* Warning for mandatory fields */
-    .mandatory-warning {
-      background: rgba(255, 152, 0, 0.1);
-      border: 1px solid rgba(255, 152, 0, 0.3);
-      border-radius: var(--border-radius-sm);
-      padding: var(--space-md);
-      margin: var(--space-md) 0;
-      font-size: 13px;
-      color: #FF9800;
-    }
-    
-    /* Quick Actions Bar */
-    .quick-actions {
-      display: flex;
-      gap: var(--space-sm);
-      margin: var(--space-md) 0;
-      flex-wrap: wrap;
-    }
-    
-    .quick-action-btn {
-      flex: 1;
-      min-width: 100px;
-      padding: 8px 12px;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid var(--border-color);
-      border-radius: var(--border-radius-sm);
-      color: var(--text-secondary);
-      font-size: 12px;
-      cursor: pointer;
-      transition: all var(--transition-fast);
-      text-align: center;
-    }
-    
-    .quick-action-btn:hover {
-      background: rgba(255, 255, 255, 0.1);
-      color: var(--text-primary);
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoFill Pro</title>
+    <style>
+        /* Reset & Base Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #4361ee;
+            --primary-dark: #3a56d4;
+            --secondary: #7209b7;
+            --success: #4cc9f0;
+            --warning: #f72585;
+            --danger: #ef233c;
+            --dark: #0a0a0a;
+            --light: #f8f9fa;
+            --gray: #6c757d;
+        }
+
+        body {
+            width: 400px;
+            min-height: 500px;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
+            color: white;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 14px;
+            padding: 0;
+        }
+
+        /* Header */
+        .header {
+            padding: 20px;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.3);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #4361ee, #7209b7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 5px;
+        }
+
+        .tagline {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+
+        /* Status Bar */
+        .status-bar {
+            padding: 10px 20px;
+            background: rgba(0, 0, 0, 0.2);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .status-text {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        /* Main Actions */
+        .main-actions {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .action-btn {
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .action-btn-primary {
+            background: linear-gradient(135deg, #4361ee, #7209b7);
+            color: white;
+        }
+
+        .action-btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(67, 97, 238, 0.4);
+        }
+
+        .action-btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .action-btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .action-btn-success {
+            background: linear-gradient(135deg, #4cc9f0, #4361ee);
+            color: white;
+        }
+
+        .action-btn-warning {
+            background: linear-gradient(135deg, #f72585, #b5179e);
+            color: white;
+        }
+
+        .action-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        /* Quick Actions */
+        .quick-actions {
+            padding: 0 20px 20px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .quick-btn {
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            color: white;
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .quick-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            background: rgba(0, 0, 0, 0.2);
+            margin: 0 20px;
+            border-radius: 8px;
+            padding: 4px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 10px;
+            background: transparent;
+            border: none;
+            border-radius: 6px;
+            color: rgba(255, 255, 255, 0.7);
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .tab-btn.active {
+            background: rgba(67, 97, 238, 0.2);
+            color: white;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Tab Content */
+        .tab-content {
+            padding: 20px;
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Form Styles */
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #4361ee;
+            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+        }
+
+        /* Settings */
+        .setting-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .setting-label {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        /* Toggle Switch */
+        .toggle {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+
+        .toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.2);
+            transition: .4s;
+            border-radius: 24px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .toggle-slider {
+            background-color: #4361ee;
+        }
+
+        input:checked + .toggle-slider:before {
+            transform: translateX(26px);
+        }
+
+        /* Stats */
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .stat-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4cc9f0;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        /* Footer */
+        .footer {
+            padding: 15px 20px;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            margin-top: 20px;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(67, 97, 238, 0.5);
+            border-radius: 3px;
+        }
+    </style>
 </head>
 <body>
-  <!-- Header -->
-  <header class="header">
-    <h1 class="logo">🎯 AutoFill Pro</h1>
-    <p class="tagline">AI-Powered Universal Form Filler</p>
-    <p class="version">v5.3 - Mandatory Fields Focus</p>
-  </header>
-
-  <!-- Status Indicator -->
-  <div id="status-indicator" class="status-indicator">
-    Loading...
-  </div>
-
-  <!-- Smart Fill Container - UPDATED -->
-  <div class="smart-fill-container">
-    <button id="smart-fill-btn" class="smart-fill-btn">
-      🚀 SMART FILL ALL FIELDS
-    </button>
-    
-    <button id="fill-mandatory-btn" class="smart-fill-btn mandatory">
-      🎯 FILL MANDATORY FIELDS ONLY
-    </button>
-    
-    <div class="copy-paste-group">
-      <button id="copy-profile-btn" class="btn btn--secondary copy-paste">
-        📋 Copy Profile
-      </button>
-      <button id="paste-profile-btn" class="btn btn--success copy-paste">
-        📥 Paste Profile
-      </button>
+    <!-- Header -->
+    <div class="header">
+        <div class="logo">🎯 AutoFill Pro</div>
+        <div class="tagline">Smart Form Filler v5.3</div>
     </div>
-  </div>
 
-  <!-- Tab Navigation -->
-  <nav class="tab-navigation" role="tablist">
-    <button class="tab-button active" data-target="profile-panel" aria-selected="true">
-      👤 Profile
-    </button>
-    <button class="tab-button" data-target="cv-panel" aria-selected="false">
-      📎 CV Tools
-    </button>
-    <button class="tab-button" data-target="settings-panel" aria-selected="false">
-      ⚙️ Settings
-    </button>
-  </nav>
+    <!-- Status Bar -->
+    <div class="status-bar">
+        <div class="status-text" id="status-text">Ready to fill forms</div>
+        <div class="status-text" id="page-status">No forms detected</div>
+    </div>
 
-  <!-- Main Content -->
-  <main>
-    <!-- Profile Panel - SAME AS BEFORE -->
-    <!-- CV Tools Panel - SAME AS BEFORE -->
-    
-    <!-- Settings Panel - UPDATED -->
-    <section id="settings-panel" class="tab-panel" aria-hidden="true">
-      <article class="card">
-        <h2 class="card__title">⚙️ Filling Behavior</h2>
-        
-        <div class="settings-group">
-          <h3>Field Priority</h3>
-          
-          <div class="form-group">
-            <label class="form-label" style="display: flex; align-items: center; gap: 10px;">
-              <input type="checkbox" id="prioritize-mandatory-toggle" checked>
-              <span>Prioritize Mandatory Fields</span>
-            </label>
-            <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
-              Fill required fields first before optional ones
-            </p>
-          </div>
-          
-          <div class="form-group">
-            <label class="form-label" style="display: flex; align-items: center; gap: 10px;">
-              <input type="checkbox" id="copy-paste-toggle" checked>
-              <span>Enable Copy/Paste Features</span>
-            </label>
-            <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
-              Allow copying and pasting profile data
-            </p>
-          </div>
-        </div>
-        
-        <div class="settings-group">
-          <h3>Visual Feedback</h3>
-          
-          <div class="form-group">
-            <label class="form-label" style="display: flex; align-items: center; gap: 10px;">
-              <input type="checkbox" id="highlight-fields-toggle" checked>
-              <span>Highlight Filled Fields</span>
-            </label>
-            <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
-              Show visual feedback on fields that have been filled
-            </p>
-          </div>
-          
-          <div class="form-group">
-            <label class="form-label" style="display: flex; align-items: center; gap: 10px;">
-              <input type="checkbox" id="show-notifications-toggle" checked>
-              <span>Show Notifications</span>
-            </label>
-            <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
-              Display success/error notifications after filling forms
-            </p>
-          </div>
-        </div>
-        
-        <button type="button" id="save-settings-btn" class="btn btn--primary">
-          💾 Save Settings
+    <!-- Main Actions -->
+    <div class="main-actions">
+        <button class="action-btn action-btn-primary" id="smart-fill-btn">
+            🚀 Smart Fill All Fields
         </button>
-      </article>
+        <button class="action-btn action-btn-warning" id="mandatory-btn">
+            🎯 Fill Mandatory Only
+        </button>
+    </div>
 
-      <article class="card">
-        <h2 class="card__title">📊 Usage Statistics</h2>
-        
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-value" id="forms-filled">0</div>
-            <div class="stat-label">Forms Filled</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value" id="fields-filled">0</div>
-            <div class="stat-label">Total Fields</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value" id="mandatory-filled">0</div>
-            <div class="stat-label">Mandatory Fields</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value" id="success-rate">0%</div>
-            <div class="stat-label">Success Rate</div>
-          </div>
-        </div>
-        
-        <div style="margin-top: var(--space-md);">
-          <p>Last Used: <span id="last-used">Never</span></p>
-          <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
-            Tracked for quality improvement
-          </p>
-        </div>
-      </article>
-      
-      <div class="mandatory-warning">
-        ⚠️ <strong>Pro Tip:</strong> Mandatory fields are detected based on:
-        <ul style="margin: 8px 0 0 20px; font-size: 12px;">
-          <li>HTML5 "required" attribute</li>
-          <li>Aria-required="true" attribute</li>
-          <li>Asterisk (*) in label or placeholder</li>
-          <li>Words like "required", "mandatory", "must"</li>
-        </ul>
-      </div>
-    </section>
-  </main>
+    <!-- Quick Actions -->
+    <div class="quick-actions">
+        <button class="quick-btn" id="copy-btn">
+            📋 Copy Profile
+        </button>
+        <button class="quick-btn" id="paste-btn">
+            📥 Paste Profile
+        </button>
+        <button class="quick-btn" id="detect-btn">
+            🔍 Detect Forms
+        </button>
+        <button class="quick-btn" id="settings-btn">
+            ⚙️ Settings
+        </button>
+    </div>
 
-  <!-- Scripts -->
-  <script src="config.js"></script>
-  <script src="popup.js"></script>
+    <!-- Tabs -->
+    <div class="tabs">
+        <button class="tab-btn active" data-tab="profile">Profile</button>
+        <button class="tab-btn" data-tab="cv">CV Tools</button>
+        <button class="tab-btn" data-tab="settings">Settings</button>
+    </div>
+
+    <!-- Profile Tab -->
+    <div class="tab-content active" id="profile-tab">
+        <div class="form-group">
+            <label class="form-label">First Name</label>
+            <input type="text" class="form-input" id="firstName" placeholder="John">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Last Name</label>
+            <input type="text" class="form-input" id="lastName" placeholder="Doe">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Email</label>
+            <input type="email" class="form-input" id="email" placeholder="john@example.com">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Phone</label>
+            <input type="tel" class="form-input" id="phone" placeholder="+1 (555) 123-4567">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Address</label>
+            <input type="text" class="form-input" id="address" placeholder="123 Main St">
+        </div>
+        <button class="action-btn action-btn-success" id="save-profile-btn">
+            💾 Save Profile
+        </button>
+    </div>
+
+    <!-- CV Tools Tab -->
+    <div class="tab-content" id="cv-tab">
+        <div style="text-align: center; padding: 20px;">
+            <div style="margin-bottom: 15px;">
+                <label for="cv-upload" style="display: block; padding: 20px; background: rgba(255,255,255,0.05); border: 2px dashed rgba(255,255,255,0.2); border-radius: 10px; cursor: pointer;">
+                    📁 Upload CV (PDF/DOC/TXT)
+                </label>
+                <input type="file" id="cv-upload" accept=".pdf,.doc,.docx,.txt" style="display: none;">
+            </div>
+            <div id="cv-status" style="color: rgba(255,255,255,0.6); margin: 10px 0;">
+                No CV uploaded
+            </div>
+            <button class="quick-btn" id="extract-cv-btn" style="width: 100%;">
+                🔍 Extract Data from CV
+            </button>
+        </div>
+    </div>
+
+    <!-- Settings Tab -->
+    <div class="tab-content" id="settings-tab">
+        <div class="setting-item">
+            <div class="setting-label">Prioritize Mandatory Fields</div>
+            <label class="toggle">
+                <input type="checkbox" id="toggle-mandatory" checked>
+                <span class="toggle-slider"></span>
+            </label>
+        </div>
+        <div class="setting-item">
+            <div class="setting-label">Highlight Filled Fields</div>
+            <label class="toggle">
+                <input type="checkbox" id="toggle-highlight" checked>
+                <span class="toggle-slider"></span>
+            </label>
+        </div>
+        <div class="setting-item">
+            <div class="setting-label">Show Notifications</div>
+            <label class="toggle">
+                <input type="checkbox" id="toggle-notifications" checked>
+                <span class="toggle-slider"></span>
+            </label>
+        </div>
+        <div class="setting-item">
+            <div class="setting-label">Auto-Submit Forms</div>
+            <label class="toggle">
+                <input type="checkbox" id="toggle-autosubmit">
+                <span class="toggle-slider"></span>
+            </label>
+        </div>
+
+        <div class="stats">
+            <div class="stat-item">
+                <div class="stat-value" id="stat-forms">0</div>
+                <div class="stat-label">Forms Filled</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="stat-fields">0</div>
+                <div class="stat-label">Fields Filled</div>
+            </div>
+        </div>
+
+        <button class="action-btn action-btn-secondary" id="reset-btn" style="width: 100%; margin-top: 20px;">
+            🗑️ Reset All Data
+        </button>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        Press Ctrl+Shift+F to fill forms quickly
+    </div>
+
+    <script src="popup.js"></script>
 </body>
 </html>
