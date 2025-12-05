@@ -1,486 +1,753 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AutoFill Pro</title>
-    <style>
-        /* Reset & Base Styles */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        :root {
-            --primary: #4361ee;
-            --primary-dark: #3a56d4;
-            --secondary: #7209b7;
-            --success: #4cc9f0;
-            --warning: #f72585;
-            --danger: #ef233c;
-            --dark: #0a0a0a;
-            --light: #f8f9fa;
-            --gray: #6c757d;
-        }
-
-        body {
-            width: 400px;
-            min-height: 500px;
-            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
-            color: white;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            font-size: 14px;
-            padding: 0;
-        }
-
-        /* Header */
-        .header {
-            padding: 20px;
-            text-align: center;
-            background: rgba(0, 0, 0, 0.3);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .logo {
-            font-size: 24px;
-            font-weight: 800;
-            background: linear-gradient(135deg, #4361ee, #7209b7);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 5px;
-        }
-
-        .tagline {
-            color: rgba(255, 255, 255, 0.7);
-            font-size: 12px;
-            margin-bottom: 5px;
-        }
-
-        /* Status Bar */
-        .status-bar {
-            padding: 10px 20px;
-            background: rgba(0, 0, 0, 0.2);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .status-text {
-            font-size: 13px;
-            color: rgba(255, 255, 255, 0.8);
-        }
-
-        /* Main Actions */
-        .main-actions {
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .action-btn {
-            padding: 15px;
-            border: none;
-            border-radius: 10px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            transition: all 0.3s ease;
-        }
-
-        .action-btn-primary {
-            background: linear-gradient(135deg, #4361ee, #7209b7);
-            color: white;
-        }
-
-        .action-btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(67, 97, 238, 0.4);
-        }
-
-        .action-btn-secondary {
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .action-btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.15);
-        }
-
-        .action-btn-success {
-            background: linear-gradient(135deg, #4cc9f0, #4361ee);
-            color: white;
-        }
-
-        .action-btn-warning {
-            background: linear-gradient(135deg, #f72585, #b5179e);
-            color: white;
-        }
-
-        .action-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none !important;
-            box-shadow: none !important;
-        }
-
-        /* Quick Actions */
-        .quick-actions {
-            padding: 0 20px 20px;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-        }
-
-        .quick-btn {
-            padding: 10px;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            color: white;
-            font-size: 13px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            transition: all 0.2s ease;
-        }
-
-        .quick-btn:hover {
-            background: rgba(255, 255, 255, 0.1);
-            border-color: rgba(255, 255, 255, 0.2);
-        }
-
-        /* Tabs */
-        .tabs {
-            display: flex;
-            background: rgba(0, 0, 0, 0.2);
-            margin: 0 20px;
-            border-radius: 8px;
-            padding: 4px;
-        }
-
-        .tab-btn {
-            flex: 1;
-            padding: 10px;
-            background: transparent;
-            border: none;
-            border-radius: 6px;
-            color: rgba(255, 255, 255, 0.7);
-            font-weight: 600;
-            font-size: 13px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .tab-btn.active {
-            background: rgba(67, 97, 238, 0.2);
-            color: white;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-        }
-
-        /* Tab Content */
-        .tab-content {
-            padding: 20px;
-            display: none;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        /* Form Styles */
-        .form-group {
-            margin-bottom: 15px;
-        }
-
-        .form-label {
-            display: block;
-            font-size: 13px;
-            font-weight: 600;
-            margin-bottom: 5px;
-            color: rgba(255, 255, 255, 0.8);
-        }
-
-        .form-input {
-            width: 100%;
-            padding: 12px;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            color: white;
-            font-size: 14px;
-        }
-
-        .form-input:focus {
-            outline: none;
-            border-color: #4361ee;
-            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
-        }
-
-        /* Settings */
-        .setting-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 10px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .setting-label {
-            font-size: 14px;
-            color: rgba(255, 255, 255, 0.9);
-        }
-
-        /* Toggle Switch */
-        .toggle {
-            position: relative;
-            display: inline-block;
-            width: 50px;
-            height: 24px;
-        }
-
-        .toggle input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
-        .toggle-slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: rgba(255, 255, 255, 0.2);
-            transition: .4s;
-            border-radius: 24px;
-        }
-
-        .toggle-slider:before {
-            position: absolute;
-            content: "";
-            height: 16px;
-            width: 16px;
-            left: 4px;
-            bottom: 4px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
-
-        input:checked + .toggle-slider {
-            background-color: #4361ee;
-        }
-
-        input:checked + .toggle-slider:before {
-            transform: translateX(26px);
-        }
-
-        /* Stats */
-        .stats {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin: 20px 0;
-        }
-
-        .stat-item {
-            background: rgba(255, 255, 255, 0.05);
-            padding: 15px;
-            border-radius: 8px;
-            text-align: center;
-        }
-
-        .stat-value {
-            font-size: 24px;
-            font-weight: bold;
-            color: #4cc9f0;
-            margin-bottom: 5px;
-        }
-
-        .stat-label {
-            font-size: 12px;
-            color: rgba(255, 255, 255, 0.6);
-        }
-
-        /* Footer */
-        .footer {
-            padding: 15px 20px;
-            text-align: center;
-            color: rgba(255, 255, 255, 0.5);
-            font-size: 12px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            margin-top: 20px;
-        }
-
-        /* Scrollbar */
-        ::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.05);
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: rgba(67, 97, 238, 0.5);
-            border-radius: 3px;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AutoFill Pro - Smart Form Filler</title>
+  <style>
+    /* CSS Reset and Base Styles */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    :root {
+      /* Color Palette */
+      --primary: #4361ee;
+      --primary-dark: #3a56d4;
+      --primary-light: #4895ef;
+      --secondary: #7209b7;
+      --success: #4cc9f0;
+      --warning: #f72585;
+      --danger: #ef233c;
+      --info: #7209b7;
+      
+      /* Background Colors */
+      --bg-dark: #0a0a0a;
+      --bg-card: rgba(30, 30, 40, 0.95);
+      --bg-input: rgba(255, 255, 255, 0.05);
+      
+      /* Text Colors */
+      --text-primary: #ffffff;
+      --text-secondary: rgba(255, 255, 255, 0.7);
+      --text-muted: rgba(255, 255, 255, 0.5);
+      
+      /* Borders */
+      --border-color: rgba(255, 255, 255, 0.1);
+      --border-radius: 12px;
+      --border-radius-sm: 8px;
+      
+      /* Spacing */
+      --space-xs: 4px;
+      --space-sm: 8px;
+      --space-md: 16px;
+      --space-lg: 24px;
+      --space-xl: 32px;
+      
+      /* Shadows */
+      --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
+      --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.3);
+      --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.4);
+      
+      /* Transitions */
+      --transition-fast: 0.2s ease;
+      --transition-normal: 0.3s ease;
+      --transition-slow: 0.5s ease;
+    }
+    
+    body {
+      width: 400px;
+      min-height: 600px;
+      background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      padding: 0;
+      margin: 0;
+      overflow-x: hidden;
+    }
+    
+    /* Header */
+    .header {
+      padding: var(--space-lg);
+      text-align: center;
+      background: rgba(0, 0, 0, 0.3);
+      border-bottom: 1px solid var(--border-color);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(10px);
+    }
+    
+    .logo {
+      font-size: 24px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #4361ee, #7209b7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: var(--space-xs);
+    }
+    
+    .tagline {
+      color: var(--text-secondary);
+      font-size: 13px;
+      margin-bottom: var(--space-xs);
+    }
+    
+    .version {
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 500;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 2px 8px;
+      border-radius: 10px;
+      display: inline-block;
+    }
+    
+    /* Status Indicator */
+    .status-indicator {
+      margin: var(--space-md);
+      padding: var(--space-md);
+      border-radius: var(--border-radius-sm);
+      font-size: 13px;
+      font-weight: 500;
+      text-align: center;
+      animation: slideIn 0.3s ease;
+      border: 1px solid transparent;
+    }
+    
+    .status-indicator--success {
+      background: rgba(76, 201, 240, 0.1);
+      border-color: rgba(76, 201, 240, 0.3);
+      color: #4cc9f0;
+    }
+    
+    .status-indicator--error {
+      background: rgba(239, 35, 60, 0.1);
+      border-color: rgba(239, 35, 60, 0.3);
+      color: #ef233c;
+    }
+    
+    .status-indicator--warning {
+      background: rgba(247, 37, 133, 0.1);
+      border-color: rgba(247, 37, 133, 0.3);
+      color: #f72585;
+    }
+    
+    .status-indicator--loading {
+      background: rgba(67, 97, 238, 0.1);
+      border-color: rgba(67, 97, 238, 0.3);
+      color: #4361ee;
+      position: relative;
+    }
+    
+    .status-indicator--loading::after {
+      content: '';
+      position: absolute;
+      right: 16px;
+      width: 12px;
+      height: 12px;
+      border: 2px solid transparent;
+      border-top-color: #4361ee;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    /* Main Smart Fill Button */
+    .smart-fill-container {
+      padding: var(--space-md);
+      padding-bottom: var(--space-lg);
+      border-bottom: 1px solid var(--border-color);
+    }
+    
+    .smart-fill-btn {
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(135deg, #4361ee 0%, #7209b7 100%);
+      color: white;
+      border: none;
+      border-radius: var(--border-radius);
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all var(--transition-normal);
+      box-shadow: var(--shadow-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    
+    .smart-fill-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-lg);
+    }
+    
+    .smart-fill-btn:active:not(:disabled) {
+      transform: translateY(0);
+    }
+    
+    .smart-fill-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+    
+    /* Tab Navigation */
+    .tab-navigation {
+      display: flex;
+      background: rgba(0, 0, 0, 0.2);
+      margin: 0 var(--space-md);
+      border-radius: var(--border-radius-sm);
+      padding: 4px;
+      gap: 2px;
+    }
+    
+    .tab-button {
+      flex: 1;
+      padding: 12px 16px;
+      background: transparent;
+      border: none;
+      border-radius: var(--border-radius-sm);
+      color: var(--text-secondary);
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      text-align: center;
+    }
+    
+    .tab-button:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+    
+    .tab-button[aria-selected="true"],
+    .tab-button.active {
+      background: linear-gradient(135deg, rgba(67, 97, 238, 0.2), rgba(114, 9, 183, 0.2));
+      color: var(--text-primary);
+      box-shadow: var(--shadow-sm);
+    }
+    
+    /* Tab Panels */
+    .tab-panel {
+      padding: var(--space-md);
+      display: none;
+    }
+    
+    .tab-panel[aria-hidden="false"] {
+      display: block;
+    }
+    
+    /* Cards */
+    .card {
+      background: var(--bg-card);
+      border-radius: var(--border-radius);
+      padding: var(--space-lg);
+      margin-bottom: var(--space-md);
+      border: 1px solid var(--border-color);
+      transition: all var(--transition-normal);
+    }
+    
+    .card:hover {
+      border-color: rgba(67, 97, 238, 0.3);
+      box-shadow: var(--shadow-md);
+    }
+    
+    .card__title {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: var(--space-lg);
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    /* Form Elements */
+    .form-group {
+      margin-bottom: var(--space-md);
+    }
+    
+    .form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: var(--text-secondary);
+    }
+    
+    .form-input {
+      width: 100%;
+      padding: 12px 16px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: var(--border-radius-sm);
+      color: var(--text-primary);
+      font-size: 14px;
+      transition: all var(--transition-fast);
+    }
+    
+    .form-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+      background: rgba(255, 255, 255, 0.08);
+    }
+    
+    .form-input::placeholder {
+      color: var(--text-muted);
+    }
+    
+    /* Buttons */
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: var(--border-radius-sm);
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all var(--transition-normal);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      margin-top: var(--space-md);
+    }
+    
+    .btn--primary {
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      color: white;
+    }
+    
+    .btn--primary:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+    }
+    
+    .btn--success {
+      background: linear-gradient(135deg, #4cc9f0, #4361ee);
+      color: white;
+    }
+    
+    .btn--secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+    }
+    
+    .btn--secondary:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+    
+    .btn--danger {
+      background: linear-gradient(135deg, #f72585, #b5179e);
+      color: white;
+    }
+    
+    .btn--pulse {
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(76, 201, 240, 0.7); }
+      70% { box-shadow: 0 0 0 10px rgba(76, 201, 240, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(76, 201, 240, 0); }
+    }
+    
+    /* File Upload */
+    .file-upload {
+      position: relative;
+      margin-bottom: var(--space-md);
+    }
+    
+    .file-upload__input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      border: 0;
+    }
+    
+    .file-upload__button {
+      display: block;
+      padding: 16px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 2px dashed var(--border-color);
+      border-radius: var(--border-radius-sm);
+      text-align: center;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    
+    .file-upload__button:hover {
+      border-color: var(--primary);
+      color: var(--text-primary);
+      background: rgba(67, 97, 238, 0.1);
+    }
+    
+    .file-status {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: var(--space-md);
+      text-align: center;
+    }
+    
+    /* Extracted Data */
+    .extracted-data {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      border-radius: var(--border-radius-sm);
+      padding: var(--space-md);
+      margin-top: var(--space-md);
+      font-size: 13px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    
+    /* Info Box */
+    .info-box {
+      background: rgba(67, 97, 238, 0.1);
+      border: 1px solid rgba(67, 97, 238, 0.3);
+      border-radius: var(--border-radius-sm);
+      padding: var(--space-md);
+      margin-bottom: var(--space-lg);
+      font-size: 13px;
+    }
+    
+    .info-box__title {
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: var(--space-sm);
+    }
+    
+    /* Button Group */
+    .button-group {
+      display: flex;
+      gap: var(--space-sm);
+      margin-top: var(--space-md);
+    }
+    
+    .button-group .btn {
+      flex: 1;
+      margin: 0;
+    }
+    
+    /* Shortcut Hint */
+    .shortcut-hint {
+      text-align: center;
+      margin-top: var(--space-lg);
+      padding: var(--space-md);
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: var(--border-radius-sm);
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    
+    /* Scrollbar Styling */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    
+    ::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 4px;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+      background: rgba(67, 97, 238, 0.5);
+      border-radius: 4px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(67, 97, 238, 0.7);
+    }
+  </style>
 </head>
 <body>
-    <!-- Header -->
-    <div class="header">
-        <div class="logo">🎯 AutoFill Pro</div>
-        <div class="tagline">Smart Form Filler v5.3</div>
-    </div>
+  <!-- Header -->
+  <header class="header">
+    <h1 class="logo">🎯 AutoFill Pro</h1>
+    <p class="tagline">AI-Powered Universal Form Filler</p>
+    <p class="version">v5.2</p>
+  </header>
 
-    <!-- Status Bar -->
-    <div class="status-bar">
-        <div class="status-text" id="status-text">Ready to fill forms</div>
-        <div class="status-text" id="page-status">No forms detected</div>
-    </div>
+  <!-- Status Indicator -->
+  <div id="status-indicator" class="status-indicator">
+    Loading...
+  </div>
 
-    <!-- Main Actions -->
-    <div class="main-actions">
-        <button class="action-btn action-btn-primary" id="smart-fill-btn">
-            🚀 Smart Fill All Fields
-        </button>
-        <button class="action-btn action-btn-warning" id="mandatory-btn">
-            🎯 Fill Mandatory Only
-        </button>
-    </div>
+  <!-- Smart Fill Button -->
+  <div class="smart-fill-container">
+    <button id="smart-fill-btn" class="smart-fill-btn">
+      🚀 SMART FILL CURRENT PAGE
+    </button>
+  </div>
 
-    <!-- Quick Actions -->
-    <div class="quick-actions">
-        <button class="quick-btn" id="copy-btn">
-            📋 Copy Profile
-        </button>
-        <button class="quick-btn" id="paste-btn">
-            📥 Paste Profile
-        </button>
-        <button class="quick-btn" id="detect-btn">
-            🔍 Detect Forms
-        </button>
-        <button class="quick-btn" id="settings-btn">
-            ⚙️ Settings
-        </button>
-    </div>
+  <!-- Tab Navigation -->
+  <nav class="tab-navigation" role="tablist">
+    <button class="tab-button active" data-target="profile-panel" aria-selected="true">
+      👤 Profile
+    </button>
+    <button class="tab-button" data-target="cv-panel" aria-selected="false">
+      📎 CV Tools
+    </button>
+    <button class="tab-button" data-target="settings-panel" aria-selected="false">
+      ⚙️ Settings
+    </button>
+  </nav>
 
-    <!-- Tabs -->
-    <div class="tabs">
-        <button class="tab-btn active" data-tab="profile">Profile</button>
-        <button class="tab-btn" data-tab="cv">CV Tools</button>
-        <button class="tab-btn" data-tab="settings">Settings</button>
-    </div>
+  <!-- Main Content -->
+  <main>
+    <!-- Profile Panel -->
+    <section id="profile-panel" class="tab-panel" aria-hidden="false">
+      <!-- Personal Information -->
+      <article class="card">
+        <h2 class="card__title">👤 Personal Information</h2>
+        <form id="profile-form">
+          <div class="form-group">
+            <label for="firstName" class="form-label">First Name</label>
+            <input type="text" id="firstName" class="form-input" placeholder="e.g. John" autocomplete="given-name">
+          </div>
+          <div class="form-group">
+            <label for="lastName" class="form-label">Last Name</label>
+            <input type="text" id="lastName" class="form-input" placeholder="e.g. Doe" autocomplete="family-name">
+          </div>
+          <div class="form-group">
+            <label for="email" class="form-label">Email Address</label>
+            <input type="email" id="email" class="form-input" placeholder="e.g. john@example.com" autocomplete="email">
+          </div>
+          <div class="form-group">
+            <label for="phone" class="form-label">Phone Number</label>
+            <input type="tel" id="phone" class="form-input" placeholder="e.g. +1 (555) 123-4567" autocomplete="tel">
+          </div>
+        </form>
+      </article>
 
-    <!-- Profile Tab -->
-    <div class="tab-content active" id="profile-tab">
+      <!-- Address Information -->
+      <article class="card">
+        <h2 class="card__title">📍 Address</h2>
+        <form id="address-form">
+          <div class="form-group">
+            <label for="address" class="form-label">Street Address</label>
+            <input type="text" id="address" class="form-input" placeholder="e.g. 123 Main St" autocomplete="street-address">
+          </div>
+          <div class="form-group">
+            <label for="city" class="form-label">City</label>
+            <input type="text" id="city" class="form-input" placeholder="e.g. New York" autocomplete="address-level2">
+          </div>
+          <div class="form-group">
+            <label for="state" class="form-label">State/Province</label>
+            <input type="text" id="state" class="form-input" placeholder="e.g. NY" autocomplete="address-level1">
+          </div>
+          <div class="form-group">
+            <label for="zipCode" class="form-label">ZIP / Postal Code</label>
+            <input type="text" id="zipCode" class="form-input" placeholder="e.g. 10001" autocomplete="postal-code">
+          </div>
+          <div class="form-group">
+            <label for="country" class="form-label">Country</label>
+            <input type="text" id="country" class="form-input" placeholder="e.g. United States" autocomplete="country-name">
+          </div>
+        </form>
+      </article>
+
+      <!-- Professional Information -->
+      <article class="card">
+        <h2 class="card__title">💼 Professional</h2>
         <div class="form-group">
-            <label class="form-label">First Name</label>
-            <input type="text" class="form-input" id="firstName" placeholder="John">
+          <label for="company" class="form-label">Current Company</label>
+          <input type="text" id="company" class="form-input" placeholder="e.g. Tech Corp Inc." autocomplete="organization">
         </div>
         <div class="form-group">
-            <label class="form-label">Last Name</label>
-            <input type="text" class="form-input" id="lastName" placeholder="Doe">
+          <label for="jobTitle" class="form-label">Job Title</label>
+          <input type="text" id="jobTitle" class="form-input" placeholder="e.g. Senior Developer">
         </div>
         <div class="form-group">
-            <label class="form-label">Email</label>
-            <input type="email" class="form-input" id="email" placeholder="john@example.com">
+          <label for="website" class="form-label">Website</label>
+          <input type="url" id="website" class="form-input" placeholder="e.g. https://example.com">
         </div>
         <div class="form-group">
-            <label class="form-label">Phone</label>
-            <input type="tel" class="form-input" id="phone" placeholder="+1 (555) 123-4567">
+          <label for="linkedin" class="form-label">LinkedIn Profile</label>
+          <input type="url" id="linkedin" class="form-input" placeholder="e.g. https://linkedin.com/in/username">
         </div>
         <div class="form-group">
-            <label class="form-label">Address</label>
-            <input type="text" class="form-input" id="address" placeholder="123 Main St">
+          <label for="github" class="form-label">GitHub Profile</label>
+          <input type="url" id="github" class="form-input" placeholder="e.g. https://github.com/username">
         </div>
-        <button class="action-btn action-btn-success" id="save-profile-btn">
-            💾 Save Profile
+      </article>
+
+      <!-- Employment Details -->
+      <article class="card">
+        <h2 class="card__title">📋 Employment Details</h2>
+        <div class="form-group">
+          <label for="experience" class="form-label">Years of Experience</label>
+          <input type="text" id="experience" class="form-input" placeholder="e.g. 5">
+        </div>
+        <div class="form-group">
+          <label for="education" class="form-label">Highest Education</label>
+          <input type="text" id="education" class="form-input" placeholder="e.g. Bachelor's Degree">
+        </div>
+        <div class="form-group">
+          <label for="skills" class="form-label">Key Skills</label>
+          <input type="text" id="skills" class="form-input" placeholder="e.g. JavaScript, React, Node.js">
+        </div>
+        <div class="form-group">
+          <label for="salary" class="form-label">Salary Expectation</label>
+          <input type="text" id="salary" class="form-input" placeholder="e.g. $100,000">
+        </div>
+        <div class="form-group">
+          <label for="notice" class="form-label">Notice Period</label>
+          <input type="text" id="notice" class="form-input" placeholder="e.g. 30 days">
+        </div>
+      </article>
+
+      <!-- Selection Fields -->
+      <article class="card">
+        <h2 class="card__title">🔧 Selection & Boolean Fields</h2>
+        <div class="info-box">
+          <div class="info-box__title">💡 Pro Tips</div>
+          <div>• For checkboxes: Enter "true" to check, "false" to leave unchecked</div>
+          <div>• For dropdowns: Enter exact option text</div>
+          <div>• For radio buttons: Enter button value</div>
+        </div>
+        <div class="form-group">
+          <label for="gender" class="form-label">Gender (for radio buttons)</label>
+          <input type="text" id="gender" class="form-input" placeholder="e.g. male, female, or other">
+        </div>
+        <div class="form-group">
+          <label for="newsletter" class="form-label">Subscribe to Newsletter</label>
+          <input type="text" id="newsletter" class="form-input" placeholder="Enter: true or false">
+        </div>
+        <div class="form-group">
+          <label for="remoteWork" class="form-label">Remote Work Preference</label>
+          <input type="text" id="remoteWork" class="form-input" placeholder="e.g. remote, hybrid, or onsite">
+        </div>
+        <div class="form-group">
+          <label for="terms" class="form-label">Agree to Terms & Conditions</label>
+          <input type="text" id="terms" class="form-input" placeholder="Enter: true to auto-check">
+        </div>
+        <button type="button" id="save-profile-btn" class="btn btn--success">
+          💾 Save All Profile Data
         </button>
-    </div>
+      </article>
+    </section>
 
-    <!-- CV Tools Tab -->
-    <div class="tab-content" id="cv-tab">
-        <div style="text-align: center; padding: 20px;">
-            <div style="margin-bottom: 15px;">
-                <label for="cv-upload" style="display: block; padding: 20px; background: rgba(255,255,255,0.05); border: 2px dashed rgba(255,255,255,0.2); border-radius: 10px; cursor: pointer;">
-                    📁 Upload CV (PDF/DOC/TXT)
-                </label>
-                <input type="file" id="cv-upload" accept=".pdf,.doc,.docx,.txt" style="display: none;">
-            </div>
-            <div id="cv-status" style="color: rgba(255,255,255,0.6); margin: 10px 0;">
-                No CV uploaded
-            </div>
-            <button class="quick-btn" id="extract-cv-btn" style="width: 100%;">
-                🔍 Extract Data from CV
-            </button>
+    <!-- CV Tools Panel -->
+    <section id="cv-panel" class="tab-panel" aria-hidden="true">
+      <article class="card">
+        <h2 class="card__title">📄 CV Upload & Management</h2>
+        
+        <div class="file-upload">
+          <label for="cv-file-input" class="file-upload__button">
+            📤 Upload CV (PDF/DOC/PNG/TXT)
+          </label>
+          <input type="file" id="cv-file-input" class="file-upload__input" 
+                 accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt,.rtf">
         </div>
-    </div>
+        
+        <p id="cv-status" class="file-status">No CV stored</p>
+        
+        <div class="button-group">
+          <button type="button" id="preview-cv-btn" class="btn btn--secondary">
+            👁️ Preview CV
+          </button>
+          <button type="button" id="extract-cv-btn" class="btn btn--primary">
+            🔍 Extract Data from CV
+          </button>
+        </div>
+        
+        <div id="extracted-data-container" class="extracted-data" 
+             tabindex="0" aria-label="Extracted CV data">
+          Extracted data will appear here...
+        </div>
+      </article>
 
-    <!-- Settings Tab -->
-    <div class="tab-content" id="settings-tab">
-        <div class="setting-item">
-            <div class="setting-label">Prioritize Mandatory Fields</div>
-            <label class="toggle">
-                <input type="checkbox" id="toggle-mandatory" checked>
-                <span class="toggle-slider"></span>
-            </label>
-        </div>
-        <div class="setting-item">
-            <div class="setting-label">Highlight Filled Fields</div>
-            <label class="toggle">
-                <input type="checkbox" id="toggle-highlight" checked>
-                <span class="toggle-slider"></span>
-            </label>
-        </div>
-        <div class="setting-item">
-            <div class="setting-label">Show Notifications</div>
-            <label class="toggle">
-                <input type="checkbox" id="toggle-notifications" checked>
-                <span class="toggle-slider"></span>
-            </label>
-        </div>
-        <div class="setting-item">
-            <div class="setting-label">Auto-Submit Forms</div>
-            <label class="toggle">
-                <input type="checkbox" id="toggle-autosubmit">
-                <span class="toggle-slider"></span>
-            </label>
-        </div>
-
-        <div class="stats">
-            <div class="stat-item">
-                <div class="stat-value" id="stat-forms">0</div>
-                <div class="stat-label">Forms Filled</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-value" id="stat-fields">0</div>
-                <div class="stat-label">Fields Filled</div>
-            </div>
-        </div>
-
-        <button class="action-btn action-btn-secondary" id="reset-btn" style="width: 100%; margin-top: 20px;">
-            🗑️ Reset All Data
+      <article class="card">
+        <h2 class="card__title">🛠️ Advanced Tools</h2>
+        
+        <button type="button" id="extract-browser-btn" class="btn btn--secondary">
+          🌐 Extract Data from Current Page
         </button>
-    </div>
+        
+        <button type="button" id="reset-all-btn" class="btn btn--danger">
+          🗑️ Reset All Data & Settings
+        </button>
+        
+        <p class="shortcut-hint">
+          ⌨️ Quick Fill: <strong>Ctrl+Shift+F</strong> (Windows) or <strong>Cmd+Shift+F</strong> (Mac)
+        </p>
+      </article>
+    </section>
 
-    <!-- Footer -->
-    <div class="footer">
-        Press Ctrl+Shift+F to fill forms quickly
-    </div>
+    <!-- Settings Panel -->
+    <section id="settings-panel" class="tab-panel" aria-hidden="true">
+      <article class="card">
+        <h2 class="card__title">⚙️ Extension Settings</h2>
+        
+        <div class="form-group">
+          <label class="form-label" style="display: flex; align-items: center; gap: 10px;">
+            <input type="checkbox" id="auto-fill-toggle" checked>
+            <span>Enable Auto-Fill Detection</span>
+          </label>
+          <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+            Automatically detect and highlight fillable fields on page load
+          </p>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label" style="display: flex; align-items: center; gap: 10px;">
+            <input type="checkbox" id="highlight-fields-toggle" checked>
+            <span>Highlight Filled Fields</span>
+          </label>
+          <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+            Show visual feedback on fields that have been filled
+          </p>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label" style="display: flex; align-items: center; gap: 10px;">
+            <input type="checkbox" id="show-notifications-toggle" checked>
+            <span>Show Notifications</span>
+          </label>
+          <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+            Display success/error notifications after filling forms
+          </p>
+        </div>
+        
+        <button type="button" id="save-settings-btn" class="btn btn--primary">
+          💾 Save Settings
+        </button>
+      </article>
 
-    <script src="popup.js"></script>
+      <article class="card">
+        <h2 class="card__title">📊 Usage Statistics</h2>
+        <div id="usage-stats">
+          <p>Total Forms Filled: <span id="forms-filled">0</span></p>
+          <p>Total Fields Filled: <span id="fields-filled">0</span></p>
+          <p>Last Used: <span id="last-used">Never</span></p>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <!-- Scripts -->
+  <script src="config.js"></script>
+  <script src="popup.js"></script>
 </body>
 </html>
