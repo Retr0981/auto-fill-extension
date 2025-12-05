@@ -1,52 +1,32 @@
-// AutoFill Pro Background Service Worker
-console.log('🔧 AutoFill Pro v6.0 Background Service Worker Active');
+// AutoFill Pro v6.1 Background Service Worker
+console.log('🔧 AutoFill Pro v6.1 Background Service Worker Active');
 
-// Keep service worker alive
-chrome.runtime.onInstalled.addListener((details) => {
+// Initialize on install
+chrome.runtime.onInstalled.addListener(async (details) => {
   if (details.reason === 'install') {
-    // Initialize storage with defaults
-    chrome.storage.local.set({
+    // Set defaults
+    await chrome.storage.local.set({
       profile: createDefaultProfile(),
       settings: createDefaultSettings(),
       stats: createDefaultStats(),
-      version: '6.0'
+      version: '6.1'
     });
     
-    // Open popup on install
+    // Open welcome page
     chrome.tabs.create({ url: chrome.runtime.getURL('popup.html') });
   }
 });
 
-// Default profile creation
 function createDefaultProfile() {
   return {
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    address: '',
-    city: '',
-    state: '',
-    zipCode: '',
-    country: '',
-    company: '',
-    jobTitle: '',
-    website: '',
-    linkedin: '',
-    github: '',
-    experience: '',
-    education: '',
-    skills: '',
-    salary: '',
-    notice: '',
-    gender: '',
-    newsletter: '',
-    remoteWork: '',
-    terms: ''
+    firstName: '', lastName: '', email: '', phone: '',
+    address: '', city: '', state: '', zipCode: '', country: '',
+    company: '', jobTitle: '', website: '', linkedin: '', github: '',
+    experience: '', education: '', skills: '', salary: '', notice: '',
+    gender: '', newsletter: '', remoteWork: '', terms: ''
   };
 }
 
-// Default settings
 function createDefaultSettings() {
   return {
     autoFill: true,
@@ -56,74 +36,70 @@ function createDefaultSettings() {
   };
 }
 
-// Default stats
 function createDefaultStats() {
-  return {
-    formsFilled: 0,
-    fieldsFilled: 0,
-    lastUsed: null
-  };
+  return { formsFilled: 0, fieldsFilled: 0, lastUsed: null };
 }
 
-// Keyboard shortcut handler
+// Keyboard shortcut
 chrome.commands.onCommand.addListener(async (command) => {
-  if (command === 'smart-fill') {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (command !== 'smart-fill') return;
+  
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  
+  if (!tab || tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) {
+    chrome.notifications.create({
+      type: 'basic',
+      iconUrl: 'icon48.png',
+      title: 'AutoFill Pro',
+      message: 'Cannot fill forms on Chrome internal pages'
+    });
+    return;
+  }
+  
+  try {
+    const { profile, settings } = await chrome.storage.local.get(['profile', 'settings']);
     
-    if (!tab || tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) {
+    if (!profile || Object.values(profile).filter(v => v && v.trim()).length === 0) {
       chrome.notifications.create({
         type: 'basic',
         iconUrl: 'icon48.png',
         title: 'AutoFill Pro',
-        message: 'Cannot fill forms on this page'
+        message: 'No profile data saved! Open the extension to add your info.'
       });
       return;
     }
     
-    try {
-      const { profile, settings } = await chrome.storage.local.get(['profile', 'settings']);
-      
-      if (!profile || Object.keys(profile).length === 0) {
-        chrome.notifications.create({
-          type: 'basic',
-          iconUrl: 'icon48.png',
-          title: 'AutoFill Pro',
-          message: 'No profile data saved! Open the extension to add your info.'
-        });
-        return;
-      }
-      
-      // Inject if needed and send message
-      await injectContentScriptIfNeeded(tab.id);
-      
-      await chrome.tabs.sendMessage(tab.id, {
-        action: 'smartFill',
-        data: profile,
-        settings: settings
-      });
-      
-    } catch (error) {
-      console.error('❌ Shortcut fill failed:', error);
-    }
+    // Inject content script if needed
+    await injectContentScriptIfNeeded(tab.id);
+    
+    // Send fill command
+    await chrome.tabs.sendMessage(tab.id, {
+      action: 'smartFill',
+      data: profile,
+      settings: settings
+    });
+    
+  } catch (error) {
+    console.error('❌ Shortcut fill failed:', error);
   }
 });
 
-// Inject content script with retry logic
+// Inject content script with retry
 async function injectContentScriptIfNeeded(tabId) {
   try {
+    // Test if script exists
     await chrome.tabs.sendMessage(tabId, { action: 'ping' });
   } catch {
-    // Script not loaded, inject it
+    // Inject if not found
     await chrome.scripting.executeScript({
       target: { tabId: tabId },
-      files: ['config.js', 'content.js']
+      files: ['content.js']
     });
-    
     await chrome.scripting.insertCSS({
       target: { tabId: tabId },
       files: ['content.css']
     });
-    
+    // Wait for initialization
     await new Promise(resolve => setTimeout(resolve, 500));
   }
 }
@@ -131,10 +107,22 @@ async function injectContentScriptIfNeeded(tabId) {
 // Runtime message handler
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   const handlers = {
-    'getProfile': () => chrome.storage.local.get(['profile']).then(r => sendResponse(r.profile || {})),
-    'saveProfile': () => chrome.storage.local.set({ profile: request.data }).then(() => sendResponse({ success: true })),
-    'getSettings': () => chrome.storage.local.get(['settings']).then(r => sendResponse(r.settings || {})),
-    'saveSettings': () => chrome.storage.local.set({ settings: request.data }).then(() => sendResponse({ success: true }))
+    'getProfile': async () => {
+      const result = await chrome.storage.local.get(['profile']);
+      sendResponse(result.profile || {});
+    },
+    'saveProfile': async () => {
+      await chrome.storage.local.set({ profile: request.data });
+      sendResponse({ success: true });
+    },
+    'getSettings': async () => {
+      const result = await chrome.storage.local.get(['settings']);
+      sendResponse(result.settings || {});
+    },
+    'saveSettings': async () => {
+      await chrome.storage.local.set({ settings: request.data });
+      sendResponse({ success: true });
+    }
   };
   
   const handler = handlers[request.action];
@@ -144,6 +132,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
   
   sendResponse({ error: 'Unknown action' });
+  return false;
 });
 
 // Context menus
