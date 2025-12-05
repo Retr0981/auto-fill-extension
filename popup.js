@@ -1,158 +1,275 @@
-// AutoFill Pro v6.0 Popup Controller
-console.log('🎯 Popup initializing...');
+// AutoFill Pro v6.1 Popup Controller
+console.log('🎯 AutoFill Pro Popup Initializing...');
 
+// Global state
 let currentTab = null;
 let profile = {};
 let settings = {};
 let stats = {};
 let cvFile = null;
 
-// Initialize
+// Wait for DOM to be ready
 document.addEventListener('DOMContentLoaded', async () => {
   try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    currentTab = tab;
+    // Get current tab
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    currentTab = tabs[0];
     
+    if (!currentTab) {
+      showStatus('❌ Cannot access current tab', 'error');
+      return;
+    }
+    
+    // Load all data from storage
     await loadAllData();
-    initializeUI();
-    bindEvents();
     
-    console.log('✅ Popup ready');
+    // Initialize UI components
+    initializeTabs();
+    bindAllEvents();
+    updateAllUI();
+    
+    console.log('✅ Popup initialized successfully');
   } catch (error) {
-    console.error('❌ Initialization failed:', error);
-    showStatus('Error loading extension', 'error');
+    console.error('❌ Popup initialization failed:', error);
+    showStatus('Error initializing extension', 'error');
   }
 });
 
 // Load all data from storage
 async function loadAllData() {
-  const result = await chrome.storage.local.get(['profile', 'settings', 'stats', 'cvFile']);
-  profile = result.profile || {};
-  settings = result.settings || {};
-  stats = result.stats || {};
-  cvFile = result.cvFile || null;
-  
-  populateForm();
+  try {
+    const result = await chrome.storage.local.get(['profile', 'settings', 'stats', 'cvFile']);
+    
+    profile = result.profile || {};
+    settings = result.settings || {};
+    stats = result.stats || {};
+    cvFile = result.cvFile || null;
+    
+    // Populate forms after data loads
+    populateProfileForm();
+    populateSettingsForm();
+    updateCVStatus();
+    
+  } catch (error) {
+    console.error('❌ Failed to load data:', error);
+    profile = {};
+    settings = {};
+    stats = {};
+    cvFile = null;
+  }
 }
 
-// Populate form fields
-function populateForm() {
-  Object.entries(profile).forEach(([key, value]) => {
-    const element = document.getElementById(key);
-    if (element) element.value = value || '';
+// Populate profile form fields
+function populateProfileForm() {
+  const fields = [
+    'firstName', 'lastName', 'email', 'phone', 'address', 'city', 'state', 'zipCode', 'country',
+    'company', 'jobTitle', 'website', 'linkedin', 'github', 'experience', 'education', 'skills',
+    'salary', 'notice', 'gender', 'newsletter', 'remoteWork', 'terms'
+  ];
+  
+  fields.forEach(fieldName => {
+    const element = document.getElementById(fieldName);
+    if (element && profile[fieldName]) {
+      element.value = profile[fieldName];
+    }
   });
-  
-  document.getElementById('highlight-fields-toggle').checked = settings.highlightFields !== false;
-  document.getElementById('show-notifications-toggle').checked = settings.showNotifications !== false;
-  document.getElementById('auto-submit-toggle').checked = settings.autoSubmit === true;
-  
-  updateStats();
-  updateCVStatus();
 }
 
-// Initialize UI
-function initializeUI() {
-  // Tab switching
-  document.querySelectorAll('.tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+// Populate settings form
+function populateSettingsForm() {
+  const highlightToggle = document.getElementById('highlight-fields-toggle');
+  const notifyToggle = document.getElementById('show-notifications-toggle');
+  const autoSubmitToggle = document.getElementById('auto-submit-toggle');
+  
+  if (highlightToggle) highlightToggle.checked = settings.highlightFields !== false;
+  if (notifyToggle) notifyToggle.checked = settings.showNotifications !== false;
+  if (autoSubmitToggle) autoSubmitToggle.checked = settings.autoSubmit === true;
+}
+
+// Initialize tab switching
+function initializeTabs() {
+  const tabButtons = document.querySelectorAll('.tab-button');
+  const tabPanels = document.querySelectorAll('.tab-panel');
+  
+  tabButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      const targetId = button.dataset.target;
       
-      tab.classList.add('active');
-      document.getElementById(`${tab.dataset.panel}-panel`).classList.add('active');
+      // Update button states
+      tabButtons.forEach(btn => {
+        btn.classList.remove('active');
+        btn.setAttribute('aria-selected', 'false');
+      });
+      button.classList.add('active');
+      button.setAttribute('aria-selected', 'true');
+      
+      // Update panel visibility
+      tabPanels.forEach(panel => {
+        panel.classList.remove('active');
+        panel.setAttribute('aria-hidden', 'true');
+      });
+      
+      const targetPanel = document.getElementById(targetId);
+      if (targetPanel) {
+        targetPanel.classList.add('active');
+        targetPanel.setAttribute('aria-hidden', 'false');
+      }
     });
   });
-  
-  updateStatus();
 }
 
-// Bind all events
-function bindEvents() {
-  // Smart fill button
-  document.getElementById('smart-fill-btn').addEventListener('click', handleSmartFill);
+// Bind all event listeners
+function bindAllEvents() {
+  // Smart Fill button
+  const smartFillBtn = document.getElementById('smart-fill-btn');
+  if (smartFillBtn) {
+    smartFillBtn.addEventListener('click', handleSmartFill);
+  }
   
-  // Save profile
-  document.getElementById('save-profile-btn').addEventListener('click', saveProfile);
+  // Save Profile button
+  const saveProfileBtn = document.getElementById('save-profile-btn');
+  if (saveProfileBtn) {
+    saveProfileBtn.addEventListener('click', saveProfile);
+  }
   
-  // CV upload
-  document.getElementById('cv-file-input').addEventListener('change', handleCVUpload);
-  document.getElementById('extract-cv-btn').addEventListener('click', extractCV);
-  document.getElementById('preview-cv-btn').addEventListener('click', previewCV);
+  // CV Upload
+  const cvFileInput = document.getElementById('cv-file-input');
+  if (cvFileInput) {
+    cvFileInput.addEventListener('change', handleCVUpload);
+  }
   
-  // Other actions
-  document.getElementById('extract-browser-btn').addEventListener('click', extractFromBrowser);
-  document.getElementById('reset-all-btn').addEventListener('click', resetAll);
-  document.getElementById('save-settings-btn').addEventListener('click', saveSettings);
+  // CV Actions
+  const previewBtn = document.getElementById('preview-cv-btn');
+  if (previewBtn) {
+    previewBtn.addEventListener('click', previewCV);
+  }
+  
+  const extractBtn = document.getElementById('extract-cv-btn');
+  if (extractBtn) {
+    extractBtn.addEventListener('click', extractCVData);
+  }
+  
+  // Browser extraction
+  const extractBrowserBtn = document.getElementById('extract-browser-btn');
+  if (extractBrowserBtn) {
+    extractBrowserBtn.addEventListener('click', extractFromBrowser);
+  }
+  
+  // Reset button
+  const resetBtn = document.getElementById('reset-all-btn');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', resetAllData);
+  }
+  
+  // Save settings
+  const saveSettingsBtn = document.getElementById('save-settings-btn');
+  if (saveSettingsBtn) {
+    saveSettingsBtn.addEventListener('click', saveSettings);
+  }
+  
+  // Auto-save indicators
+  const profileInputs = document.querySelectorAll('#profile-panel .form-input');
+  profileInputs.forEach(input => {
+    input.addEventListener('input', () => {
+      const saveBtn = document.getElementById('save-profile-btn');
+      if (saveBtn) {
+        saveBtn.classList.add('btn--pulse');
+        saveBtn.textContent = '💾 Save Profile (Unsaved Changes)';
+      }
+    });
+  });
 }
 
-// Handle smart fill
+// Handle Smart Fill with proper error handling
 async function handleSmartFill() {
   const button = document.getElementById('smart-fill-btn');
-  button.disabled = true;
-  button.textContent = '⏳ Filling...';
+  const originalText = button.textContent;
   
-  showStatus('Filling forms...', 'loading');
+  // Disable button and show loading
+  button.disabled = true;
+  button.textContent = '⏳ Filling Forms...';
+  showStatus('Starting form fill...', 'loading');
   
   try {
-    if (!currentTab || currentTab.url.startsWith('chrome://')) {
-      throw new Error('Cannot fill this page');
+    // Validate tab
+    if (!currentTab) {
+      throw new Error('No active tab found');
     }
     
-    if (Object.values(profile).filter(v => v && v.trim()).length === 0) {
-      throw new Error('Profile is empty! Please save your info.');
+    if (currentTab.url.startsWith('chrome://') || currentTab.url.startsWith('chrome-extension://')) {
+      throw new Error('Cannot fill forms on Chrome internal pages');
     }
     
-    // Ensure content script is loaded
-    await injectContentScript(currentTab.id);
+    // Validate profile has data
+    const hasData = Object.values(profile).some(v => v && v.trim());
+    if (!hasData) {
+      throw new Error('Profile is empty! Please add your information.');
+    }
+    
+    // Inject content script if needed
+    showStatus('Connecting to page...', 'loading');
+    await injectContentScriptIfNeeded(currentTab.id);
     
     // Send fill command
+    showStatus('Filling forms...', 'loading');
     const response = await chrome.tabs.sendMessage(currentTab.id, {
       action: 'smartFill',
       data: profile,
       settings: settings
     });
     
+    if (response.error) {
+      throw new Error(response.error);
+    }
+    
     if (response.filled > 0) {
-      await updateStatsAfterFill(response.filled, response.formsProcessed);
-      showStatus(`✅ Filled ${response.filled} fields`, 'success');
+      // Update stats
+      await updateStatsAfterFill(response.filled, response.formsProcessed || 1);
+      showStatus(`✅ Filled ${response.filled} field${response.filled !== 1 ? 's' : ''}`, 'success');
     } else {
-      showStatus('No fields were filled', 'warning');
+      showStatus('⚠️ No fields were filled', 'warning');
     }
     
   } catch (error) {
-    console.error('❌ Fill failed:', error);
+    console.error('❌ Smart fill failed:', error);
     showStatus(`Error: ${error.message}`, 'error');
   } finally {
+    // Restore button
     button.disabled = false;
-    button.textContent = '🚀 SMART FILL CURRENT PAGE';
+    button.textContent = originalText;
   }
 }
 
-// Inject content script
-async function injectContentScript(tabId) {
+// Inject content script with retry logic
+async function injectContentScriptIfNeeded(tabId) {
   try {
+    // Test if already injected
     await chrome.tabs.sendMessage(tabId, { action: 'ping' });
-  } catch {
-    // Not loaded, inject
+  } catch (error) {
+    // Inject if not found
+    console.log('🔄 Injecting content script...');
     await chrome.scripting.executeScript({
       target: { tabId: tabId },
-      files: ['config.js', 'content.js']
+      files: ['content.js']
     });
     await chrome.scripting.insertCSS({
       target: { tabId: tabId },
       files: ['content.css']
     });
+    // Wait for initialization
     await new Promise(resolve => setTimeout(resolve, 500));
   }
 }
 
-// Save profile
+// Save profile data
 async function saveProfile() {
   const button = document.getElementById('save-profile-btn');
-  button.textContent = '💾 Saving...';
-  button.disabled = true;
+  const originalText = button.textContent;
   
-  // Collect all fields
+  button.disabled = true;
+  button.textContent = '💾 Saving...';
+  
+  // Collect all profile fields
   const fields = [
     'firstName', 'lastName', 'email', 'phone', 'address', 'city', 'state', 'zipCode', 'country',
     'company', 'jobTitle', 'website', 'linkedin', 'github', 'experience', 'education', 'skills',
@@ -160,182 +277,401 @@ async function saveProfile() {
   ];
   
   const newProfile = {};
-  fields.forEach(field => {
-    const element = document.getElementById(field);
-    newProfile[field] = element ? element.value.trim() : '';
+  fields.forEach(fieldName => {
+    const element = document.getElementById(fieldName);
+    newProfile[fieldName] = element ? element.value.trim() : '';
   });
   
-  // Validate
+  // Validate email
   if (newProfile.email && !newProfile.email.includes('@')) {
     showStatus('Please enter a valid email', 'error');
-    button.textContent = '💾 Save Profile';
     button.disabled = false;
+    button.textContent = originalText;
     return;
   }
   
+  // Save to storage
   await chrome.storage.local.set({ profile: newProfile });
   profile = newProfile;
   
+  // Update UI
   updateStatus();
-  showStatus('Profile saved!', 'success');
+  showStatus('✅ Profile saved successfully!', 'success');
   
+  // Restore button with success
   button.textContent = '💾 Profile Saved!';
+  button.classList.remove('btn--pulse');
+  
   setTimeout(() => {
-    button.textContent = '💾 Save Profile';
+    button.textContent = originalText;
     button.disabled = false;
   }, 2000);
 }
 
-// CV upload
+// Handle CV file upload
 async function handleCVUpload(event) {
   const file = event.target.files[0];
   if (!file) return;
   
+  // Validate file size
   if (file.size > 10 * 1024 * 1024) {
-    showStatus('File too large (max 10MB)', 'error');
+    showStatus('❌ File too large. Maximum size is 10MB.', 'error');
     return;
   }
   
-  const reader = new FileReader();
-  reader.onload = async (e) => {
+  // Validate file type
+  const validTypes = ['application/pdf', 'application/msword', 
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'];
+  if (!validTypes.includes(file.type) && !file.name.match(/\.(pdf|doc|docx|txt)$/i)) {
+    showStatus('❌ Invalid file type. Use PDF, DOC, DOCX, or TXT.', 'error');
+    return;
+  }
+  
+  showStatus('📤 Uploading CV...', 'loading');
+  
+  try {
+    const base64Data = await readFileAsBase64(file);
+    
     cvFile = {
       name: file.name,
       type: file.type,
       size: file.size,
-      data: e.target.result,
+      data: base64Data,
       uploadedAt: new Date().toISOString()
     };
     
     await chrome.storage.local.set({ cvFile });
     updateCVStatus();
-    showStatus('CV uploaded!', 'success');
-  };
-  reader.readAsDataURL(file);
+    showStatus(`✅ CV uploaded: ${file.name}`, 'success');
+    
+  } catch (error) {
+    console.error('❌ CV upload failed:', error);
+    showStatus('❌ Failed to upload CV', 'error');
+  }
 }
 
-// Extract CV data
-async function extractCV() {
-  if (!cvFile) {
-    showStatus('No CV uploaded', 'error');
-    return;
-  }
-  
-  if (!cvFile.type.includes('text')) {
-    showStatus('Only TXT files can be extracted', 'warning');
-    return;
-  }
-  
-  showStatus('Extracting...', 'loading');
-  
-  const text = atob(cvFile.data.split(',')[1]);
-  const extracted = {};
-  
-  // Simple extraction patterns (enhance as needed)
-  const emailMatch = text.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/);
-  if (emailMatch) extracted.email = emailMatch[0];
-  
-  const phoneMatch = text.match(/\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b/);
-  if (phoneMatch) extracted.phone = phoneMatch[0];
-  
-  updateFormWithExtractedData(extracted);
-  showStatus('Data extracted from CV', 'success');
+// Read file as base64
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => resolve(e.target.result);
+    reader.onerror = e => reject(new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  });
 }
 
-// Preview CV
+// Preview CV in new tab
 function previewCV() {
   if (!cvFile) {
-    showStatus('No CV to preview', 'error');
+    showStatus('❌ No CV uploaded', 'error');
     return;
   }
   
   const preview = window.open('', '_blank');
+  const isImage = cvFile.type.startsWith('image/');
+  const isPDF = cvFile.type === 'application/pdf';
+  const isText = cvFile.type === 'text/plain';
+  
   preview.document.write(`
-    <h1>${cvFile.name}</h1>
-    <embed src="${cvFile.data}" width="100%" height="600px" />
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>CV Preview - ${cvFile.name}</title>
+        <style>
+          body { font-family: sans-serif; margin: 20px; background: #f5f5f5; }
+          .header { background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
+          .preview-container { background: white; padding: 20px; border-radius: 10px; min-height: 600px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>📄 CV Preview</h1>
+          <p><strong>File:</strong> ${cvFile.name} | <strong>Size:</strong> ${(cvFile.size / 1024).toFixed(1)} KB</p>
+        </div>
+        <div class="preview-container">
+          ${isImage ? `<img src="${cvFile.data}" style="max-width: 100%;">` : 
+            isPDF ? `<embed src="${cvFile.data}" width="100%" height="600px">` : 
+            isText ? `<pre style="white-space: pre-wrap;">${atob(cvFile.data.split(',')[1])}</pre>` : 
+            '<p>Preview not available for this file type.</p>'}
+        </div>
+      </body>
+    </html>
   `);
   preview.document.close();
+  
+  showStatus('✅ CV preview opened', 'success');
 }
 
-// Extract from browser
-async function extractFromBrowser() {
-  await injectContentScript(currentTab.id);
-  const response = await chrome.tabs.sendMessage(currentTab.id, { action: 'extractFromBrowser' });
+// Extract data from CV (text only)
+async function extractCVData() {
+  if (!cvFile) {
+    showStatus('❌ No CV uploaded', 'error');
+    return;
+  }
   
-  if (response.data) {
-    updateFormWithExtractedData(response.data);
-    showStatus('Data extracted from page', 'success');
-  } else {
-    showStatus('No data found on page', 'warning');
+  if (cvFile.type !== 'text/plain') {
+    showStatus('⚠️ Text extraction only works with TXT files', 'warning');
+    return;
+  }
+  
+  showStatus('🔍 Extracting data from CV...', 'loading');
+  
+  try {
+    const base64Content = cvFile.data.split(',')[1];
+    const textContent = atob(base64Content);
+    
+    const extracted = {};
+    
+    // Email
+    const emailMatch = textContent.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/);
+    if (emailMatch) extracted.email = emailMatch[0];
+    
+    // Phone
+    const phoneMatch = textContent.match(/\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b/);
+    if (phoneMatch) extracted.phone = phoneMatch[0];
+    
+    // Name (simple pattern)
+    const nameMatch = textContent.match(/^([A-Z][a-z]+)\s+([A-Z][a-z]+)/m);
+    if (nameMatch) {
+      extracted.firstName = nameMatch[1];
+      extracted.lastName = nameMatch[2];
+    }
+    
+    // LinkedIn/GitHub
+    const linkedinMatch = textContent.match(/linkedin\.com\/in\/[A-Za-z0-9-]+/i);
+    if (linkedinMatch) extracted.linkedin = `https://${linkedinMatch[0]}`;
+    
+    const githubMatch = textContent.match(/github\.com\/[A-Za-z0-9-]+/i);
+    if (githubMatch) extracted.github = `https://${githubMatch[0]}`;
+    
+    // Update form
+    updateFormWithExtractedData(extracted);
+    showStatus('✅ Data extracted from CV', 'success');
+    
+  } catch (error) {
+    console.error('❌ CV extraction failed:', error);
+    showStatus('❌ Failed to extract CV data', 'error');
   }
 }
 
-// Update form with extracted data
+// Extract data from current page
+async function extractFromBrowser() {
+  const button = document.getElementById('extract-browser-btn');
+  const originalText = button.textContent;
+  
+  button.textContent = '🌐 Extracting...';
+  button.disabled = true;
+  
+  showStatus('🌐 Extracting data from page...', 'loading');
+  
+  try {
+    if (!currentTab || currentTab.url.startsWith('chrome://')) {
+      throw new Error('Cannot extract from this page');
+    }
+    
+    // Ensure content script is loaded
+    await injectContentScriptIfNeeded(currentTab.id);
+    
+    // Send extract command
+    const response = await chrome.tabs.sendMessage(currentTab.id, {
+      action: 'extractFromBrowser'
+    });
+    
+    if (response.data && Object.keys(response.data).length > 0) {
+      updateFormWithExtractedData(response.data);
+      showStatus('✅ Data extracted from page', 'success');
+    } else {
+      showStatus('⚠️ No extractable data found', 'warning');
+    }
+    
+  } catch (error) {
+    console.error('❌ Browser extraction failed:', error);
+    showStatus('❌ Failed to extract data', 'error');
+  } finally {
+    button.textContent = originalText;
+    button.disabled = false;
+  }
+}
+
+// Update form fields with extracted data
 function updateFormWithExtractedData(data) {
+  let updatedCount = 0;
+  
   Object.entries(data).forEach(([key, value]) => {
     const element = document.getElementById(key);
-    if (element && !element.value) {
+    if (element && value && !element.value.trim()) {
       element.value = value;
+      
+      // Visual feedback
       element.style.borderColor = '#4CAF50';
-      setTimeout(() => element.style.borderColor = '', 2000);
+      element.style.boxShadow = '0 0 0 2px rgba(76, 175, 80, 0.2)';
+      
+      setTimeout(() => {
+        element.style.borderColor = '';
+        element.style.boxShadow = '';
+      }, 2000);
+      
+      updatedCount++;
     }
   });
+  
+  if (updatedCount > 0) {
+    const saveBtn = document.getElementById('save-profile-btn');
+    if (saveBtn) {
+      saveBtn.classList.add('btn--pulse');
+      saveBtn.textContent = '💾 Save Profile (Unsaved Changes)';
+    }
+  }
 }
 
 // Save settings
 async function saveSettings() {
+  const button = document.getElementById('save-settings-btn');
+  const originalText = button.textContent;
+  
+  button.textContent = '💾 Saving...';
+  button.disabled = true;
+  
   const newSettings = {
     highlightFields: document.getElementById('highlight-fields-toggle').checked,
     showNotifications: document.getElementById('show-notifications-toggle').checked,
     autoSubmit: document.getElementById('auto-submit-toggle').checked
   };
   
-  await chrome.storage.local.set({ settings: newSettings });
-  settings = newSettings;
-  
-  showStatus('Settings saved!', 'success');
+  try {
+    await chrome.storage.local.set({ settings: newSettings });
+    settings = newSettings;
+    
+    showStatus('✅ Settings saved!', 'success');
+    button.textContent = '💾 Settings Saved!';
+    
+    setTimeout(() => {
+      button.textContent = originalText;
+      button.disabled = false;
+    }, 1500);
+    
+  } catch (error) {
+    console.error('❌ Settings save failed:', error);
+    showStatus('❌ Failed to save settings', 'error');
+    button.textContent = originalText;
+    button.disabled = false;
+  }
 }
 
 // Reset all data
-async function resetAll() {
-  if (!confirm('⚠️ Reset ALL data? This cannot be undone!')) return;
+async function resetAllData() {
+  const confirmed = confirm('⚠️ WARNING: This will delete ALL your data!\n\n' +
+    '• Profile information\n' +
+    '• Uploaded CV\n' +
+    '• Settings\n' +
+    '• Usage statistics\n\n' +
+    'This action cannot be undone. Are you sure?');
   
-  await chrome.storage.local.clear();
-  location.reload();
+  if (!confirmed) return;
+  
+  const button = document.getElementById('reset-all-btn');
+  button.textContent = '🗑️ Resetting...';
+  button.disabled = true;
+  
+  showStatus('🔄 Resetting all data...', 'loading');
+  
+  try {
+    // Clear all storage
+    await chrome.storage.local.clear();
+    
+    // Reset local state
+    profile = {};
+    settings = {};
+    stats = {};
+    cvFile = null;
+    
+    // Clear form fields
+    document.querySelectorAll('#profile-panel .form-input').forEach(input => {
+      input.value = '';
+    });
+    
+    // Reset settings toggles
+    document.getElementById('highlight-fields-toggle').checked = true;
+    document.getElementById('show-notifications-toggle').checked = true;
+    document.getElementById('auto-submit-toggle').checked = false;
+    
+    updateAllUI();
+    
+    showStatus('✅ All data reset successfully', 'success');
+    
+  } catch (error) {
+    console.error('❌ Reset failed:', error);
+    showStatus('❌ Failed to reset data', 'error');
+  } finally {
+    button.textContent = '🗑️ Reset All Data & Settings';
+    button.disabled = false;
+  }
+}
+
+// Update all UI elements
+function updateAllUI() {
+  updateStatus();
+  updateCVStatus();
+  updateStats();
 }
 
 // Update status indicator
 function updateStatus() {
-  const status = document.getElementById('status');
-  const filled = Object.values(profile).filter(v => v && v.trim()).length;
+  const statusEl = document.getElementById('status-indicator');
+  if (!statusEl) return;
   
-  if (filled === 0) {
-    status.textContent = '❌ No profile data';
-    status.className = 'status error';
-  } else if (filled < 5) {
-    status.textContent = `⚠️ ${filled} fields filled`;
-    status.className = 'status warning';
+  const filledFields = Object.values(profile).filter(v => v && v.trim()).length;
+  
+  if (filledFields === 0) {
+    statusEl.textContent = '❌ No profile data saved';
+    statusEl.className = 'status error';
+  } else if (filledFields < 5) {
+    statusEl.textContent = `⚠️ Only ${filledFields} fields filled`;
+    statusEl.className = 'status warning';
   } else {
-    status.textContent = `✅ ${filled} fields ready`;
-    status.className = 'status success';
+    statusEl.textContent = `✅ ${filledFields} fields ready to fill`;
+    statusEl.className = 'status success';
   }
 }
 
-// Update stats display
-function updateStats() {
-  document.getElementById('forms-filled').textContent = stats.formsFilled || 0;
-  document.getElementById('fields-filled').textContent = stats.fieldsFilled || 0;
+// Update CV status
+function updateCVStatus() {
+  const cvStatus = document.getElementById('cv-status');
+  if (!cvStatus) return;
   
-  const lastUsed = stats.lastUsed ? new Date(stats.lastUsed).toLocaleDateString() : 'Never';
-  document.getElementById('last-used').textContent = lastUsed;
+  if (cvFile) {
+    const sizeKB = (cvFile.size / 1024).toFixed(1);
+    cvStatus.innerHTML = `<strong>${cvFile.name}</strong> (${sizeKB} KB)`;
+  } else {
+    cvStatus.textContent = 'No CV stored';
+  }
 }
 
-// Update CV status display
-function updateCVStatus() {
-  const status = document.getElementById('cv-status');
-  if (cvFile) {
-    status.innerHTML = `<strong>${cvFile.name}</strong> (${(cvFile.size / 1024).toFixed(1)} KB)`;
-  } else {
-    status.textContent = 'No CV stored';
+// Update usage stats
+function updateStats() {
+  const formsEl = document.getElementById('forms-filled');
+  const fieldsEl = document.getElementById('fields-filled');
+  const lastUsedEl = document.getElementById('last-used');
+  
+  if (formsEl) formsEl.textContent = stats.formsFilled || 0;
+  if (fieldsEl) fieldsEl.textContent = stats.fieldsFilled || 0;
+  
+  if (lastUsedEl) {
+    if (stats.lastUsed) {
+      const lastDate = new Date(stats.lastUsed);
+      const now = new Date();
+      const hours = Math.floor((now - lastDate) / (1000 * 60 * 60));
+      
+      if (hours < 1) {
+        lastUsedEl.textContent = 'Just now';
+      } else if (hours < 24) {
+        lastUsedEl.textContent = `${hours}h ago`;
+      } else {
+        lastUsedEl.textContent = lastDate.toLocaleDateString();
+      }
+    } else {
+      lastUsedEl.textContent = 'Never';
+    }
   }
 }
 
@@ -351,11 +687,16 @@ async function updateStatsAfterFill(fieldsFilled, formsProcessed) {
 
 // Show status message
 function showStatus(message, type) {
-  const status = document.getElementById('status');
-  status.textContent = message;
-  status.className = `status ${type}`;
+  const statusEl = document.getElementById('status-indicator');
+  if (!statusEl) return;
   
+  statusEl.textContent = message;
+  statusEl.className = `status ${type}`;
+  
+  // Auto-clear success messages
   if (type === 'success') {
-    setTimeout(() => updateStatus(), 3000);
+    setTimeout(() => {
+      updateStatus(); // Reset to default
+    }, 3000);
   }
 }
