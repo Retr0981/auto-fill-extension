@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AutoFill Pro v6.0</title>
+  <title>AutoFill Pro v6.1</title>
   <style>
+    /* === CSS RESET & BASE === */
     * { margin: 0; padding: 0; box-sizing: border-box; }
     
     :root {
@@ -27,16 +28,19 @@
       min-height: 650px;
       background: var(--bg);
       color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       font-size: 14px;
-      padding: 0;
+      line-height: 1.5;
+      overflow-x: hidden;
     }
     
+    /* === HEADER === */
     .header {
       padding: 24px;
       text-align: center;
       background: linear-gradient(135deg, var(--primary), var(--primary-dark));
       color: white;
+      border-bottom: 1px solid var(--border);
     }
     
     .logo {
@@ -50,22 +54,47 @@
       opacity: 0.8;
     }
     
+    /* === STATUS INDICATOR === */
     .status {
       margin: 16px;
-      padding: 12px;
+      padding: 14px;
       border-radius: 8px;
       text-align: center;
       font-weight: 600;
       font-size: 13px;
+      animation: slideIn 0.3s ease;
     }
     
-    .status.success { background: rgba(76, 201, 240, 0.1); color: #4cc9f0; }
-    .status.error { background: rgba(239, 35, 60, 0.1); color: #ef233c; }
-    .status.warning { background: rgba(247, 37, 133, 0.1); color: #f72585; }
+    .status.success {
+      background: rgba(76, 201, 240, 0.1);
+      border: 1px solid rgba(76, 201, 240, 0.3);
+      color: #4cc9f0;
+    }
+    
+    .status.error {
+      background: rgba(239, 35, 60, 0.1);
+      border: 1px solid rgba(239, 35, 60, 0.3);
+      color: #ef233c;
+    }
+    
+    .status.warning {
+      background: rgba(247, 37, 133, 0.1);
+      border: 1px solid rgba(247, 37, 133, 0.3);
+      color: #f72585;
+    }
+    
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    /* === SMART FILL BUTTON === */
+    .smart-fill-container {
+      padding: 0 16px 16px;
+    }
     
     .smart-fill-btn {
-      width: calc(100% - 32px);
-      margin: 0 16px 16px;
+      width: 100%;
       padding: 18px;
       background: linear-gradient(135deg, var(--primary), var(--primary-dark));
       color: white;
@@ -75,22 +104,34 @@
       font-weight: 700;
       cursor: pointer;
       box-shadow: var(--shadow);
-      transition: transform 0.2s;
+      transition: all 0.2s ease;
     }
     
-    .smart-fill-btn:hover { transform: translateY(-2px); }
-    .smart-fill-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .smart-fill-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+    }
     
-    .tabs {
+    .smart-fill-btn:active:not(:disabled) {
+      transform: translateY(0);
+    }
+    
+    .smart-fill-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+    
+    /* === TABS === */
+    .tab-navigation {
       display: flex;
-      margin: 0 16px;
+      margin: 0 16px 16px;
       background: rgba(0, 0, 0, 0.2);
       border-radius: 8px;
       padding: 4px;
       gap: 2px;
     }
     
-    .tab {
+    .tab-button {
       flex: 1;
       padding: 12px;
       background: transparent;
@@ -98,22 +139,39 @@
       border-radius: 6px;
       color: var(--text-muted);
       font-weight: 600;
+      font-size: 13px;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: all 0.2s ease;
+      text-align: center;
     }
     
-    .tab.active {
+    .tab-button:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+    
+    .tab-button.active {
       background: var(--primary);
       color: white;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     }
     
-    .panel {
+    /* === PANELS === */
+    .tab-panel {
       display: none;
-      padding: 16px;
+      padding: 0 16px 16px;
     }
     
-    .panel.active { display: block; }
+    .tab-panel.active {
+      display: block;
+      animation: fadeIn 0.3s ease;
+    }
     
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    
+    /* === CARDS === */
     .card {
       background: var(--card);
       border: 1px solid var(--border);
@@ -122,12 +180,17 @@
       margin-bottom: 16px;
     }
     
-    .card h2 {
+    .card__title {
       font-size: 16px;
+      font-weight: 700;
       margin-bottom: 16px;
       color: var(--primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
     
+    /* === FORM ELEMENTS === */
     .form-group {
       margin-bottom: 14px;
     }
@@ -154,8 +217,14 @@
     .form-input:focus {
       outline: none;
       border-color: var(--primary);
+      background: rgba(255, 255, 255, 0.08);
     }
     
+    .form-input::placeholder {
+      color: var(--text-muted);
+    }
+    
+    /* === BUTTONS === */
     .btn {
       width: 100%;
       padding: 14px;
@@ -164,24 +233,50 @@
       font-weight: 600;
       font-size: 14px;
       cursor: pointer;
+      transition: all 0.2s ease;
       margin-top: 12px;
     }
     
-    .btn-primary {
+    .btn--primary {
       background: linear-gradient(135deg, var(--primary), var(--primary-dark));
       color: white;
     }
     
-    .btn-success {
-      background: linear-gradient(135deg, #4cc9f0, #4361ee);
+    .btn--primary:hover {
+      transform: translateY(-1px);
+    }
+    
+    .btn--success {
+      background: linear-gradient(135deg, #4cc9f0, var(--primary));
       color: white;
     }
     
-    .btn-danger {
+    .btn--secondary {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    
+    .btn--secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+    
+    .btn--danger {
       background: linear-gradient(135deg, var(--danger), #b5179e);
       color: white;
     }
     
+    .btn--pulse {
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(76, 201, 240, 0.7); }
+      70% { box-shadow: 0 0 0 10px rgba(76, 201, 240, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(76, 201, 240, 0); }
+    }
+    
+    /* === FILE UPLOAD === */
     .file-upload {
       border: 2px dashed var(--border);
       padding: 20px;
@@ -189,10 +284,21 @@
       border-radius: 8px;
       cursor: pointer;
       transition: border-color 0.2s;
+      margin-bottom: 12px;
     }
     
-    .file-upload:hover { border-color: var(--primary); }
+    .file-upload:hover {
+      border-color: var(--primary);
+    }
     
+    .file-status {
+      font-size: 13px;
+      color: var(--text-muted);
+      text-align: center;
+      margin-bottom: 12px;
+    }
+    
+    /* === INFO BOX === */
     .info-box {
       background: rgba(67, 97, 238, 0.1);
       border: 1px solid rgba(67, 97, 238, 0.3);
@@ -202,112 +308,277 @@
       font-size: 13px;
       line-height: 1.5;
     }
+    
+    .info-box__title {
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 8px;
+    }
+    
+    /* === USAGE STATS === */
+    .usage-stats {
+      display: grid;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    
+    .usage-stats strong {
+      color: var(--text);
+    }
+    
+    /* === SCROLLBAR === */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    
+    ::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.05);
+    }
+    
+    ::-webkit-scrollbar-thumb {
+      background: rgba(67, 97, 238, 0.5);
+      border-radius: 4px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(67, 97, 238, 0.7);
+    }
   </style>
 </head>
 <body>
+  <!-- Header -->
   <header class="header">
     <h1 class="logo">🎯 AutoFill Pro</h1>
-    <div class="version">v6.0 - Required Field Intelligent Fill</div>
+    <div class="version">v6.1 - Required Field Intelligence</div>
   </header>
 
-  <div id="status" class="status">Loading...</div>
+  <!-- Status Indicator -->
+  <div id="status-indicator" class="status">Loading extension...</div>
 
-  <button id="smart-fill-btn" class="smart-fill-btn">🚀 SMART FILL CURRENT PAGE</button>
+  <!-- Smart Fill Button -->
+  <div class="smart-fill-container">
+    <button id="smart-fill-btn" class="smart-fill-btn">
+      🚀 SMART FILL CURRENT PAGE
+    </button>
+  </div>
 
-  <nav class="tabs">
-    <button class="tab active" data-panel="profile">👤 Profile</button>
-    <button class="tab" data-panel="cv">📎 CV</button>
-    <button class="tab" data-panel="settings">⚙️ Settings</button>
+  <!-- Tab Navigation -->
+  <nav class="tab-navigation" role="tablist">
+    <button class="tab-button active" data-target="profile-panel" aria-selected="true">
+      👤 Profile
+    </button>
+    <button class="tab-button" data-target="cv-panel" aria-selected="false">
+      📎 CV Tools
+    </button>
+    <button class="tab-button" data-target="settings-panel" aria-selected="false">
+      ⚙️ Settings
+    </button>
   </nav>
 
-  <main>
+  <!-- Main Content -->
+  <main id="main-content">
     <!-- Profile Panel -->
-    <section id="profile-panel" class="panel active">
-      <div class="card">
-        <h2>👤 Personal Information</h2>
-        <input id="firstName" class="form-input" placeholder="First Name">
-        <input id="lastName" class="form-input" placeholder="Last Name" style="margin-top: 10px;">
-        <input id="email" class="form-input" placeholder="Email Address" style="margin-top: 10px;">
-        <input id="phone" class="form-input" placeholder="Phone Number" style="margin-top: 10px;">
-      </div>
-
-      <div class="card">
-        <h2>📍 Address</h2>
-        <input id="address" class="form-input" placeholder="Street Address">
-        <input id="city" class="form-input" placeholder="City" style="margin-top: 10px;">
-        <input id="state" class="form-input" placeholder="State/Province" style="margin-top: 10px;">
-        <input id="zipCode" class="form-input" placeholder="ZIP/Postal Code" style="margin-top: 10px;">
-        <input id="country" class="form-input" placeholder="Country" style="margin-top: 10px;">
-      </div>
-
-      <div class="card">
-        <h2>💼 Professional</h2>
-        <input id="company" class="form-input" placeholder="Current Company">
-        <input id="jobTitle" class="form-input" placeholder="Job Title" style="margin-top: 10px;">
-        <input id="website" class="form-input" placeholder="Website" style="margin-top: 10px;">
-        <input id="linkedin" class="form-input" placeholder="LinkedIn Profile" style="margin-top: 10px;">
-        <input id="github" class="form-input" placeholder="GitHub Profile" style="margin-top: 10px;">
-      </div>
-
-      <div class="card">
-        <h2>🔧 Selection & Boolean Fields</h2>
-        <div class="info-box">
-          💡 For required yes/no fields, the extension will auto-select "yes/agree" if you leave it blank
+    <section id="profile-panel" class="tab-panel active">
+      <!-- Personal Info -->
+      <article class="card">
+        <h2 class="card__title">👤 Personal Information</h2>
+        <div class="form-group">
+          <label class="form-label" for="firstName">First Name</label>
+          <input type="text" id="firstName" class="form-input" placeholder="John">
         </div>
-        <input id="gender" class="form-input" placeholder="Gender (male/female/other)">
-        <input id="newsletter" class="form-input" placeholder="Newsletter: true/false" style="margin-top: 10px;">
-        <input id="remoteWork" class="form-input" placeholder="Remote Preference: remote/hybrid/onsite" style="margin-top: 10px;">
-        <input id="terms" class="form-input" placeholder="Terms: true/false" style="margin-top: 10px;">
-        <button id="save-profile-btn" class="btn btn-success">💾 Save Profile</button>
-      </div>
+        <div class="form-group">
+          <label class="form-label" for="lastName">Last Name</label>
+          <input type="text" id="lastName" class="form-input" placeholder="Doe">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="email">Email Address</label>
+          <input type="email" id="email" class="form-input" placeholder="john@example.com">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="phone">Phone Number</label>
+          <input type="tel" id="phone" class="form-input" placeholder="+1 (555) 123-4567">
+        </div>
+      </article>
+
+      <!-- Address -->
+      <article class="card">
+        <h2 class="card__title">📍 Address</h2>
+        <div class="form-group">
+          <label class="form-label" for="address">Street Address</label>
+          <input type="text" id="address" class="form-input" placeholder="123 Main St">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="city">City</label>
+          <input type="text" id="city" class="form-input" placeholder="New York">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="state">State/Province</label>
+          <input type="text" id="state" class="form-input" placeholder="NY">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="zipCode">ZIP/Postal Code</label>
+          <input type="text" id="zipCode" class="form-input" placeholder="10001">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="country">Country</label>
+          <input type="text" id="country" class="form-input" placeholder="United States">
+        </div>
+      </article>
+
+      <!-- Professional -->
+      <article class="card">
+        <h2 class="card__title">💼 Professional Information</h2>
+        <div class="form-group">
+          <label class="form-label" for="company">Current Company</label>
+          <input type="text" id="company" class="form-input" placeholder="Tech Corp Inc.">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="jobTitle">Job Title</label>
+          <input type="text" id="jobTitle" class="form-input" placeholder="Senior Developer">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="website">Website</label>
+          <input type="url" id="website" class="form-input" placeholder="https://example.com">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="linkedin">LinkedIn Profile</label>
+          <input type="url" id="linkedin" class="form-input" placeholder="https://linkedin.com/in/username">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="github">GitHub Profile</label>
+          <input type="url" id="github" class="form-input" placeholder="https://github.com/username">
+        </div>
+      </article>
+
+      <!-- Employment Details -->
+      <article class="card">
+        <h2 class="card__title">📋 Employment Details</h2>
+        <div class="form-group">
+          <label class="form-label" for="experience">Years of Experience</label>
+          <input type="text" id="experience" class="form-input" placeholder="5">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="education">Highest Education</label>
+          <input type="text" id="education" class="form-input" placeholder="Bachelor's Degree">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="skills">Key Skills</label>
+          <input type="text" id="skills" class="form-input" placeholder="JavaScript, React, Node.js">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="salary">Salary Expectation</label>
+          <input type="text" id="salary" class="form-input" placeholder="$100,000">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="notice">Notice Period</label>
+          <input type="text" id="notice" class="form-input" placeholder="30 days">
+        </div>
+      </article>
+
+      <!-- Selection Fields -->
+      <article class="card">
+        <h2 class="card__title">🔧 Selection & Boolean Fields</h2>
+        <div class="info-box">
+          <div class="info-box__title">💡 Pro Tips</div>
+          <div>• For required yes/no fields, leave blank to auto-select "yes"</div>
+          <div>• Terms checkboxes marked with * will auto-check</div>
+          <div>• Enter exact dropdown text or true/false for checkboxes</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="gender">Gender (for radio buttons)</label>
+          <input type="text" id="gender" class="form-input" placeholder="e.g. male, female, or other">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="newsletter">Subscribe to Newsletter</label>
+          <input type="text" id="newsletter" class="form-input" placeholder="Enter: true or false">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="remoteWork">Remote Work Preference</label>
+          <input type="text" id="remoteWork" class="form-input" placeholder="e.g. remote, hybrid, or onsite">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="terms">Agree to Terms & Conditions</label>
+          <input type="text" id="terms" class="form-input" placeholder="Enter: true to auto-check">
+        </div>
+        <button type="button" id="save-profile-btn" class="btn btn--success">
+          💾 Save All Profile Data
+        </button>
+      </article>
     </section>
 
-    <!-- CV Panel -->
-    <section id="cv-panel" class="panel">
-      <div class="card">
-        <h2>📄 CV Upload</h2>
-        <label class="file-upload">
-          <input type="file" id="cv-file-input" accept=".pdf,.doc,.docx,.txt" style="display: none;">
-          📤 Click to Upload CV (PDF/DOC/TXT)
-        </label>
-        <p id="cv-status" style="margin-top: 10px; font-size: 13px;">No CV stored</p>
-        <button id="extract-cv-btn" class="btn btn-primary">🔍 Extract Data from CV</button>
-        <button id="preview-cv-btn" class="btn btn-primary">👁️ Preview CV</button>
-      </div>
+    <!-- CV Tools Panel -->
+    <section id="cv-panel" class="tab-panel">
+      <article class="card">
+        <h2 class="card__title">📄 CV Upload & Management</h2>
+        <div class="form-group">
+          <label class="file-upload" for="cv-file-input">
+            📤 Click to Upload CV (PDF/DOC/DOCX/TXT)
+          </label>
+          <input type="file" id="cv-file-input" class="form-input" accept=".pdf,.doc,.docx,.txt" style="display: none;">
+        </div>
+        <p id="cv-status" class="file-status">No CV stored</p>
+        <button type="button" id="preview-cv-btn" class="btn btn--secondary">
+          👁️ Preview CV
+        </button>
+        <button type="button" id="extract-cv-btn" class="btn btn--primary">
+          🔍 Extract Data from CV
+        </button>
+      </article>
 
-      <div class="card">
-        <h2>🛠️ Advanced Tools</h2>
-        <button id="extract-browser-btn" class="btn btn-primary">🌐 Extract from Current Page</button>
-        <button id="reset-all-btn" class="btn btn-danger">🗑️ Reset All Data</button>
-      </div>
+      <article class="card">
+        <h2 class="card__title">🛠️ Advanced Tools</h2>
+        <button type="button" id="extract-browser-btn" class="btn btn--secondary">
+          🌐 Extract Data from Current Page
+        </button>
+        <button type="button" id="reset-all-btn" class="btn btn--danger">
+          🗑️ Reset All Data & Settings
+        </button>
+        <div class="info-box" style="margin-top: 16px;">
+          <strong>⌨️ Quick Fill:</strong> Ctrl+Shift+F (Windows) / Cmd+Shift+F (Mac)
+        </div>
+      </article>
     </section>
 
     <!-- Settings Panel -->
-    <section id="settings-panel" class="panel">
-      <div class="card">
-        <h2>⚙️ Extension Settings</h2>
-        <label class="form-group">
-          <input type="checkbox" id="highlight-fields-toggle" checked> Highlight Filled Fields
-        </label>
-        <label class="form-group">
-          <input type="checkbox" id="show-notifications-toggle" checked> Show Notifications
-        </label>
-        <label class="form-group">
-          <input type="checkbox" id="auto-submit-toggle"> Auto-Submit Forms
-        </label>
-        <button id="save-settings-btn" class="btn btn-primary">💾 Save Settings</button>
-      </div>
+    <section id="settings-panel" class="tab-panel">
+      <article class="card">
+        <h2 class="card__title">⚙️ Extension Settings</h2>
+        <div class="form-group">
+          <label style="display: flex; align-items: center; gap: 10px;">
+            <input type="checkbox" id="highlight-fields-toggle" checked>
+            <span>Highlight Filled Fields</span>
+          </label>
+        </div>
+        <div class="form-group">
+          <label style="display: flex; align-items: center; gap: 10px;">
+            <input type="checkbox" id="show-notifications-toggle" checked>
+            <span>Show Notifications</span>
+          </label>
+        </div>
+        <div class="form-group">
+          <label style="display: flex; align-items: center; gap: 10px;">
+            <input type="checkbox" id="auto-submit-toggle">
+            <span>Auto-Submit Forms</span>
+          </label>
+        </div>
+        <button type="button" id="save-settings-btn" class="btn btn--primary">
+          💾 Save Settings
+        </button>
+      </article>
 
-      <div class="card">
-        <h2>📊 Usage Statistics</h2>
-        <p>Forms Filled: <span id="forms-filled">0</span></p>
-        <p>Fields Filled: <span id="fields-filled">0</span></p>
-        <p>Last Used: <span id="last-used">Never</span></p>
+      <article class="card">
+        <h2 class="card__title">📊 Usage Statistics</h2>
+      <div class="usage-stats">
+        <div>Forms Filled: <strong id="forms-filled">0</strong></div>
+        <div>Fields Filled: <strong id="fields-filled">0</strong></div>
+        <div>Last Used: <strong id="last-used">Never</strong></div>
       </div>
+      </article>
     </section>
   </main>
 
-  <script src="config.js"></script>
+  <!-- Load Scripts -->
   <script src="popup.js"></script>
 </body>
 </html>
