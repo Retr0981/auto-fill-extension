@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "AutoFill Pro",
-  "version": "5.2",
-  "description": "Intelligent AI form filler that handles all field types - text, dropdowns, radios, checkboxes & CV uploads",
+  "version": "6.0",
+  "description": "Intelligent AI form filler with automatic required field handling and smart dropdown selection",
   
   "permissions": [
     "storage",
@@ -20,7 +20,7 @@
   
   "content_scripts": [{
     "matches": ["<all_urls>"],
-    "js": ["content.js"],
+    "js": ["config.js", "content.js"],
     "css": ["content.css"],
     "run_at": "document_idle",
     "match_about_blank": true
@@ -34,7 +34,7 @@
   "commands": {
     "smart-fill": {
       "suggested_key": "Ctrl+Shift+F",
-      "description": "Fill current form with saved profile & CV data"
+      "description": "Fill all forms with intelligent required field detection"
     }
   },
   
