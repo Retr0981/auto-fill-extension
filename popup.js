@@ -1,4 +1,4 @@
-// AutoFill Pro Popup Script - Fixed Version
+// AutoFill Pro Popup Script - Complete Fixed Version
 console.log('🎯 AutoFill Pro Popup initializing...');
 
 // Global variables
@@ -53,9 +53,197 @@ async function loadAllData() {
   }
 }
 
-// === [Previous functions remain unchanged: createDefaultProfile, createDefaultSettings, createDefaultStats, populateProfileForm, populateSettingsForm, initTabs, bindAllEvents] ===
+// Create default profile
+function createDefaultProfile() {
+  return {
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    address: '',
+    city: '',
+    state: '',
+    zipCode: '',
+    country: '',
+    company: '',
+    jobTitle: '',
+    website: '',
+    linkedin: '',
+    github: '',
+    experience: '',
+    education: '',
+    skills: '',
+    salary: '',
+    notice: '',
+    gender: '',
+    newsletter: '',
+    remoteWork: '',
+    terms: ''
+  };
+}
 
-// Handle Smart Fill - FIXED VERSION
+// Create default settings
+function createDefaultSettings() {
+  return {
+    autoFill: true,
+    highlightFields: true,
+    showNotifications: true,
+    autoSubmit: false,
+    keyboardShortcut: true
+  };
+}
+
+// Create default stats
+function createDefaultStats() {
+  return {
+    formsFilled: 0,
+    fieldsFilled: 0,
+    lastUsed: null,
+    totalUsageTime: 0,
+    favoriteSites: []
+  };
+}
+
+// Populate profile form
+function populateProfileForm() {
+  Object.keys(currentProfile).forEach(key => {
+    const element = document.getElementById(key);
+    if (element) {
+      element.value = currentProfile[key] || '';
+    }
+  });
+}
+
+// Populate settings form
+function populateSettingsForm() {
+  const settingsMap = {
+    'auto-fill-toggle': 'autoFill',
+    'highlight-fields-toggle': 'highlightFields',
+    'show-notifications-toggle': 'showNotifications'
+  };
+  
+  // Add auto-submit if element exists
+  if (document.getElementById('auto-submit-toggle')) {
+    settingsMap['auto-submit-toggle'] = 'autoSubmit';
+  }
+  
+  Object.entries(settingsMap).forEach(([elementId, settingKey]) => {
+    const element = document.getElementById(elementId);
+    if (element) {
+      element.checked = settings[settingKey] || false;
+    }
+  });
+}
+
+// Initialize tabs
+function initTabs() {
+  const tabButtons = document.querySelectorAll('.tab-button');
+  const tabPanels = document.querySelectorAll('.tab-panel');
+  
+  tabButtons.forEach(button => {
+    button.addEventListener('click', (e) => {
+      e.preventDefault();
+      const target = button.getAttribute('data-target');
+      
+      // Update button states
+      tabButtons.forEach(btn => {
+        btn.setAttribute('aria-selected', 'false');
+        btn.classList.remove('active');
+      });
+      button.setAttribute('aria-selected', 'true');
+      button.classList.add('active');
+      
+      // Show target panel
+      tabPanels.forEach(panel => {
+        panel.setAttribute('aria-hidden', 'true');
+        panel.style.display = 'none';
+      });
+      
+      const targetPanel = document.getElementById(target);
+      if (targetPanel) {
+        targetPanel.setAttribute('aria-hidden', 'false');
+        targetPanel.style.display = 'block';
+      }
+    });
+  });
+}
+
+// Bind all events
+function bindAllEvents() {
+  // Smart Fill button
+  const smartFillBtn = document.getElementById('smart-fill-btn');
+  if (smartFillBtn) {
+    smartFillBtn.addEventListener('click', handleSmartFill);
+  }
+  
+  // Save Profile button
+  const saveProfileBtn = document.getElementById('save-profile-btn');
+  if (saveProfileBtn) {
+    saveProfileBtn.addEventListener('click', saveProfile);
+  }
+  
+  // CV Upload
+  const cvFileInput = document.getElementById('cv-file-input');
+  if (cvFileInput) {
+    cvFileInput.addEventListener('change', handleCVUpload);
+  }
+  
+  // Preview CV button
+  const previewCvBtn = document.getElementById('preview-cv-btn');
+  if (previewCvBtn) {
+    previewCvBtn.addEventListener('click', previewCV);
+  }
+  
+  // Extract CV button
+  const extractCvBtn = document.getElementById('extract-cv-btn');
+  if (extractCvBtn) {
+    extractCvBtn.addEventListener('click', extractCVData);
+  }
+  
+  // Extract from Browser button
+  const extractBrowserBtn = document.getElementById('extract-browser-btn');
+  if (extractBrowserBtn) {
+    extractBrowserBtn.addEventListener('click', extractFromBrowser);
+  }
+  
+  // Reset All button
+  const resetAllBtn = document.getElementById('reset-all-btn');
+  if (resetAllBtn) {
+    resetAllBtn.addEventListener('click', resetAllData);
+  }
+  
+  // Save Settings button
+  const saveSettingsBtn = document.getElementById('save-settings-btn');
+  if (saveSettingsBtn) {
+    saveSettingsBtn.addEventListener('click', saveSettings);
+  }
+  
+  // Profile form auto-save indicator
+  const formElements = document.querySelectorAll('#profile-form input, #profile-form textarea, #profile-form select');
+  formElements.forEach(element => {
+    element.addEventListener('input', () => {
+      const saveBtn = document.getElementById('save-profile-btn');
+      if (saveBtn) {
+        saveBtn.classList.add('btn--pulse');
+        saveBtn.innerHTML = '💾 Save Profile (Unsaved Changes)';
+      }
+    });
+  });
+  
+  // Settings toggle changes
+  const settingToggles = document.querySelectorAll('input[type="checkbox"]');
+  settingToggles.forEach(toggle => {
+    toggle.addEventListener('change', () => {
+      const saveBtn = document.getElementById('save-settings-btn');
+      if (saveBtn) {
+        saveBtn.classList.add('btn--pulse');
+        saveBtn.innerHTML = '💾 Save Settings (Unsaved Changes)';
+      }
+    });
+  });
+}
+
+// Handle Smart Fill
 async function handleSmartFill() {
   console.log('🚀 Smart Fill initiated');
   
@@ -114,7 +302,7 @@ async function handleSmartFill() {
     if (!isScriptInjected) {
       showStatus('🔄 Injecting content script...', 'loading');
       await injectContentScript();
-      await new Promise(resolve => setTimeout(resolve, 800)); // Wait for script to initialize
+      await new Promise(resolve => setTimeout(resolve, 800));
     }
     
     // Send fill command with retries
@@ -126,12 +314,12 @@ async function handleSmartFill() {
           settings: settings,
           source: 'popup'
         });
-        break; // Success!
+        break;
       } catch (error) {
         retryCount++;
         if (error.message.includes('receiving end does not exist') && retryCount < maxRetries) {
           showStatus(`🔄 Retrying connection (attempt ${retryCount})...`, 'loading');
-          await new Promise(resolve => setTimeout(resolve, 500 * retryCount)); // Exponential backoff
+          await new Promise(resolve => setTimeout(resolve, 500 * retryCount));
         } else {
           throw new Error(`Failed to communicate with page: ${error.message}`);
         }
@@ -167,10 +355,9 @@ async function handleSmartFill() {
   }
 }
 
-// Inject content script - FIXED
+// Inject content script
 async function injectContentScript() {
   try {
-    // Inject both JS and CSS
     await chrome.scripting.executeScript({
       target: { tabId: currentTab.id },
       files: ['content.js']
@@ -188,8 +375,6 @@ async function injectContentScript() {
   }
 }
 
-
-// Save profile, handleCVUpload, previewCV, extractCVData, extractFromBrowser, resetAllData, saveSettings, autoSubmitForm, updateFormWithExtractedData, updateUsageStatsAfterFill, updateAllUI, updateStatusIndicator, updateCVStatus, updateUsageStats, checkPageForms, showStatus, resetButton, formatKey, validateProfile
 // Save profile
 async function saveProfile() {
   const button = document.getElementById('save-profile-btn');
@@ -201,7 +386,6 @@ async function saveProfile() {
   showStatus('💾 Saving profile...', 'loading');
   
   try {
-    // Collect all profile data
     const profile = {};
     const fields = [
       'firstName', 'lastName', 'email', 'phone', 'address', 'city', 'state',
@@ -217,7 +401,6 @@ async function saveProfile() {
       }
     });
     
-    // Validate profile
     const errors = validateProfile(profile);
     if (errors.length > 0) {
       showStatus(`❌ ${errors.join(', ')}`, 'error');
@@ -226,16 +409,12 @@ async function saveProfile() {
       return;
     }
     
-    // Save to storage
     await chrome.storage.local.set({ profile });
     currentProfile = profile;
     
-    // Update UI
     updateStatusIndicator();
-    
     showStatus('✅ Profile saved successfully!', 'success');
     
-    // Reset button
     button.innerHTML = '💾 Profile Saved!';
     button.classList.remove('btn--pulse');
     
@@ -251,12 +430,12 @@ async function saveProfile() {
     button.disabled = false;
   }
 }
+
 // Handle CV upload
 async function handleCVUpload(event) {
   const file = event.target.files[0];
   if (!file) return;
   
-  // Validate file type
   const validTypes = [
     'application/pdf',
     'application/msword',
@@ -272,7 +451,6 @@ async function handleCVUpload(event) {
     return;
   }
   
-  // Check file size (max 10MB)
   if (file.size > 10 * 1024 * 1024) {
     showStatus('❌ File too large. Maximum size is 10MB.', 'error');
     return;
@@ -281,7 +459,6 @@ async function handleCVUpload(event) {
   showStatus('📤 Uploading CV...', 'loading');
   
   try {
-    // Convert file to base64
     const base64Data = await readFileAsBase64(file);
     
     cvFile = {
@@ -293,12 +470,8 @@ async function handleCVUpload(event) {
       uploadedAt: new Date().toISOString()
     };
     
-    // Save to storage
     await chrome.storage.local.set({ cvFile });
-    
-    // Update UI
     updateCVStatus();
-    
     showStatus(`✅ CV uploaded: ${file.name}`, 'success');
     
   } catch (error) {
@@ -327,7 +500,6 @@ async function previewCV() {
     
     showStatus('👁️ Opening CV preview...', 'loading');
     
-    // Create preview window
     const previewWindow = window.open('', '_blank');
     
     const previewHTML = `
@@ -416,17 +588,12 @@ async function extractCVData() {
     
     showStatus('🔍 Extracting data from CV...', 'loading');
     
-    // Decode base64 data
     const base64Content = cvFile.data.split(',')[1];
     const textContent = atob(base64Content);
     
-    // Extract data using patterns
     const extractedData = extractDataFromText(textContent);
-    
-    // Update form fields with extracted data
     updateFormWithExtractedData(extractedData);
     
-    // Show extracted data in container
     const container = document.getElementById('extracted-data-container');
     if (container) {
       let html = '<h3 style="margin-bottom: 10px;">Extracted Data:</h3>';
@@ -452,16 +619,13 @@ async function extractCVData() {
 function extractDataFromText(text) {
   const extracted = {};
   
-  // Email
   const emailMatch = text.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/);
   if (emailMatch) extracted.email = emailMatch[0];
   
-  // Phone (multiple formats)
   const phoneRegex = /(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b/g;
   const phoneMatches = text.match(phoneRegex);
   if (phoneMatches) extracted.phone = phoneMatches[0];
   
-  // Name (simple pattern)
   const nameRegex = /^([A-Z][a-z]+)\s+([A-Z][a-z]+)/m;
   const nameMatch = text.match(nameRegex);
   if (nameMatch) {
@@ -469,15 +633,12 @@ function extractDataFromText(text) {
     extracted.lastName = nameMatch[2];
   }
   
-  // LinkedIn URL
   const linkedinMatch = text.match(/linkedin\.com\/in\/[A-Za-z0-9-]+/i);
   if (linkedinMatch) extracted.linkedin = `https://${linkedinMatch[0]}`;
   
-  // GitHub URL
   const githubMatch = text.match(/github\.com\/[A-Za-z0-9-]+/i);
   if (githubMatch) extracted.github = `https://${githubMatch[0]}`;
   
-  // Skills (looking for common keywords)
   const skillKeywords = ['JavaScript', 'Python', 'React', 'Node.js', 'Java', 'C++', 'HTML', 'CSS', 'SQL', 'AWS'];
   const foundSkills = skillKeywords.filter(skill => text.includes(skill));
   if (foundSkills.length > 0) {
@@ -508,7 +669,6 @@ async function extractFromBrowser() {
         action: 'extractFromBrowser'
       });
     } catch (error) {
-      // Inject content script if not present
       if (error.message.includes('receiving end does not exist')) {
         await injectContentScript();
         await new Promise(resolve => setTimeout(resolve, 500));
@@ -522,10 +682,8 @@ async function extractFromBrowser() {
     }
     
     if (response?.data) {
-      // Update form fields
       updateFormWithExtractedData(response.data);
       
-      // Show in container
       const container = document.getElementById('extracted-data-container');
       if (container) {
         let html = '<h3 style="margin-bottom: 10px;">Data Extracted from Page:</h3>';
@@ -555,7 +713,6 @@ async function extractFromBrowser() {
 
 // Reset all data
 async function resetAllData() {
-  // Confirm with user
   if (!confirm('⚠️ Are you sure you want to reset ALL data?\n\nThis will:\n• Clear your profile\n• Remove uploaded CV\n• Reset settings\n• Clear usage statistics\n\nThis action cannot be undone!')) {
     return;
   }
@@ -569,16 +726,13 @@ async function resetAllData() {
   showStatus('🔄 Resetting all data...', 'loading');
   
   try {
-    // Clear storage
     await chrome.storage.local.clear();
     
-    // Reset local variables
     currentProfile = createDefaultProfile();
     settings = createDefaultSettings();
     usageStats = createDefaultStats();
     cvFile = null;
     
-    // Clear form fields
     const formElements = document.querySelectorAll('input, textarea, select');
     formElements.forEach(element => {
       if (element.type !== 'button' && element.type !== 'submit') {
@@ -586,22 +740,18 @@ async function resetAllData() {
       }
     });
     
-    // Reset checkboxes
     const checkboxes = document.querySelectorAll('input[type="checkbox"]');
     checkboxes.forEach(checkbox => {
-      checkbox.checked = true; // Default to checked
+      checkbox.checked = true;
     });
     
-    // Clear extracted data container
     const container = document.getElementById('extracted-data-container');
     if (container) {
       container.innerHTML = 'Extracted data will appear here...';
     }
     
-    // Update all UI
     updateAllUI();
     
-    // Save default data
     await chrome.storage.local.set({
       profile: currentProfile,
       settings: settings,
@@ -630,7 +780,6 @@ async function saveSettings() {
   showStatus('💾 Saving settings...', 'loading');
   
   try {
-    // Collect settings
     settings = {
       autoFill: document.getElementById('auto-fill-toggle').checked,
       highlightFields: document.getElementById('highlight-fields-toggle').checked,
@@ -639,10 +788,8 @@ async function saveSettings() {
       keyboardShortcut: true
     };
     
-    // Save to storage
     await chrome.storage.local.set({ settings });
     
-    // Update button
     button.innerHTML = '💾 Settings Saved!';
     button.classList.remove('btn--pulse');
     
@@ -671,7 +818,6 @@ async function autoSubmitForm() {
     showStatus('✅ Form submitted successfully', 'success');
   } catch (error) {
     console.warn('⚠️ Auto-submit failed:', error);
-    // Don't show error, as not all forms can be auto-submitted
   }
 }
 
@@ -682,7 +828,6 @@ function updateFormWithExtractedData(data) {
     if (element && value && !element.value.trim()) {
       element.value = value;
       
-      // Highlight changed field
       element.style.borderColor = '#4CAF50';
       element.style.boxShadow = '0 0 0 2px rgba(76, 175, 80, 0.2)';
       
@@ -693,7 +838,6 @@ function updateFormWithExtractedData(data) {
     }
   });
   
-  // Update save button
   const saveBtn = document.getElementById('save-profile-btn');
   if (saveBtn) {
     saveBtn.classList.add('btn--pulse');
@@ -707,7 +851,6 @@ async function updateUsageStatsAfterFill(fieldsFilled, formsFilled) {
   usageStats.formsFilled += (formsFilled || 1);
   usageStats.lastUsed = new Date().toISOString();
   
-  // Add to favorite sites if not already there
   if (currentTab?.url) {
     const domain = new URL(currentTab.url).hostname;
     const existingSite = usageStats.favoriteSites.find(site => site.domain === domain);
@@ -723,16 +866,11 @@ async function updateUsageStatsAfterFill(fieldsFilled, formsFilled) {
       });
     }
     
-    // Sort by count
     usageStats.favoriteSites.sort((a, b) => b.count - a.count);
-    // Keep only top 5
     usageStats.favoriteSites = usageStats.favoriteSites.slice(0, 5);
   }
   
-  // Save to storage
   await chrome.storage.local.set({ usageStats });
-  
-  // Update UI
   updateUsageStats();
 }
 
@@ -815,7 +953,6 @@ async function checkPageForms() {
     try {
       response = await chrome.tabs.sendMessage(currentTab.id, { action: 'ping' });
     } catch (error) {
-      // Content script not injected
       return;
     }
     
@@ -835,7 +972,7 @@ async function checkPageForms() {
       }
     }
   } catch (error) {
-    // Silently fail, as content script might not be injected
+    // Silently fail
   }
 }
 
@@ -864,7 +1001,6 @@ function showStatus(message, type = 'info') {
       statusEl.classList.add('status-indicator--info');
   }
   
-  // Auto-hide success messages after 3 seconds
   if (type === 'success') {
     setTimeout(() => {
       if (statusEl.textContent === message) {
