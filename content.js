@@ -7,6 +7,7 @@ const CONFIG = {
   autoSelectOptions: true,
   highlightFilled: true,
   showNotifications: true,
+  prioritizeRequired: true,  
   notificationDuration: 3000,
   fieldCheckInterval: 1000,
   maxRetryAttempts: 3,
