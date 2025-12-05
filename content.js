@@ -1,4 +1,4 @@
-// AutoFill Pro Content Script - Enhanced Selection Logic
+// AutoFill Pro Content Script - Enhanced Automatic Selection
 console.log('🎯 AutoFill Pro Content Script loaded');
 
 // Configuration
@@ -10,29 +10,95 @@ const CONFIG = {
   notificationDuration: 3000,
   fieldCheckInterval: 1000,
   maxRetryAttempts: 3,
-  // NEW: Value mappings for intelligent selection
+  // NEW: Enhanced value mappings
   valueMappings: {
+    // Gender options
     gender: {
-      male: ['male', 'm', 'man', 'boy', 'male/man', 'he/him'],
-      female: ['female', 'f', 'woman', 'girl', 'female/woman', 'she/her'],
-      other: ['other', 'non-binary', 'non binary', 'prefer not to say', 'prefer-not-to-say', 'they/them']
+      male: ['male', 'm', 'man', 'boy', 'male/man', 'he/him', 'mr', 'sir', 'gentleman'],
+      female: ['female', 'f', 'woman', 'girl', 'female/woman', 'she/her', 'mrs', 'ms', 'miss', 'lady'],
+      other: ['other', 'non-binary', 'non binary', 'prefer not to say', 'prefer-not-to-say', 'they/them', 'prefer not to answer', 'decline to answer']
     },
-    newsletter: {
-      true: ['yes', 'subscribe', 'opt-in', 'opt in', 'send me updates', 'i want to receive', 'sign me up'],
-      false: ['no', 'unsubscribe', 'opt-out', 'opt out', 'do not send', 'stop']
-    },
-    terms: {
-      true: ['agree', 'accept', 'i agree', 'i accept', 'terms and conditions', 'privacy policy', 'i have read', 'i understand'],
-      false: ['decline', 'reject', 'disagree', 'i disagree']
-    },
-    remoteWork: {
-      remote: ['remote', 'work from home', 'wfh', 'fully remote', '100% remote'],
-      hybrid: ['hybrid', 'mixed', 'hybrid work', 'partial remote'],
-      onsite: ['onsite', 'on-site', 'office', 'in-office', 'on site', 'in office']
-    },
+    
+    // Boolean/Terms
     boolean: {
-      true: ['true', 'yes', 'y', '1', 'on', 'checked', 'agree', 'accept', 'ok', 'enable'],
-      false: ['false', 'no', 'n', '0', 'off', 'unchecked', 'decline', 'disable']
+      true: ['true', 'yes', 'y', '1', 'on', 'checked', 'agree', 'accept', 'ok', 'enable', 'i agree', 'i accept', 'subscribe', 'opt-in', 'opt in'],
+      false: ['false', 'no', 'n', '0', 'off', 'unchecked', 'decline', 'disable', 'i disagree', 'unsubscribe', 'opt-out', 'opt out']
+    },
+    
+    // Work location
+    remoteWork: {
+      remote: ['remote', 'work from home', 'wfh', 'fully remote', '100% remote', 'home office', 'telecommute'],
+      hybrid: ['hybrid', 'mixed', 'hybrid work', 'partial remote', 'flexible', 'hybrid-remote', 'some remote'],
+      onsite: ['onsite', 'on-site', 'office', 'in-office', 'on site', 'in office', 'in-person', 'on location', 'in person']
+    },
+    
+    // Countries (expanded)
+    country: {
+      'united states': ['usa', 'us', 'united states', 'united states of america', 'america', 'u.s.', 'u.s.a.', 'united states of america (usa)'],
+      'canada': ['canada', 'ca', 'can'],
+      'united kingdom': ['uk', 'united kingdom', 'great britain', 'gb', 'england', 'scotland', 'wales', 'northern ireland', 'britain'],
+      'australia': ['australia', 'au', 'aus'],
+      'germany': ['germany', 'de', 'deutschland', 'deu'],
+      'france': ['france', 'fr', 'fra'],
+      'italy': ['italy', 'it', 'ita'],
+      'spain': ['spain', 'es', 'esp'],
+      'japan': ['japan', 'jp', 'jpn'],
+      'china': ['china', 'cn', 'chn'],
+      'india': ['india', 'in', 'ind']
+    },
+    
+    // US States (expanded)
+    state: {
+      'alabama': ['al', 'alabama', 'ala'],
+      'alaska': ['ak', 'alaska'],
+      'arizona': ['az', 'arizona', 'ariz'],
+      'arkansas': ['ar', 'arkansas', 'ark'],
+      'california': ['ca', 'california', 'calif', 'cal'],
+      'colorado': ['co', 'colorado', 'colo'],
+      'connecticut': ['ct', 'connecticut', 'conn'],
+      'delaware': ['de', 'delaware', 'del'],
+      'florida': ['fl', 'florida', 'fla'],
+      'georgia': ['ga', 'georgia', 'ga.'],
+      'hawaii': ['hi', 'hawaii'],
+      'idaho': ['id', 'idaho'],
+      'illinois': ['il', 'illinois', 'ill', 'ill.'],
+      'indiana': ['in', 'indiana', 'ind'],
+      'iowa': ['ia', 'iowa'],
+      'kansas': ['ks', 'kansas', 'kan'],
+      'kentucky': ['ky', 'kentucky', 'kent', 'ken'],
+      'louisiana': ['la', 'louisiana'],
+      'maine': ['me', 'maine'],
+      'maryland': ['md', 'maryland', 'md.'],
+      'massachusetts': ['ma', 'massachusetts', 'mass'],
+      'michigan': ['mi', 'michigan', 'mich'],
+      'minnesota': ['mn', 'minnesota', 'minn'],
+      'mississippi': ['ms', 'mississippi', 'miss'],
+      'missouri': ['mo', 'missouri'],
+      'montana': ['mt', 'montana', 'mont'],
+      'nebraska': ['ne', 'nebraska', 'neb', 'nebr'],
+      'nevada': ['nv', 'nevada', 'nev'],
+      'new hampshire': ['nh', 'new hampshire', 'n.h.'],
+      'new jersey': ['nj', 'new jersey', 'n.j.'],
+      'new mexico': ['nm', 'new mexico', 'n.m.'],
+      'new york': ['ny', 'new york', 'n.y.'],
+      'north carolina': ['nc', 'north carolina', 'n.c.'],
+      'north dakota': ['nd', 'north dakota', 'n.d.'],
+      'ohio': ['oh', 'ohio'],
+      'oklahoma': ['ok', 'oklahoma', 'okla'],
+      'oregon': ['or', 'oregon', 'ore', 'oreg'],
+      'pennsylvania': ['pa', 'pennsylvania', 'penn', 'pa.'],
+      'rhode island': ['ri', 'rhode island', 'r.i.'],
+      'south carolina': ['sc', 'south carolina', 's.c.'],
+      'south dakota': ['sd', 'south dakota', 's.d.'],
+      'tennessee': ['tn', 'tennessee', 'tenn'],
+      'texas': ['tx', 'texas', 'tex', 'tex.'],
+      'utah': ['ut', 'utah'],
+      'vermont': ['vt', 'vermont', 'vt.'],
+      'virginia': ['va', 'virginia', 'va.'],
+      'washington': ['wa', 'washington', 'wash'],
+      'west virginia': ['wv', 'west virginia', 'w.v.'],
+      'wisconsin': ['wi', 'wisconsin', 'wis', 'wisc'],
+      'wyoming': ['wy', 'wyoming', 'wyo']
     }
   }
 };
@@ -51,55 +117,38 @@ let state = {
 // === IMPORT FIELD_ALIASES FROM CONFIG ===
 const FIELD_ALIASES = {
   // Personal Information
-  firstName: [
-    'firstName', 'first_name', 'firstname', 'fname', 'givenName', 'given_name',
-    'forename', 'user.firstName', 'customer.firstName', 'applicant.firstName',
-    'candidate.firstName', 'first', 'fn', 'given', 'fName', 'firstName1',
-    'firstname1', 'name_first'
+  firstName: ['firstName', 'first_name', 'firstname', 'fname', 'givenName', 'given_name', 'forename', 'user.firstName', 'customer.firstName', 'applicant.firstName', 'candidate.firstName', 'first', 'fn', 'given', 'fName', 'firstName1', 'firstname1', 'name_first'],
+  lastName: ['lastName', 'last_name', 'lastname', 'lname', 'surname', 'familyName', 'family_name', 'user.lastName', 'customer.lastName', 'applicant.lastName', 'candidate.lastName', 'last', 'ln', 'family', 'lName', 'lastname1', 'name_last'],
+  fullName: ['fullName', 'full_name', 'fullname', 'name', 'completeName', 'user.name', 'customer.name', 'applicant.name', 'candidate.name', 'person.name', 'displayName', 'display_name'],
+  email: ['email', 'e-mail', 'emailAddress', 'email_address', 'e_mail', 'mail', 'e mail', 'emailaddress', 'contact', 'contactEmail', 'candidate.email', 'applicant.email', 'user.email', 'person.email', 'contact_email', 'emailAddr', 'mailAddress', 'email_address', 'e-mailAddress', 'email_addr'],
+  phone: ['phone', 'phoneNumber', 'phone_number', 'telephone', 'mobile', 'cell', 'cellphone', 'phonenumber', 'tel', 'contact', 'contactNumber', 'candidate.phone', 'applicant.phone', 'user.phone', 'person.phone', 'contact_phone', 'phone_no', 'telephone_no', 'mobileNumber', 'phoneNumber1', 'telephoneNumber', 'mobilePhone', 'cellPhone'],
+  address: ['address', 'streetAddress', 'street_address', 'addressLine1', 'address1', 'line1', 'street', 'location', 'mailingAddress', 'residentialAddress', 'homeAddress', 'workAddress', 'address_line1', 'addr1', 'streetAddr', 'streetaddress', 'addrLine1', 'street_address1'],
+  city: ['city', 'town', 'cityName', 'locality', 'addressCity', 'homeCity', 'workCity', 'city_name', 'locationCity', 'address_city', 'cityTown', 'city_town', 'address_city', 'locality_city'],
+  
+  // === ENHANCED: State/Province/County with broader matching ===
+  state: [
+    'state', 'province', 'region', 'stateProvince', 'addressState', 'homeState',
+    'workState', 'state_name', 'regionState', 'address_state', 'stateProv',
+    'provState', 'state_province', 'region_state', 'provincia', 'county',
+    'department', 'prefecture', 'territory', 'division', 'district', 'zone'
   ],
-  lastName: [
-    'lastName', 'last_name', 'lastname', 'lname', 'surname', 'familyName',
-    'family_name', 'user.lastName', 'customer.lastName', 'applicant.lastName',
-    'candidate.lastName', 'last', 'ln', 'family', 'lName', 'lastname1', 'name_last'
-  ],
-  fullName: [
-    'fullName', 'full_name', 'fullname', 'completeName', 'displayName',
-    'user.name', 'customer.name', 'applicant.name', 'candidate.name',
-    'person.name', 'display_name'
-  ],
-  email: [
-    'email', 'e-mail', 'emailAddress', 'email_address', 'e_mail', 'mail',
-    'e mail', 'emailaddress', 'contactEmail', 'candidate.email', 'applicant.email',
-    'user.email', 'person.email', 'contact_email', 'emailAddr', 'mailAddress',
-    'e-mailAddress', 'email_addr'
-  ],
-  phone: [
-    'phone', 'phoneNumber', 'phone_number', 'telephone', 'mobile', 'cell',
-    'cellphone', 'phonenumber', 'tel', 'contactNumber', 'candidate.phone',
-    'applicant.phone', 'user.phone', 'person.phone', 'contact_phone', 'phone_no',
-    'telephone_no', 'mobileNumber', 'phoneNumber1', 'telephoneNumber', 'mobilePhone'
-  ],
-  // === ADDED MORE ALIASES FOR SELECTION FIELDS ===
-  gender: [
-    'gender', 'sex', 'gender_identity', 'genderIdentity', 'gender_id',
-    'user.gender', 'person.gender', 'applicant.gender', 'candidate.gender'
-  ],
-  newsletter: [
-    'newsletter', 'subscribe', 'subscription', 'notifications', 'updates',
-    'marketing', 'promotional', 'optin', 'opt_in'
-  ],
-  terms: [
-    'terms', 'conditions', 'agreement', 'privacy', 'policy', 'consent',
-    'acknowledge', 'confirm', 'termsAndConditions', 'privacyPolicy'
-  ],
-  remoteWork: [
-    'remoteWork', 'workType', 'workPreference', 'work_mode', 'workMode',
-    'locationType', 'work_location', 'remote_preference'
-  ]
-  // ... rest of your existing aliases ...
+  
+  zipCode: ['zip', 'zipCode', 'zipcode', 'postalCode', 'postal', 'postcode', 'addressZip', 'homeZip', 'workZip', 'zip_code', 'postal_code', 'address_zip', 'postCode', 'zipPostal', 'zip_postal', 'postalcode'],
+  country: ['country', 'countryName', 'nation', 'addressCountry', 'homeCountry', 'workCountry', 'country_name', 'nationality', 'country_nation', 'address_country', 'residenceCountry', 'residence_country', 'citizenship'],
+  
+  company: ['company', 'organization', 'employer', 'companyName', 'company_name', 'organizationName', 'currentCompany', 'employerName', 'companyName1', 'compName', 'orgName', 'employer_name', 'current_employer', 'currentCompany'],
+  jobTitle: ['jobTitle', 'job_title', 'position', 'title', 'role', 'occupation', 'jobPosition', 'jobRole', 'jobtitle', 'jobName', 'designation', 'currentTitle', 'current_position', 'professional_title', 'role_title'],
+  website: ['website', 'personalWebsite', 'portfolio', 'url', 'websiteUrl', 'webSite', 'site', 'personal_site', 'portfolio_url', 'website_url'],
+  linkedin: ['linkedin', 'linkedinProfile', 'linkedin_url', 'linkedinUrl', 'social.linkedin', 'linkedin_profile', 'linkedin_link'],
+  github: ['github', 'githubProfile', 'github_url', 'githubUrl', 'social.github', 'github_profile', 'github_link'],
+  experience: ['experience', 'workExperience', 'yearsExperience', 'totalExperience', 'professionalExperience', 'relevantExperience', 'years_experience', 'total_experience', 'work_experience'],
+  education: ['education', 'degree', 'qualification', 'highestEducation', 'educationalBackground', 'academicBackground', 'highest_degree', 'education_level'],
+  skills: ['skills', 'technicalSkills', 'competencies', 'expertise', 'abilities', 'proficiencies', 'technical_skills', 'key_skills', 'core_skills'],
+  salary: ['salary', 'salaryExpectation', 'expectedSalary', 'compensation', 'desiredSalary', 'salary_expectation', 'expected_salary', 'compensation_expectation'],
+  notice: ['noticePeriod', 'notice', 'availability', 'whenAvailable', 'notice_period', 'availability_date', 'start_date', 'joining_date']
 };
 
-// Main message handler - NO CHANGES NEEDED HERE
+// Main message handler
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log('📨 Content script received:', request.action);
   
@@ -150,17 +199,14 @@ async function handleSmartFill(profileData, settings, sendResponse) {
   try {
     console.log('🚀 Starting smart fill');
     
-    // Update config with settings
     if (settings) {
       CONFIG.highlightFilled = settings.highlightFields !== false;
       CONFIG.showNotifications = settings.showNotifications !== false;
     }
     
-    // Detect all forms on page
     const forms = detectAllForms();
     console.log(`📋 Detected ${forms.length} form(s)`);
     
-    // Fill each form
     const results = [];
     let totalFilled = 0;
     let totalFields = 0;
@@ -172,7 +218,6 @@ async function handleSmartFill(profileData, settings, sendResponse) {
       totalFields += result.total;
     }
     
-    // Fill standalone fields
     const standaloneResult = fillStandaloneFields(profileData);
     totalFilled += standaloneResult.filled;
     
@@ -318,7 +363,7 @@ function analyzeField(field) {
   const className = field.className || '';
   const autocomplete = field.getAttribute('autocomplete') || '';
   
-  // Get all text context
+  // Get comprehensive context
   const contextText = [
     name,
     placeholder,
@@ -355,9 +400,7 @@ function analyzeField(field) {
 
 // ENHANCED findBestMatch with better selection handling
 function findBestMatch(fieldInfo, profileData) {
-  if (!profileData || Object.keys(profileData).length === 0) {
-    return null;
-  }
+  if (!profileData || Object.keys(profileData).length === 0) return null;
   
   let bestMatch = null;
   let bestScore = 0;
@@ -371,11 +414,10 @@ function findBestMatch(fieldInfo, profileData) {
     fieldNameHint: 50,
     typeMatch: 30,
     minScoreThreshold: 20,
-    // LOWER threshold for selection fields
-    selectionFieldBonus: 10
+    selectionFieldBonus: 15 // NEW: Bonus for selection fields
   };
   
-  // Lower threshold for radio/checkbox/select
+  // Lower threshold for selection fields
   if (fieldInfo.isSelect || fieldInfo.isRadio || fieldInfo.isCheckbox) {
     weights.minScoreThreshold = 15;
   }
@@ -383,7 +425,7 @@ function findBestMatch(fieldInfo, profileData) {
   console.log(`🔍 Analyzing field: ${fieldInfo.name} (${fieldInfo.type})`);
   
   for (const [key, value] of Object.entries(profileData)) {
-    if (!value && value !== false) continue;
+    if (!value && value !== false && value !== 0) continue;
     
     let score = 0;
     const aliases = FIELD_ALIASES[key] || [key];
@@ -427,7 +469,7 @@ function findBestMatch(fieldInfo, profileData) {
       else if (contextWords.some(word => 
         word.includes(aliasLower) || aliasLower.includes(word)
       )) {
-        score = Math.max(score, weights.partialContextMatch + 5); // Bonus for word match
+        score = Math.max(score, weights.partialContextMatch + 5);
         debugMatches.push({key, alias, type: 'partialContext', score});
       }
     }
@@ -439,7 +481,7 @@ function findBestMatch(fieldInfo, profileData) {
     
     // NEW: Bonus for selection fields matching known keys
     if ((fieldInfo.isSelect || fieldInfo.isRadio || fieldInfo.isCheckbox) && 
-        ['gender', 'newsletter', 'terms', 'remoteWork'].includes(key)) {
+        ['gender', 'newsletter', 'terms', 'remoteWork', 'country', 'state'].includes(key)) {
       score += weights.selectionFieldBonus;
     }
     
@@ -449,7 +491,7 @@ function findBestMatch(fieldInfo, profileData) {
     }
   }
   
-  // Priority 5: Autocomplete attribute (fallback)
+  // Fallback to autocomplete attribute
   if (bestScore < weights.minScoreThreshold && fieldInfo.autocomplete) {
     const autocompleteMap = {
       'name': profileData.fullName,
@@ -474,7 +516,7 @@ function findBestMatch(fieldInfo, profileData) {
     }
   }
   
-  // NEW: Apply value mappings if it's a selection field
+  // Apply value mappings if it's a selection field
   if (bestMatch !== null && (fieldInfo.isSelect || fieldInfo.isRadio || fieldInfo.isCheckbox)) {
     const mappedValue = applyValueMapping(bestMatch, fieldInfo);
     if (mappedValue !== bestMatch) {
@@ -493,35 +535,50 @@ function findBestMatch(fieldInfo, profileData) {
   return bestScore >= weights.minScoreThreshold ? bestMatch : null;
 }
 
-// NEW: Apply value mappings for selection fields
+// NEW: Apply value mappings for intelligent selection
 function applyValueMapping(value, fieldInfo) {
   const context = fieldInfo.context;
   const stringValue = String(value).toLowerCase().trim();
   
-  // Check which mapping to use based on context
-  for (const [fieldKey, mappings] of Object.entries(CONFIG.valueMappings)) {
-    if (context.includes(fieldKey)) {
-      for (const [target, aliases] of Object.entries(mappings)) {
-        if (aliases.some(alias => stringValue.includes(alias) || alias.includes(stringValue))) {
-          return target;
-        }
-      }
-    }
+  // Determine which mapping to use based on context
+  let mappingKey = null;
+  
+  if (context.includes('gender') || context.includes('sex')) {
+    mappingKey = 'gender';
+  } else if (context.includes('newsletter') || context.includes('subscribe') || context.includes('marketing')) {
+    mappingKey = 'boolean';
+  } else if (context.includes('terms') || context.includes('conditions') || context.includes('privacy') || context.includes('agree')) {
+    mappingKey = 'boolean';
+  } else if (context.includes('remote') || context.includes('work type') || context.includes('location') || context.includes('work preference')) {
+    mappingKey = 'remoteWork';
+  } else if (context.includes('country') || context.includes('nation') || context.includes('nationality')) {
+    mappingKey = 'country';
+  } else if (context.includes('state') || context.includes('province') || context.includes('region') || context.includes('county') || context.includes('department')) {
+    mappingKey = 'state';
+  } else if (fieldInfo.isCheckbox) {
+    // Default boolean for unknown checkboxes
+    mappingKey = 'boolean';
   }
   
-  // Default boolean mapping for checkboxes
-  if (fieldInfo.isCheckbox) {
-    const truthy = CONFIG.valueMappings.boolean.true;
-    const falsey = CONFIG.valueMappings.boolean.false;
+  if (mappingKey && CONFIG.valueMappings[mappingKey]) {
+    const mappings = CONFIG.valueMappings[mappingKey];
     
-    if (truthy.some(t => stringValue.includes(t))) return 'true';
-    if (falsey.some(f => stringValue.includes(f))) return 'false';
+    // Find best match in the mapping
+    for (const [target, aliases] of Object.entries(mappings)) {
+      if (aliases.some(alias => stringValue.includes(alias) || alias.includes(stringValue))) {
+        // Return the canonical value for the target
+        if (mappingKey === 'boolean') {
+          return target === 'true';
+        }
+        return target;
+      }
+    }
   }
   
   return value;
 }
 
-// Fill field with value - ENHANCED
+// Fill field with value
 function fillFieldWithValue(field, value, fieldInfo) {
   try {
     let success = false;
@@ -537,23 +594,17 @@ function fillFieldWithValue(field, value, fieldInfo) {
         break;
         
       case 'radio':
-        // ENHANCED radio matching
         const radioGroup = document.querySelectorAll(`input[type="radio"][name="${field.name}"]`);
         const matchingRadio = findMatchingRadio(radioGroup, value);
         if (matchingRadio && !matchingRadio.checked) {
           matchingRadio.checked = true;
           success = true;
-          console.log(`✅ Selected radio: ${matchingRadio.value}`);
         }
         break;
         
       case 'select-one':
       case 'select-multiple':
-        // ENHANCED select handling
         success = selectOption(field, value);
-        if (success) {
-          console.log(`✅ Selected option: ${field.value}`);
-        }
         break;
         
       default:
@@ -581,46 +632,118 @@ function fillFieldWithValue(field, value, fieldInfo) {
   }
 }
 
-// ENHANCED selectOption with better matching
+// ENHANCED: Intelligent dropdown selection with fuzzy matching
 function selectOption(select, value) {
   const stringValue = String(value).toLowerCase().trim();
   const options = Array.from(select.options || []);
   
   if (options.length === 0) return false;
   
-  const matchScores = [];
-  
-  // Score each option
-  options.forEach(option => {
-    const optionText = option.text.toLowerCase().trim();
-    const optionValue = option.value.toLowerCase().trim();
+  // Try multiple matching strategies in order of preference
+  const matchStrategies = [
+    // 1. Exact match (value or text)
+    () => options.find(opt => opt.value.toLowerCase() === stringValue || opt.text.toLowerCase() === stringValue),
     
-    let score = 0;
+    // 2. Starts with match
+    () => options.find(opt => opt.value.toLowerCase().startsWith(stringValue) || opt.text.toLowerCase().startsWith(stringValue)),
     
-    // Exact matches get highest score
-    if (optionText === stringValue || optionValue === stringValue) score = 100;
-    // Starts with match
-    else if (optionText.startsWith(stringValue) || optionValue.startsWith(stringValue)) score = 80;
-    // Contains match
-    else if (optionText.includes(stringValue) || optionValue.includes(stringValue)) score = 60;
-    // Word match
-    else if (stringValue.split(/\W+/).some(word => optionText.includes(word))) score = 40;
+    // 3. Contains match
+    () => options.find(opt => opt.value.toLowerCase().includes(stringValue) || opt.text.toLowerCase().includes(stringValue)),
     
-    matchScores.push({ option, score });
-  });
+    // 4. Word match (split by spaces and check each word)
+    () => {
+      const valueWords = stringValue.split(/\W+/).filter(w => w.length > 2);
+      return options.find(opt => {
+        const optText = opt.text.toLowerCase();
+        return valueWords.some(word => optText.includes(word));
+      });
+    },
+    
+    // 5. Acronym match (e.g., "US" for "United States")
+    () => {
+      if (stringValue.length <= 3) {
+        return options.find(opt => {
+          const text = opt.text.toLowerCase();
+          // Check if stringValue is acronym of option text
+          const words = text.split(/\W+/);
+          const acronym = words.map(w => w[0]).join('');
+          return acronym === stringValue;
+        });
+      }
+      return null;
+    },
+    
+    // 6. Fuzzy match (Levenshtein distance for typos)
+    () => {
+      let bestMatch = null;
+      let bestScore = 0;
+      
+      options.forEach(opt => {
+        const score = calculateSimilarity(opt.text.toLowerCase(), stringValue);
+        if (score > bestScore && score > 0.7) { // 70% similarity threshold
+          bestScore = score;
+          bestMatch = opt;
+        }
+      });
+      
+      return bestMatch;
+    }
+  ];
   
-  // Find best match
-  const best = matchScores.reduce((best, current) => current.score > best.score ? current : best);
-  
-  if (best.score > 0) {
-    select.value = best.option.value;
-    return true;
+  // Execute strategies in order
+  for (const strategy of matchStrategies) {
+    const match = strategy();
+    if (match) {
+      console.log(`✅ Matched dropdown option: "${match.text}" for value: "${value}"`);
+      select.value = match.value;
+      return true;
+    }
   }
   
   return false;
 }
 
-// ENHANCED radio matching
+// Calculate string similarity (Levenshtein distance)
+function calculateSimilarity(str1, str2) {
+  const longer = str1.length > str2.length ? str1 : str2;
+  const shorter = str1.length > str2.length ? str2 : str1;
+  
+  if (longer.length === 0) return 1.0;
+  
+  const editDistance = getEditDistance(longer, shorter);
+  return (longer.length - editDistance) / longer.length;
+}
+
+// Get edit distance between two strings
+function getEditDistance(str1, str2) {
+  const matrix = [];
+  
+  for (let i = 0; i <= str2.length; i++) {
+    matrix[i] = [i];
+  }
+  
+  for (let j = 0; j <= str1.length; j++) {
+    matrix[0][j] = j;
+  }
+  
+  for (let i = 1; i <= str2.length; i++) {
+    for (let j = 1; j <= str1.length; j++) {
+      if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1, // substitution
+          matrix[i][j - 1] + 1,     // insertion
+          matrix[i - 1][j] + 1      // deletion
+        );
+      }
+    }
+  }
+  
+  return matrix[str2.length][str1.length];
+}
+
+// ENHANCED: Find matching radio button
 function findMatchingRadio(radioGroup, value) {
   const stringValue = String(value).toLowerCase().trim();
   
@@ -629,83 +752,18 @@ function findMatchingRadio(radioGroup, value) {
     const radioId = radio.id.toLowerCase();
     const radioLabel = getFieldLabel(radio).toLowerCase();
     
-    // Check all possible matches
+    // Check multiple match conditions
     return radioValue === stringValue ||
            radioId === stringValue ||
            radioLabel === stringValue ||
            stringValue.includes(radioValue) ||
            radioValue.includes(stringValue) ||
-           radioLabel.includes(stringValue);
+           radioLabel.includes(stringValue) ||
+           // Check if radio value maps to the target value
+           applyValueMapping(radioValue, {context: radioLabel}) === value;
   });
 }
 
-// ENHANCED auto-select for common options
-function autoSelectCommonOptions(form, profileData) {
-  const selects = form.querySelectorAll('select');
-  
-  selects.forEach(select => {
-    if (!isFieldFillable(select) || select.value) return;
-    
-    const context = getFieldContext(select).toLowerCase();
-    
-    // Try to match profile data based on field context
-    if (context.includes('country') && profileData.country) {
-      selectOption(select, profileData.country);
-    } else if (context.includes('state') && profileData.state) {
-      selectOption(select, profileData.state);
-    } else if (context.includes('city') && profileData.city) {
-      selectOption(select, profileData.city);
-    } else if (context.includes('gender') && profileData.gender) {
-      selectOption(select, profileData.gender);
-    } else if (context.includes('remote') && profileData.remoteWork) {
-      selectOption(select, profileData.remoteWork);
-    } else if (context.includes('newsletter') && profileData.newsletter) {
-      selectOption(select, profileData.newsletter === 'true' ? 'yes' : 'no');
-    }
-  });
-}
-
-// Get field context
-function getFieldContext(field) {
-  const contextParts = [
-    field.name || '',
-    field.id || '',
-    field.placeholder || '',
-    getFieldLabel(field),
-    field.getAttribute('aria-label') || '',
-    field.getAttribute('data-label') || '',
-    field.getAttribute('title') || '',
-    field.className || ''
-  ];
-  
-  return contextParts.filter(Boolean).join(' ').toLowerCase();
-}
-
-// Show notification - NO CHANGES
-function showFillNotification(filledCount, formCount) {
-  const notification = document.createElement('div');
-  notification.className = 'autofill-notification';
-  notification.innerHTML = `
-    <div class="autofill-notification__icon">✅</div>
-    <div class="autofill-notification__content">
-      <strong>AutoFill Pro</strong>
-      <div>Filled ${filledCount} field${filledCount !== 1 ? 's' : ''} in ${formCount} form${formCount !== 1 ? 's' : ''}</div>
-    </div>
-  `;
-  
-  document.body.appendChild(notification);
-  
-  setTimeout(() => {
-    if (notification.parentNode) {
-      notification.style.animation = 'slideOut 0.3s ease';
-      setTimeout(() => notification.remove(), 300);
-    }
-  }, CONFIG.notificationDuration);
-}
-
-
-// === [Rest of the helper functions remain unchanged] ===
-// Copy them from your original content.js
 // Helper functions
 function isFieldFillable(field) {
   if (!field) return false;
@@ -765,61 +823,13 @@ function parseCheckboxValue(value) {
   if (typeof value === 'boolean') return value;
   
   const stringValue = String(value).toLowerCase().trim();
-  const truthyValues = ['true', 'yes', '1', 'on', 'checked', 'agree', 'accept', 'ok', 'y'];
-  const falseyValues = ['false', 'no', '0', 'off', 'unchecked', 'disagree', 'decline'];
+  const truthyValues = CONFIG.valueMappings.boolean.true;
+  const falseyValues = CONFIG.valueMappings.boolean.false;
   
-  if (truthyValues.includes(stringValue)) return true;
-  if (falseyValues.includes(stringValue)) return false;
+  if (truthyValues.some(v => stringValue.includes(v))) return true;
+  if (falseyValues.some(v => stringValue.includes(v))) return false;
   
   return stringValue.length > 0;
-}
-
-function findMatchingRadio(radioGroup, value) {
-  const stringValue = String(value).toLowerCase().trim();
-  
-  return Array.from(radioGroup).find(radio => {
-    const radioValue = radio.value.toLowerCase().trim();
-    const radioId = radio.id.toLowerCase();
-    const radioLabel = getFieldLabel(radio).toLowerCase();
-    
-    return radioValue === stringValue ||
-           radioId === stringValue ||
-           radioLabel === stringValue ||
-           stringValue.includes(radioValue) ||
-           radioValue.includes(stringValue);
-  });
-}
-
-function selectOption(select, value) {
-  const stringValue = String(value).toLowerCase().trim();
-  const options = Array.from(select.options || []);
-  
-  // Try exact value match
-  for (const option of options) {
-    if (option.value.toLowerCase() === stringValue) {
-      select.value = option.value;
-      return true;
-    }
-  }
-  
-  // Try exact text match
-  for (const option of options) {
-    if (option.text.toLowerCase() === stringValue) {
-      select.value = option.value;
-      return true;
-    }
-  }
-  
-  // Try partial text match
-  for (const option of options) {
-    if (option.text.toLowerCase().includes(stringValue) ||
-        stringValue.includes(option.text.toLowerCase())) {
-      select.value = option.value;
-      return true;
-    }
-  }
-  
-  return false;
 }
 
 function triggerFieldEvents(field, fieldType) {
@@ -895,9 +905,8 @@ function detectAllForms() {
 
 function autoCheckConsentBoxes(form) {
   const consentPatterns = [
-    /agree|accept|terms|conditions|privacy|policy|consent|acknowledge|confirm/i,
-    /newsletter|subscription|updates|notifications|marketing|promotional/i,
-    /opt.?in|sign.?up|subscribe|register/i
+    /agree|accept|terms|conditions|privacy|policy|consent|acknowledge|confirm|i agree|i accept/i,
+    /newsletter|subscription|updates|notifications|marketing|promotional|opt.?in|sign.?up|subscribe|register/i
   ];
   
   const checkboxes = form.querySelectorAll('input[type="checkbox"]');
@@ -915,6 +924,7 @@ function autoCheckConsentBoxes(form) {
   });
 }
 
+// ENHANCED: Auto-select dropdown options
 function autoSelectCommonOptions(form, profileData) {
   const selects = form.querySelectorAll('select');
   
@@ -923,14 +933,30 @@ function autoSelectCommonOptions(form, profileData) {
     
     const context = getFieldContext(select).toLowerCase();
     
+    // Try to match based on field context
     if (context.includes('country') && profileData.country) {
+      console.log(`🌐 Trying to match country: ${profileData.country}`);
       selectOption(select, profileData.country);
+    } else if (context.includes('state') || context.includes('province') || context.includes('county') || context.includes('region')) {
+      if (profileData.state) {
+        console.log(`📍 Trying to match state/province: ${profileData.state}`);
+        selectOption(select, profileData.state);
+      }
+    } else if (context.includes('city') && profileData.city) {
+      selectOption(select, profileData.city);
     } else if (context.includes('gender') && profileData.gender) {
+      console.log(`⚥ Trying to match gender: ${profileData.gender}`);
       selectOption(select, profileData.gender);
-    } else if (context.includes('state') && profileData.state) {
-      selectOption(select, profileData.state);
-    } else if (context.includes('title') && profileData.jobTitle) {
-      selectOption(select, profileData.jobTitle);
+    } else if (context.includes('remote') || context.includes('work type') || context.includes('work preference')) {
+      if (profileData.remoteWork) {
+        console.log(`🏠 Trying to match work location: ${profileData.remoteWork}`);
+        selectOption(select, profileData.remoteWork);
+      }
+    } else if (context.includes('newsletter') || context.includes('subscribe') || context.includes('marketing')) {
+      if (profileData.newsletter) {
+        console.log(`📧 Trying to match newsletter preference: ${profileData.newsletter}`);
+        selectOption(select, profileData.newsletter === 'true' ? 'yes' : 'no');
+      }
     }
   });
 }
@@ -961,44 +987,17 @@ function showFillNotification(filledCount, formCount) {
     </div>
   `;
   
-  notification.style.cssText = `
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background: rgba(0, 0, 0, 0.9);
-    color: white;
-    padding: 12px 16px;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    z-index: 1000000;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    font-size: 14px;
-    animation: slideIn 0.3s ease;
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255,255,255,0.1);
-  `;
-  
   document.body.appendChild(notification);
   
   setTimeout(() => {
     if (notification.parentNode) {
       notification.style.animation = 'slideOut 0.3s ease';
-      setTimeout(() => {
-        if (notification.parentNode) {
-          notification.parentNode.removeChild(notification);
-        }
-      }, 300);
+      setTimeout(() => notification.remove(), 300);
     }
   }, CONFIG.notificationDuration);
 }
 
-// Handle auto-submit
 function handleAutoSubmit(sendResponse) {
-  console.log('⚡ Auto-submitting form');
-  
   try {
     const submitButtons = document.querySelectorAll(`
       input[type="submit"],
@@ -1012,14 +1011,11 @@ function handleAutoSubmit(sendResponse) {
       [onclick*="Submit"]
     `);
     
-    console.log(`Found ${submitButtons.length} potential submit buttons`);
-    
     let submitted = false;
     
     for (const button of submitButtons) {
       if (isVisible(button) && !button.disabled) {
         try {
-          console.log(`Clicking submit button`);
           button.click();
           submitted = true;
           break;
@@ -1031,7 +1027,6 @@ function handleAutoSubmit(sendResponse) {
       const forms = document.querySelectorAll('form');
       for (const form of forms) {
         try {
-          console.log('Submitting form via submit() method');
           form.submit();
           submitted = true;
           break;
@@ -1047,7 +1042,6 @@ function handleAutoSubmit(sendResponse) {
   }
 }
 
-// Detect forms on page
 function handleDetectForms(sendResponse) {
   try {
     const forms = document.querySelectorAll(`
@@ -1088,7 +1082,6 @@ function handleDetectForms(sendResponse) {
   }
 }
 
-// Extract data from browser
 function handleExtractData(sendResponse) {
   console.log('🔍 Extracting data from browser');
   
@@ -1110,9 +1103,9 @@ function handleExtractData(sendResponse) {
       lastName: /last.?name|lname|surname|family.?name/i,
       address: /address|street|location|addr/i,
       city: /city|town|locality/i,
-      state: /state|province|region/i,
+      state: /state|province|region|county|department/i,
       zipCode: /zip|postal.?code|postcode/i,
-      country: /country|nation/i,
+      country: /country|nation|nationality/i,
       company: /company|organization|employer|firm/i,
       jobTitle: /title|position|role|occupation|designation/i
     };
@@ -1129,33 +1122,6 @@ function handleExtractData(sendResponse) {
   sendResponse({ data: extracted });
 }
 
-// Check if element is visible
-function isVisible(element) {
-  try {
-    if (!element) return false;
-    if (element.disabled) return false;
-    if (element.hidden) return false;
-    if (element.getAttribute('type') === 'hidden') return false;
-    if (element.style.display === 'none') return false;
-    if (element.style.visibility === 'hidden') return false;
-    if (element.style.opacity === '0') return false;
-    if (element.offsetWidth === 0 && element.offsetHeight === 0) return false;
-    
-    const style = window.getComputedStyle(element);
-    if (style.display === 'none') return false;
-    if (style.visibility === 'hidden') return false;
-    if (style.opacity === '0') return false;
-    
-    const rect = element.getBoundingClientRect();
-    if (rect.width === 0 && rect.height === 0) return false;
-    
-    return true;
-  } catch (e) {
-    return false;
-  }
-}
-
-// Handle fill form (legacy function)
 function handleFillForm(profileData, sendResponse) {
   try {
     const result = fillAllForms(profileData);
@@ -1166,7 +1132,6 @@ function handleFillForm(profileData, sendResponse) {
   }
 }
 
-// Legacy fill all forms function
 function fillAllForms(profileData) {
   const startTime = performance.now();
   let filled = 0;
@@ -1202,7 +1167,6 @@ function fillAllForms(profileData) {
   };
 }
 
-// Handle single field fill
 function handleSingleField(fieldInfo, value, sendResponse) {
   try {
     const field = document.querySelector(fieldInfo.selector);
@@ -1218,7 +1182,32 @@ function handleSingleField(fieldInfo, value, sendResponse) {
   }
 }
 
-// Add CSS for animations
+function isVisible(element) {
+  try {
+    if (!element) return false;
+    if (element.disabled) return false;
+    if (element.hidden) return false;
+    if (element.getAttribute('type') === 'hidden') return false;
+    if (element.style.display === 'none') return false;
+    if (element.style.visibility === 'hidden') return false;
+    if (element.style.opacity === '0') return false;
+    if (element.offsetWidth === 0 && element.offsetHeight === 0) return false;
+    
+    const style = window.getComputedStyle(element);
+    if (style.display === 'none') return false;
+    if (style.visibility === 'hidden') return false;
+    if (style.opacity === '0') return false;
+    
+    const rect = element.getBoundingClientRect();
+    if (rect.width === 0 && rect.height === 0) return false;
+    
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+// Add CSS animations
 const style = document.createElement('style');
 style.textContent = `
   @keyframes slideIn {
