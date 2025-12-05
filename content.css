@@ -1,60 +1,57 @@
-/* AutoFill Pro Content Styles */
+/* AutoFill Pro Content Script Styles */
 
 /* Field highlighting */
 .autofill-highlight {
-  animation: autofill-pulse 0.5s ease-in-out !important;
-  box-shadow: 0 0 0 2px #4CAF50 !important;
+  animation: autofill-pulse 0.6s ease-in-out !important;
+  box-shadow: 0 0 0 3px #4CAF50 !important;
   border-color: #4CAF50 !important;
   transition: all 0.3s ease !important;
 }
 
 @keyframes autofill-pulse {
-  0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); }
-  70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
+  0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.8); }
+  70% { box-shadow: 0 0 0 12px rgba(76, 175, 80, 0); }
   100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
 }
 
-/* Notification */
+/* Required field highlighting */
+.autofill-required {
+  box-shadow: 0 0 0 2px #2196F3 !important;
+  border-color: #2196F3 !important;
+}
+
+.autofill-required.autofill-highlight {
+  box-shadow: 0 0 0 3px #4CAF50 !important;
+}
+
+/* Success notification */
 .autofill-notification {
   position: fixed !important;
   top: 20px !important;
   right: 20px !important;
-  background: rgba(0, 0, 0, 0.95) !important;
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.95), rgba(30, 30, 40, 0.95)) !important;
   color: white !important;
-  padding: 16px 20px !important;
+  padding: 20px !important;
   border-radius: 12px !important;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
   z-index: 1000000 !important;
   display: flex !important;
   align-items: center !important;
   gap: 12px !important;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif !important;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif !important;
   font-size: 14px !important;
   backdrop-filter: blur(20px) !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  max-width: 350px !important;
-  animation: slideIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+  max-width: 360px !important;
+  animation: slideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
 }
 
 .autofill-notification__icon {
-  font-size: 20px !important;
-  flex-shrink: 0 !important;
+  font-size: 24px !important;
 }
 
-.autofill-notification__content {
-  flex-grow: 1 !important;
-}
-
-.autofill-notification__content strong {
-  display: block !important;
-  font-weight: 600 !important;
-  margin-bottom: 4px !important;
+.autofill-notification strong {
   color: #4CAF50 !important;
-}
-
-.autofill-notification__content div {
-  opacity: 0.9 !important;
-  font-size: 13px !important;
 }
 
 /* Tooltip for filled fields */
@@ -65,24 +62,15 @@
   padding: 6px 12px !important;
   border-radius: 6px !important;
   font-size: 12px !important;
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif !important;
   z-index: 1000001 !important;
   pointer-events: none !important;
-  white-space: nowrap !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
   animation: tooltipFadeIn 0.2s ease !important;
 }
 
-.autofill-tooltip::after {
-  content: '' !important;
-  position: absolute !important;
-  top: 100% !important;
-  left: 50% !important;
-  transform: translateX(-50%) !important;
-  border-width: 6px !important;
-  border-style: solid !important;
-  border-color: #333 transparent transparent transparent !important;
+/* Animations */
+@keyframes slideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
 }
 
 @keyframes tooltipFadeIn {
@@ -90,85 +78,9 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Animation keyframes */
-@keyframes slideIn {
-  from { 
-    transform: translateX(100%) translateY(-20px); 
-    opacity: 0; 
-  }
-  to { 
-    transform: translateX(0) translateY(0); 
-    opacity: 1; 
-  }
-}
-
-@keyframes slideOut {
-  from { 
-    transform: translateX(0) translateY(0); 
-    opacity: 1; 
-  }
-  to { 
-    transform: translateX(100%) translateY(-20px); 
-    opacity: 0; 
-  }
-}
-
-/* Form detection overlay */
-.autofill-form-overlay {
-  position: fixed !important;
-  top: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  background: rgba(0, 0, 0, 0.7) !important;
-  z-index: 999999 !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  backdrop-filter: blur(5px) !important;
-}
-
-.autofill-form-overlay__content {
-  background: white !important;
-  padding: 30px !important;
-  border-radius: 20px !important;
-  max-width: 500px !important;
-  width: 90% !important;
-  text-align: center !important;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3) !important;
-  animation: modalFadeIn 0.3s ease !important;
-}
-
-@keyframes modalFadeIn {
-  from { opacity: 0; transform: scale(0.9); }
-  to { opacity: 1; transform: scale(1); }
-}
-
-/* Progress indicator */
-.autofill-progress {
-  position: fixed !important;
-  top: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  height: 3px !important;
-  background: linear-gradient(90deg, #4CAF50, #2196F3) !important;
-  z-index: 1000000 !important;
-  transform-origin: 0% 50% !important;
-  animation: progressFill 2s ease-in-out infinite !important;
-}
-
-@keyframes progressFill {
-  0% { transform: scaleX(0); }
-  50% { transform: scaleX(1); }
-  100% { transform: scaleX(0); }
-}
-
-/* Checkbox styling */
-input[type="checkbox"].autofill-checked {
-  position: relative !important;
-}
-
-input[type="checkbox"].autofill-checked::after {
+/* Checkbox/Radio styling */
+input[type="checkbox"].autofill-checked::after,
+input[type="radio"].autofill-selected::after {
   content: '✓' !important;
   position: absolute !important;
   top: 50% !important;
@@ -179,28 +91,36 @@ input[type="checkbox"].autofill-checked::after {
   font-size: 14px !important;
 }
 
-/* Radio button styling */
-input[type="radio"].autofill-selected {
-  position: relative !important;
-}
-
 input[type="radio"].autofill-selected::after {
   content: '' !important;
-  position: absolute !important;
-  top: 50% !important;
-  left: 50% !important;
-  transform: translate(-50%, -50%) !important;
   width: 8px !important;
   height: 8px !important;
   background: #4CAF50 !important;
   border-radius: 50% !important;
 }
 
-/* Select dropdown styling */
+/* Select styling */
 select.autofill-filled {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234CAF50'%3E%3Cpath d='M0 0h24v24H0z' fill='none'/%3E%3Cpath d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/%3E%3C/svg%3E") !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234CAF50'%3E%3Cpath d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/%3E%3C/svg%3E") !important;
   background-repeat: no-repeat !important;
   background-position: right 10px center !important;
-  background-size: 20px !important;
   padding-right: 40px !important;
+}
+
+/* Progress bar */
+.autofill-progress {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  height: 3px !important;
+  background: linear-gradient(90deg, #4CAF50, #2196F3) !important;
+  z-index: 1000000 !important;
+  transform-origin: 0% 50% !important;
+  animation: progressFill 1.5s ease-in-out !important;
+}
+
+@keyframes progressFill {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
 }
