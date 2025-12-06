@@ -1,7 +1,7 @@
-// AutoFill Pro Content Script - Enhanced Automatic Selection
+// AutoFill Pro Content Script - Enhanced Dropdown Auto-Selection
 console.log('🎯 AutoFill Pro Content Script loaded');
 
-// Configuration
+// Enhanced configuration
 const CONFIG = {
   autoCheckBoxes: true,
   autoSelectOptions: true,
@@ -10,95 +10,91 @@ const CONFIG = {
   notificationDuration: 3000,
   fieldCheckInterval: 1000,
   maxRetryAttempts: 3,
-  // NEW: Enhanced value mappings
+  
+  // Enhanced value mappings with more variations
   valueMappings: {
-    // Gender options
     gender: {
-      male: ['male', 'm', 'man', 'boy', 'male/man', 'he/him', 'mr', 'sir', 'gentleman'],
-      female: ['female', 'f', 'woman', 'girl', 'female/woman', 'she/her', 'mrs', 'ms', 'miss', 'lady'],
-      other: ['other', 'non-binary', 'non binary', 'prefer not to say', 'prefer-not-to-say', 'they/them', 'prefer not to answer', 'decline to answer']
+      male: ['male', 'm', 'man', 'boy', 'he/him', 'mr', 'sir', 'male/man', 'gentleman', 'gent'],
+      female: ['female', 'f', 'woman', 'girl', 'she/her', 'mrs', 'ms', 'miss', 'lady', 'female/woman', 'mrs.', 'ms.'],
+      other: ['other', 'non-binary', 'non binary', 'prefer not to say', 'prefer-not-to-say', 'they/them', 'prefer not to answer', 'decline to answer', 'unspecified']
     },
     
-    // Boolean/Terms
     boolean: {
-      true: ['true', 'yes', 'y', '1', 'on', 'checked', 'agree', 'accept', 'ok', 'enable', 'i agree', 'i accept', 'subscribe', 'opt-in', 'opt in'],
+      true: ['true', 'yes', 'y', '1', 'on', 'checked', 'agree', 'accept', 'ok', 'enable', 'i agree', 'i accept', 'subscribe', 'opt-in', 'opt in', 'signup', 'sign up'],
       false: ['false', 'no', 'n', '0', 'off', 'unchecked', 'decline', 'disable', 'i disagree', 'unsubscribe', 'opt-out', 'opt out']
     },
     
-    // Work location
     remoteWork: {
-      remote: ['remote', 'work from home', 'wfh', 'fully remote', '100% remote', 'home office', 'telecommute'],
-      hybrid: ['hybrid', 'mixed', 'hybrid work', 'partial remote', 'flexible', 'hybrid-remote', 'some remote'],
-      onsite: ['onsite', 'on-site', 'office', 'in-office', 'on site', 'in office', 'in-person', 'on location', 'in person']
+      remote: ['remote', 'work from home', 'wfh', 'fully remote', '100% remote', 'home office', 'telecommute', 'virtual'],
+      hybrid: ['hybrid', 'mixed', 'hybrid work', 'partial remote', 'flexible', 'hybrid-remote', 'some remote', 'blended'],
+      onsite: ['onsite', 'on-site', 'office', 'in-office', 'on site', 'in office', 'in-person', 'on location', 'in person', 'collocated']
     },
     
-    // Countries (expanded)
     country: {
-      'united states': ['usa', 'us', 'united states', 'united states of america', 'america', 'u.s.', 'u.s.a.', 'united states of america (usa)'],
+      'united states': ['usa', 'us', 'united states', 'united states of america', 'america', 'u.s.', 'u.s.a.', 'united states of america (usa)', 'america (usa)'],
       'canada': ['canada', 'ca', 'can'],
       'united kingdom': ['uk', 'united kingdom', 'great britain', 'gb', 'england', 'scotland', 'wales', 'northern ireland', 'britain'],
       'australia': ['australia', 'au', 'aus'],
       'germany': ['germany', 'de', 'deutschland', 'deu'],
       'france': ['france', 'fr', 'fra'],
-      'italy': ['italy', 'it', 'ita'],
-      'spain': ['spain', 'es', 'esp'],
-      'japan': ['japan', 'jp', 'jpn'],
-      'china': ['china', 'cn', 'chn'],
-      'india': ['india', 'in', 'ind']
+      'italy': ['italy', 'it', 'ita', 'italia'],
+      'spain': ['spain', 'es', 'esp', 'espana'],
+      'japan': ['japan', 'jp', 'jpn', 'japan (日本)'],
+      'india': ['india', 'in', 'ind', 'भारत']
     },
     
-    // US States (expanded)
+    // US States with comprehensive abbreviations
     state: {
-      'alabama': ['al', 'alabama', 'ala'],
+      'alabama': ['al', 'alabama', 'ala', 'ala.'],
       'alaska': ['ak', 'alaska'],
-      'arizona': ['az', 'arizona', 'ariz'],
-      'arkansas': ['ar', 'arkansas', 'ark'],
-      'california': ['ca', 'california', 'calif', 'cal'],
-      'colorado': ['co', 'colorado', 'colo'],
-      'connecticut': ['ct', 'connecticut', 'conn'],
-      'delaware': ['de', 'delaware', 'del'],
-      'florida': ['fl', 'florida', 'fla'],
+      'arizona': ['az', 'arizona', 'ariz', 'ariz.'],
+      'arkansas': ['ar', 'arkansas', 'ark', 'ark.'],
+      'california': ['ca', 'california', 'calif', 'calif.', 'cal'],
+      'colorado': ['co', 'colorado', 'colo', 'colo.'],
+      'connecticut': ['ct', 'connecticut', 'conn', 'conn.'],
+      'delaware': ['de', 'delaware', 'del', 'del.'],
+      'florida': ['fl', 'florida', 'fla', 'fla.'],
       'georgia': ['ga', 'georgia', 'ga.'],
       'hawaii': ['hi', 'hawaii'],
       'idaho': ['id', 'idaho'],
       'illinois': ['il', 'illinois', 'ill', 'ill.'],
-      'indiana': ['in', 'indiana', 'ind'],
+      'indiana': ['in', 'indiana', 'ind', 'ind.'],
       'iowa': ['ia', 'iowa'],
-      'kansas': ['ks', 'kansas', 'kan'],
-      'kentucky': ['ky', 'kentucky', 'kent', 'ken'],
+      'kansas': ['ks', 'kansas', 'kan', 'kan.'],
+      'kentucky': ['ky', 'kentucky', 'kent', 'ken', 'ky.'],
       'louisiana': ['la', 'louisiana'],
       'maine': ['me', 'maine'],
       'maryland': ['md', 'maryland', 'md.'],
-      'massachusetts': ['ma', 'massachusetts', 'mass'],
-      'michigan': ['mi', 'michigan', 'mich'],
-      'minnesota': ['mn', 'minnesota', 'minn'],
-      'mississippi': ['ms', 'mississippi', 'miss'],
+      'massachusetts': ['ma', 'massachusetts', 'mass', 'mass.'],
+      'michigan': ['mi', 'michigan', 'mich', 'mich.'],
+      'minnesota': ['mn', 'minnesota', 'minn', 'minn.'],
+      'mississippi': ['ms', 'mississippi', 'miss', 'miss.'],
       'missouri': ['mo', 'missouri'],
-      'montana': ['mt', 'montana', 'mont'],
-      'nebraska': ['ne', 'nebraska', 'neb', 'nebr'],
-      'nevada': ['nv', 'nevada', 'nev'],
-      'new hampshire': ['nh', 'new hampshire', 'n.h.'],
-      'new jersey': ['nj', 'new jersey', 'n.j.'],
-      'new mexico': ['nm', 'new mexico', 'n.m.'],
-      'new york': ['ny', 'new york', 'n.y.'],
-      'north carolina': ['nc', 'north carolina', 'n.c.'],
-      'north dakota': ['nd', 'north dakota', 'n.d.'],
+      'montana': ['mt', 'montana', 'mont', 'mont.'],
+      'nebraska': ['ne', 'nebraska', 'neb', 'nebr', 'ne.'],
+      'nevada': ['nv', 'nevada', 'nev', 'nev.'],
+      'new hampshire': ['nh', 'new hampshire', 'n.h.', 'new hampshire (nh)'],
+      'new jersey': ['nj', 'new jersey', 'n.j.', 'new jersey (nj)'],
+      'new mexico': ['nm', 'new mexico', 'n.m.', 'new mexico (nm)'],
+      'new york': ['ny', 'new york', 'n.y.', 'new york (ny)'],
+      'north carolina': ['nc', 'north carolina', 'n.c.', 'north carolina (nc)'],
+      'north dakota': ['nd', 'north dakota', 'n.d.', 'north dakota (nd)'],
       'ohio': ['oh', 'ohio'],
-      'oklahoma': ['ok', 'oklahoma', 'okla'],
-      'oregon': ['or', 'oregon', 'ore', 'oreg'],
-      'pennsylvania': ['pa', 'pennsylvania', 'penn', 'pa.'],
-      'rhode island': ['ri', 'rhode island', 'r.i.'],
-      'south carolina': ['sc', 'south carolina', 's.c.'],
-      'south dakota': ['sd', 'south dakota', 's.d.'],
-      'tennessee': ['tn', 'tennessee', 'tenn'],
-      'texas': ['tx', 'texas', 'tex', 'tex.'],
+      'oklahoma': ['ok', 'oklahoma', 'okla', 'okla.'],
+      'oregon': ['or', 'oregon', 'ore', 'oreg', 'or.'],
+      'pennsylvania': ['pa', 'pennsylvania', 'penn', 'pa.', 'penn.'],
+      'rhode island': ['ri', 'rhode island', 'r.i.', 'rhode island (ri)'],
+      'south carolina': ['sc', 'south carolina', 's.c.', 'south carolina (sc)'],
+      'south dakota': ['sd', 'south dakota', 's.d.', 'south dakota (sd)'],
+      'tennessee': ['tn', 'tennessee', 'tenn', 'tenn.'],
+      'texas': ['tx', 'texas', 'tex', 'tex.', 'tx.'],
       'utah': ['ut', 'utah'],
       'vermont': ['vt', 'vermont', 'vt.'],
       'virginia': ['va', 'virginia', 'va.'],
-      'washington': ['wa', 'washington', 'wash'],
-      'west virginia': ['wv', 'west virginia', 'w.v.'],
-      'wisconsin': ['wi', 'wisconsin', 'wis', 'wisc'],
-      'wyoming': ['wy', 'wyoming', 'wyo']
+      'washington': ['wa', 'washington', 'wash', 'wash.'],
+      'west virginia': ['wv', 'west virginia', 'w.v.', 'west virginia (wv)'],
+      'wisconsin': ['wi', 'wisconsin', 'wis', 'wisc', 'wi.'],
+      'wyoming': ['wy', 'wyoming', 'wyo', 'wyo.']
     }
   }
 };
@@ -114,29 +110,19 @@ let state = {
   }
 };
 
-// === IMPORT FIELD_ALIASES FROM CONFIG ===
+// Field aliases (unchanged from your config)
 const FIELD_ALIASES = {
-  // Personal Information
   firstName: ['firstName', 'first_name', 'firstname', 'fname', 'givenName', 'given_name', 'forename', 'user.firstName', 'customer.firstName', 'applicant.firstName', 'candidate.firstName', 'first', 'fn', 'given', 'fName', 'firstName1', 'firstname1', 'name_first'],
   lastName: ['lastName', 'last_name', 'lastname', 'lname', 'surname', 'familyName', 'family_name', 'user.lastName', 'customer.lastName', 'applicant.lastName', 'candidate.lastName', 'last', 'ln', 'family', 'lName', 'lastname1', 'name_last'],
-  fullName: ['fullName', 'full_name', 'fullname', 'name', 'completeName', 'user.name', 'customer.name', 'applicant.name', 'candidate.name', 'person.name', 'displayName', 'display_name'],
-  email: ['email', 'e-mail', 'emailAddress', 'email_address', 'e_mail', 'mail', 'e mail', 'emailaddress', 'contact', 'contactEmail', 'candidate.email', 'applicant.email', 'user.email', 'person.email', 'contact_email', 'emailAddr', 'mailAddress', 'email_address', 'e-mailAddress', 'email_addr'],
+  fullName: ['fullName', 'full_name', 'fullname', 'name', 'completeName', 'displayName', 'user.name', 'customer.name', 'applicant.name', 'candidate.name', 'person.name', 'display_name'],
+  email: ['email', 'e-mail', 'emailAddress', 'email_address', 'e_mail', 'mail', 'e mail', 'emailaddress', 'contact', 'contactEmail', 'candidate.email', 'applicant.email', 'user.email', 'person.email', 'contact_email', 'emailAddr', 'mailAddress', 'email_addr'],
   phone: ['phone', 'phoneNumber', 'phone_number', 'telephone', 'mobile', 'cell', 'cellphone', 'phonenumber', 'tel', 'contact', 'contactNumber', 'candidate.phone', 'applicant.phone', 'user.phone', 'person.phone', 'contact_phone', 'phone_no', 'telephone_no', 'mobileNumber', 'phoneNumber1', 'telephoneNumber', 'mobilePhone', 'cellPhone'],
-  address: ['address', 'streetAddress', 'street_address', 'addressLine1', 'address1', 'line1', 'street', 'location', 'mailingAddress', 'residentialAddress', 'homeAddress', 'workAddress', 'address_line1', 'addr1', 'streetAddr', 'streetaddress', 'addrLine1', 'street_address1'],
-  city: ['city', 'town', 'cityName', 'locality', 'addressCity', 'homeCity', 'workCity', 'city_name', 'locationCity', 'address_city', 'cityTown', 'city_town', 'address_city', 'locality_city'],
-  
-  // === ENHANCED: State/Province/County with broader matching ===
-  state: [
-    'state', 'province', 'region', 'stateProvince', 'addressState', 'homeState',
-    'workState', 'state_name', 'regionState', 'address_state', 'stateProv',
-    'provState', 'state_province', 'region_state', 'provincia', 'county',
-    'department', 'prefecture', 'territory', 'division', 'district', 'zone'
-  ],
-  
+  address: ['address', 'streetAddress', 'street_address', 'addressLine1', 'address1', 'line1', 'street', 'location', 'mailingAddress', 'residentialAddress', 'homeAddress', 'workAddress', 'address_line1', 'addr1', 'streetAddr', 'addrLine1', 'street_address1'],
+  city: ['city', 'town', 'cityName', 'locality', 'addressCity', 'homeCity', 'workCity', 'city_name', 'locationCity', 'address_city', 'cityTown', 'city_town', 'locality_city'],
+  state: ['state', 'province', 'region', 'stateProvince', 'addressState', 'homeState', 'workState', 'state_name', 'regionState', 'address_state', 'stateProv', 'provState', 'state_province', 'region_state', 'provincia', 'county', 'department', 'prefecture', 'territory', 'division', 'district', 'zone'],
   zipCode: ['zip', 'zipCode', 'zipcode', 'postalCode', 'postal', 'postcode', 'addressZip', 'homeZip', 'workZip', 'zip_code', 'postal_code', 'address_zip', 'postCode', 'zipPostal', 'zip_postal', 'postalcode'],
   country: ['country', 'countryName', 'nation', 'addressCountry', 'homeCountry', 'workCountry', 'country_name', 'nationality', 'country_nation', 'address_country', 'residenceCountry', 'residence_country', 'citizenship'],
-  
-  company: ['company', 'organization', 'employer', 'companyName', 'company_name', 'organizationName', 'currentCompany', 'employerName', 'companyName1', 'compName', 'orgName', 'employer_name', 'current_employer', 'currentCompany'],
+  company: ['company', 'organization', 'employer', 'companyName', 'company_name', 'organizationName', 'currentCompany', 'employerName', 'companyName1', 'compName', 'orgName', 'employer_name', 'current_employer'],
   jobTitle: ['jobTitle', 'job_title', 'position', 'title', 'role', 'occupation', 'jobPosition', 'jobRole', 'jobtitle', 'jobName', 'designation', 'currentTitle', 'current_position', 'professional_title', 'role_title'],
   website: ['website', 'personalWebsite', 'portfolio', 'url', 'websiteUrl', 'webSite', 'site', 'personal_site', 'portfolio_url', 'website_url'],
   linkedin: ['linkedin', 'linkedinProfile', 'linkedin_url', 'linkedinUrl', 'social.linkedin', 'linkedin_profile', 'linkedin_link'],
@@ -145,7 +131,11 @@ const FIELD_ALIASES = {
   education: ['education', 'degree', 'qualification', 'highestEducation', 'educationalBackground', 'academicBackground', 'highest_degree', 'education_level'],
   skills: ['skills', 'technicalSkills', 'competencies', 'expertise', 'abilities', 'proficiencies', 'technical_skills', 'key_skills', 'core_skills'],
   salary: ['salary', 'salaryExpectation', 'expectedSalary', 'compensation', 'desiredSalary', 'salary_expectation', 'expected_salary', 'compensation_expectation'],
-  notice: ['noticePeriod', 'notice', 'availability', 'whenAvailable', 'notice_period', 'availability_date', 'start_date', 'joining_date']
+  notice: ['noticePeriod', 'notice', 'availability', 'whenAvailable', 'notice_period', 'availability_date', 'start_date', 'joining_date'],
+  gender: ['gender', 'sex', 'gender_identity', 'genderIdentity', 'gender_id', 'user.gender', 'person.gender', 'applicant.gender', 'candidate.gender', 'preferredGender', 'gender_pref', 'sex_identity'],
+  newsletter: ['newsletter', 'subscribe', 'subscription', 'notifications', 'updates', 'marketing', 'promotional', 'optin', 'opt_in', 'opt-in', 'mailingList'],
+  terms: ['terms', 'conditions', 'agreement', 'privacy', 'policy', 'consent', 'acknowledge', 'confirm', 'termsAndConditions', 'privacyPolicy', 'acceptTerms', 'legalAgreement', 'iAgree', 'accept'],
+  remoteWork: ['remoteWork', 'workType', 'workPreference', 'work_mode', 'workMode', 'locationType', 'work_location', 'remote_preference', 'workStyle']
 };
 
 // Main message handler
@@ -202,6 +192,7 @@ async function handleSmartFill(profileData, settings, sendResponse) {
     if (settings) {
       CONFIG.highlightFilled = settings.highlightFields !== false;
       CONFIG.showNotifications = settings.showNotifications !== false;
+      CONFIG.autoSelectOptions = settings.autoSelectOptions !== false;
     }
     
     const forms = detectAllForms();
@@ -352,7 +343,7 @@ function fillStandaloneFields(profileData) {
   return result;
 }
 
-// Analyze field - ENHANCED
+// Analyze field
 function analyzeField(field) {
   const fieldType = field.type || field.tagName.toLowerCase();
   const name = field.name || field.id || '';
@@ -375,7 +366,8 @@ function analyzeField(field) {
     field.getAttribute('data-testid') || '',
     field.getAttribute('data-qa') || '',
     field.getAttribute('data-cy') || '',
-    field.getAttribute('title') || ''
+    field.getAttribute('title') || '',
+    field.tagName.toLowerCase()
   ].filter(Boolean).join(' ').toLowerCase();
   
   return {
@@ -398,7 +390,7 @@ function analyzeField(field) {
   };
 }
 
-// ENHANCED findBestMatch with better selection handling
+// Enhanced findBestMatch with better selection handling
 function findBestMatch(fieldInfo, profileData) {
   if (!profileData || Object.keys(profileData).length === 0) return null;
   
@@ -414,7 +406,7 @@ function findBestMatch(fieldInfo, profileData) {
     fieldNameHint: 50,
     typeMatch: 30,
     minScoreThreshold: 20,
-    selectionFieldBonus: 15 // NEW: Bonus for selection fields
+    selectionFieldBonus: 15
   };
   
   // Lower threshold for selection fields
@@ -422,7 +414,7 @@ function findBestMatch(fieldInfo, profileData) {
     weights.minScoreThreshold = 15;
   }
   
-  console.log(`🔍 Analyzing field: ${fieldInfo.name} (${fieldInfo.type})`);
+  console.log(`🔍 Analyzing field: ${fieldInfo.name} (${fieldInfo.type}) - Context: "${fieldInfo.context.substring(0, 50)}..."`);
   
   for (const [key, value] of Object.entries(profileData)) {
     if (!value && value !== false && value !== 0) continue;
@@ -479,6 +471,17 @@ function findBestMatch(fieldInfo, profileData) {
     if (fieldInfo.type === 'tel' && key === 'phone') score += weights.typeMatch;
     if (fieldInfo.type === 'url' && key === 'website') score += weights.typeMatch;
     
+    // NEW: Enhanced selection field matching
+    if (fieldInfo.isSelect) {
+      if (context.includes('country') && key === 'country') score += 30;
+      if (context.includes('state') && key === 'state') score += 30;
+      if (context.includes('province') && key === 'state') score += 30;
+      if (context.includes('region') && key === 'state') score += 25;
+      if (context.includes('gender') && key === 'gender') score += 30;
+      if (context.includes('remote') && key === 'remoteWork') score += 30;
+      if (context.includes('work') && context.includes('type') && key === 'remoteWork') score += 25;
+    }
+    
     // NEW: Bonus for selection fields matching known keys
     if ((fieldInfo.isSelect || fieldInfo.isRadio || fieldInfo.isCheckbox) && 
         ['gender', 'newsletter', 'terms', 'remoteWork', 'country', 'state'].includes(key)) {
@@ -529,13 +532,13 @@ function findBestMatch(fieldInfo, profileData) {
     console.log(`✅ Best match for "${fieldInfo.name}": ${bestMatch} (score: ${bestScore})`);
     console.log('📊 All matches:', debugMatches.filter(m => m.score > 15));
   } else {
-    console.log(`❌ No match found for "${fieldInfo.name}"`);
+    console.log(`❌ No match found for "${fieldInfo.name}" - Context: ${fieldInfo.context}`);
   }
   
   return bestScore >= weights.minScoreThreshold ? bestMatch : null;
 }
 
-// NEW: Apply value mappings for intelligent selection
+// Apply value mappings for intelligent selection
 function applyValueMapping(value, fieldInfo) {
   const context = fieldInfo.context;
   const stringValue = String(value).toLowerCase().trim();
@@ -545,15 +548,15 @@ function applyValueMapping(value, fieldInfo) {
   
   if (context.includes('gender') || context.includes('sex')) {
     mappingKey = 'gender';
-  } else if (context.includes('newsletter') || context.includes('subscribe') || context.includes('marketing')) {
+  } else if (context.includes('newsletter') || context.includes('subscribe') || context.includes('marketing') || context.includes('notification')) {
     mappingKey = 'boolean';
-  } else if (context.includes('terms') || context.includes('conditions') || context.includes('privacy') || context.includes('agree')) {
+  } else if (context.includes('terms') || context.includes('conditions') || context.includes('privacy') || context.includes('agree') || context.includes('consent')) {
     mappingKey = 'boolean';
-  } else if (context.includes('remote') || context.includes('work type') || context.includes('location') || context.includes('work preference')) {
+  } else if (context.includes('remote') || context.includes('work type') || context.includes('location') || context.includes('work preference') || context.includes('work style')) {
     mappingKey = 'remoteWork';
-  } else if (context.includes('country') || context.includes('nation') || context.includes('nationality')) {
+  } else if (context.includes('country') || context.includes('nation') || context.includes('nationality') || context.includes('citizenship')) {
     mappingKey = 'country';
-  } else if (context.includes('state') || context.includes('province') || context.includes('region') || context.includes('county') || context.includes('department')) {
+  } else if (context.includes('state') || context.includes('province') || context.includes('region') || context.includes('county') || context.includes('department') || context.includes('prefecture') || context.includes('territory')) {
     mappingKey = 'state';
   } else if (fieldInfo.isCheckbox) {
     // Default boolean for unknown checkboxes
@@ -604,7 +607,7 @@ function fillFieldWithValue(field, value, fieldInfo) {
         
       case 'select-one':
       case 'select-multiple':
-        success = selectOption(field, value);
+        success = selectOption(field, value, fieldInfo);
         break;
         
       default:
@@ -632,43 +635,77 @@ function fillFieldWithValue(field, value, fieldInfo) {
   }
 }
 
-// ENHANCED: Intelligent dropdown selection with fuzzy matching
-function selectOption(select, value) {
+// ENHANCED: Intelligent dropdown selection with fuzzy matching and debugging
+function selectOption(select, value, fieldInfo) {
+  const originalValue = value;
   const stringValue = String(value).toLowerCase().trim();
   const options = Array.from(select.options || []);
   
-  if (options.length === 0) return false;
+  if (options.length === 0) {
+    console.log(`⚠️ No options found in select: ${fieldInfo.name}`);
+    return false;
+  }
+  
+  console.log(`🎯 Attempting to select "${stringValue}" from ${options.length} options in: ${fieldInfo.name}`);
+  
+  // Log available options for debugging
+  const optionValues = options.map(opt => ({ text: opt.text, value: opt.value }));
+  console.log('📋 Available options:', optionValues);
   
   // Try multiple matching strategies in order of preference
   const matchStrategies = [
     // 1. Exact match (value or text)
-    () => options.find(opt => opt.value.toLowerCase() === stringValue || opt.text.toLowerCase() === stringValue),
+    () => {
+      const match = options.find(opt => 
+        opt.value.toLowerCase() === stringValue || 
+        opt.text.toLowerCase() === stringValue
+      );
+      if (match) console.log(`✅ Exact match found: ${match.text}`);
+      return match;
+    },
     
     // 2. Starts with match
-    () => options.find(opt => opt.value.toLowerCase().startsWith(stringValue) || opt.text.toLowerCase().startsWith(stringValue)),
+    () => {
+      const match = options.find(opt => 
+        opt.value.toLowerCase().startsWith(stringValue) || 
+        opt.text.toLowerCase().startsWith(stringValue)
+      );
+      if (match) console.log(`✅ Starts-with match found: ${match.text}`);
+      return match;
+    },
     
     // 3. Contains match
-    () => options.find(opt => opt.value.toLowerCase().includes(stringValue) || opt.text.toLowerCase().includes(stringValue)),
+    () => {
+      const match = options.find(opt => 
+        opt.value.toLowerCase().includes(stringValue) || 
+        opt.text.toLowerCase().includes(stringValue)
+      );
+      if (match) console.log(`✅ Contains match found: ${match.text}`);
+      return match;
+    },
     
     // 4. Word match (split by spaces and check each word)
     () => {
       const valueWords = stringValue.split(/\W+/).filter(w => w.length > 2);
-      return options.find(opt => {
+      const match = options.find(opt => {
         const optText = opt.text.toLowerCase();
         return valueWords.some(word => optText.includes(word));
       });
+      if (match) console.log(`✅ Word match found: ${match.text}`);
+      return match;
     },
     
     // 5. Acronym match (e.g., "US" for "United States")
     () => {
       if (stringValue.length <= 3) {
-        return options.find(opt => {
+        const match = options.find(opt => {
           const text = opt.text.toLowerCase();
-          // Check if stringValue is acronym of option text
-          const words = text.split(/\W+/);
+          const words = text.split(/\W+/).filter(w => w.length > 1);
           const acronym = words.map(w => w[0]).join('');
-          return acronym === stringValue;
+          return acronym === stringValue || text.split(/\W+/).join('') === stringValue;
         });
+        if (match) console.log(`✅ Acronym match found: ${match.text}`);
+        return match;
       }
       return null;
     },
@@ -676,16 +713,16 @@ function selectOption(select, value) {
     // 6. Fuzzy match (Levenshtein distance for typos)
     () => {
       let bestMatch = null;
-      let bestScore = 0;
+      let bestScore = 0.7; // Minimum threshold
       
       options.forEach(opt => {
         const score = calculateSimilarity(opt.text.toLowerCase(), stringValue);
-        if (score > bestScore && score > 0.7) { // 70% similarity threshold
+        if (score > bestScore) {
           bestScore = score;
           bestMatch = opt;
         }
       });
-      
+      if (bestMatch) console.log(`✅ Fuzzy match found: ${bestMatch.text} (similarity: ${bestScore.toFixed(2)})`);
       return bestMatch;
     }
   ];
@@ -694,12 +731,17 @@ function selectOption(select, value) {
   for (const strategy of matchStrategies) {
     const match = strategy();
     if (match) {
-      console.log(`✅ Matched dropdown option: "${match.text}" for value: "${value}"`);
       select.value = match.value;
+      
+      // Trigger change events
+      triggerFieldEvents(select, 'select-one');
+      
+      console.log(`🎉 Successfully selected: ${match.text} (value: ${match.value})`);
       return true;
     }
   }
   
+  console.log(`❌ No match found for "${stringValue}" in select: ${fieldInfo.name}`);
   return false;
 }
 
@@ -732,9 +774,9 @@ function getEditDistance(str1, str2) {
         matrix[i][j] = matrix[i - 1][j - 1];
       } else {
         matrix[i][j] = Math.min(
-          matrix[i - 1][j - 1] + 1, // substitution
-          matrix[i][j - 1] + 1,     // insertion
-          matrix[i - 1][j] + 1      // deletion
+          matrix[i - 1][j - 1] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j] + 1
         );
       }
     }
@@ -760,11 +802,11 @@ function findMatchingRadio(radioGroup, value) {
            radioValue.includes(stringValue) ||
            radioLabel.includes(stringValue) ||
            // Check if radio value maps to the target value
-           applyValueMapping(radioValue, {context: radioLabel}) === value;
+           applyValueMapping(radioValue, {context: radioLabel, isRadio: true}) === value;
   });
 }
 
-// Helper functions
+// Helper functions (unchanged)
 function isFieldFillable(field) {
   if (!field) return false;
   if (field.disabled) return false;
@@ -932,30 +974,35 @@ function autoSelectCommonOptions(form, profileData) {
     if (!isFieldFillable(select) || select.value) return;
     
     const context = getFieldContext(select).toLowerCase();
+    console.log(`🔍 Analyzing select: ${select.name || select.id} - Context: ${context}`);
     
     // Try to match based on field context
     if (context.includes('country') && profileData.country) {
       console.log(`🌐 Trying to match country: ${profileData.country}`);
-      selectOption(select, profileData.country);
-    } else if (context.includes('state') || context.includes('province') || context.includes('county') || context.includes('region')) {
+      selectOption(select, profileData.country, {name: select.name, context: 'country'});
+    } else if (context.includes('state') || context.includes('province') || context.includes('county') || context.includes('region') || context.includes('department')) {
       if (profileData.state) {
         console.log(`📍 Trying to match state/province: ${profileData.state}`);
-        selectOption(select, profileData.state);
+        selectOption(select, profileData.state, {name: select.name, context: 'state'});
       }
     } else if (context.includes('city') && profileData.city) {
-      selectOption(select, profileData.city);
+      selectOption(select, profileData.city, {name: select.name, context: 'city'});
     } else if (context.includes('gender') && profileData.gender) {
       console.log(`⚥ Trying to match gender: ${profileData.gender}`);
-      selectOption(select, profileData.gender);
-    } else if (context.includes('remote') || context.includes('work type') || context.includes('work preference')) {
+      selectOption(select, profileData.gender, {name: select.name, context: 'gender'});
+    } else if (context.includes('remote') || context.includes('work type') || context.includes('work preference') || context.includes('location type')) {
       if (profileData.remoteWork) {
         console.log(`🏠 Trying to match work location: ${profileData.remoteWork}`);
-        selectOption(select, profileData.remoteWork);
+        selectOption(select, profileData.remoteWork, {name: select.name, context: 'remoteWork'});
       }
-    } else if (context.includes('newsletter') || context.includes('subscribe') || context.includes('marketing')) {
+    } else if (context.includes('newsletter') || context.includes('subscribe') || context.includes('marketing') || context.includes('notification')) {
       if (profileData.newsletter) {
         console.log(`📧 Trying to match newsletter preference: ${profileData.newsletter}`);
-        selectOption(select, profileData.newsletter === 'true' ? 'yes' : 'no');
+        selectOption(select, profileData.newsletter === 'true' ? 'yes' : 'no', {name: select.name, context: 'newsletter'});
+      }
+    } else if (context.includes('terms') || context.includes('conditions') || context.includes('privacy')) {
+      if (profileData.terms === 'true') {
+        selectOption(select, 'yes', {name: select.name, context: 'terms'});
       }
     }
   });
@@ -1230,6 +1277,19 @@ style.textContent = `
     0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); }
     70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
     100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+  }
+  
+  /* Enhanced select styling */
+  select.autofill-filled {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234CAF50'%3E%3Cpath d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 10px center !important;
+    background-size: 20px !important;
+    padding-right: 40px !important;
+  }
+  
+  select.autofill-filled option:checked {
+    background-color: rgba(76, 175, 80, 0.1) !important;
   }
 `;
 document.head.appendChild(style);
