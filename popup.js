@@ -821,27 +821,35 @@ async function autoSubmitForm() {
   }
 }
 
-// Update form with extracted data
+// Enhanced update form with extracted data
 function updateFormWithExtractedData(data) {
+  const updatedFields = [];
+  
   Object.entries(data).forEach(([key, value]) => {
     const element = document.getElementById(key);
     if (element && value && !element.value.trim()) {
       element.value = value;
+      updatedFields.push(key);
       
+      // Visual feedback
       element.style.borderColor = '#4CAF50';
       element.style.boxShadow = '0 0 0 2px rgba(76, 175, 80, 0.2)';
       
       setTimeout(() => {
         element.style.borderColor = '';
         element.style.boxShadow = '';
-      }, 2000);
+      }, 3000);
     }
   });
   
-  const saveBtn = document.getElementById('save-profile-btn');
-  if (saveBtn) {
-    saveBtn.classList.add('btn--pulse');
-    saveBtn.innerHTML = '💾 Save Profile (Unsaved Changes)';
+  if (updatedFields.length > 0) {
+    const saveBtn = document.getElementById('save-profile-btn');
+    if (saveBtn) {
+      saveBtn.classList.add('btn--pulse');
+      saveBtn.innerHTML = `💾 Save Profile (${updatedFields.length} new field${updatedFields.length > 1 ? 's' : ''})`;
+    }
+    
+    showStatus(`✅ Auto-filled ${updatedFields.length} field${updatedFields.length > 1 ? 's' : ''}`, 'success');
   }
 }
 
