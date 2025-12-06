@@ -1,30 +1,23 @@
-// AutoFill Pro v6.1 Popup Controller
-console.log('🎯 AutoFill Pro Popup Initializing...');
+// AutoFill Pro Popup Script - Complete Fixed Version
+console.log('🎯 AutoFill Pro Popup initializing...');
 
-// Global state
+// Global variables
 let currentTab = null;
-let profile = {};
+let currentProfile = {};
 let settings = {};
-let stats = {};
+let usageStats = {};
 let cvFile = null;
 
-// Wait for DOM to be ready
+// Initialize popup
 document.addEventListener('DOMContentLoaded', async () => {
+  console.log('⚡ Initializing popup...');
+  
   try {
-    // Get current tab
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     currentTab = tabs[0];
     
-    if (!currentTab) {
-      showStatus('❌ Cannot access current tab', 'error');
-      return;
-    }
-    
-    // Load all data from storage
     await loadAllData();
-    
-    // Initialize UI components
-    initializeTabs();
+    initTabs();
     bindAllEvents();
     updateAllUI();
     
@@ -38,87 +31,144 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Load all data from storage
 async function loadAllData() {
   try {
-    const result = await chrome.storage.local.get(['profile', 'settings', 'stats', 'cvFile']);
+    const result = await chrome.storage.local.get(['profile', 'settings', 'usageStats', 'cvFile']);
     
-    profile = result.profile || {};
-    settings = result.settings || {};
-    stats = result.stats || {};
-    cvFile = result.cvFile || null;
-    
-    // Populate forms after data loads
+    currentProfile = result.profile || createDefaultProfile();
     populateProfileForm();
+    
+    settings = result.settings || createDefaultSettings();
     populateSettingsForm();
+    
+    usageStats = result.usageStats || createDefaultStats();
+    updateUsageStats();
+    
+    cvFile = result.cvFile || null;
     updateCVStatus();
     
   } catch (error) {
     console.error('❌ Failed to load data:', error);
-    profile = {};
-    settings = {};
-    stats = {};
-    cvFile = null;
+    currentProfile = createDefaultProfile();
+    settings = createDefaultSettings();
+    usageStats = createDefaultStats();
   }
 }
 
-// Populate profile form fields
+// Create default profile
+function createDefaultProfile() {
+  return {
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    address: '',
+    city: '',
+    state: '',
+    zipCode: '',
+    country: '',
+    company: '',
+    jobTitle: '',
+    website: '',
+    linkedin: '',
+    github: '',
+    experience: '',
+    education: '',
+    skills: '',
+    salary: '',
+    notice: '',
+    gender: '',
+    newsletter: '',
+    remoteWork: '',
+    terms: ''
+  };
+}
+
+// Create default settings
+function createDefaultSettings() {
+  return {
+    autoFill: true,
+    highlightFields: true,
+    showNotifications: true,
+    autoSubmit: false,
+    keyboardShortcut: true
+  };
+}
+
+// Create default stats
+function createDefaultStats() {
+  return {
+    formsFilled: 0,
+    fieldsFilled: 0,
+    lastUsed: null,
+    totalUsageTime: 0,
+    favoriteSites: []
+  };
+}
+
+// Populate profile form
 function populateProfileForm() {
-  const fields = [
-    'firstName', 'lastName', 'email', 'phone', 'address', 'city', 'state', 'zipCode', 'country',
-    'company', 'jobTitle', 'website', 'linkedin', 'github', 'experience', 'education', 'skills',
-    'salary', 'notice', 'gender', 'newsletter', 'remoteWork', 'terms'
-  ];
-  
-  fields.forEach(fieldName => {
-    const element = document.getElementById(fieldName);
-    if (element && profile[fieldName]) {
-      element.value = profile[fieldName];
+  Object.keys(currentProfile).forEach(key => {
+    const element = document.getElementById(key);
+    if (element) {
+      element.value = currentProfile[key] || '';
     }
   });
 }
 
 // Populate settings form
 function populateSettingsForm() {
-  const highlightToggle = document.getElementById('highlight-fields-toggle');
-  const notifyToggle = document.getElementById('show-notifications-toggle');
-  const autoSubmitToggle = document.getElementById('auto-submit-toggle');
+  const settingsMap = {
+    'auto-fill-toggle': 'autoFill',
+    'highlight-fields-toggle': 'highlightFields',
+    'show-notifications-toggle': 'showNotifications'
+  };
   
-  if (highlightToggle) highlightToggle.checked = settings.highlightFields !== false;
-  if (notifyToggle) notifyToggle.checked = settings.showNotifications !== false;
-  if (autoSubmitToggle) autoSubmitToggle.checked = settings.autoSubmit === true;
+  // Add auto-submit if element exists
+  if (document.getElementById('auto-submit-toggle')) {
+    settingsMap['auto-submit-toggle'] = 'autoSubmit';
+  }
+  
+  Object.entries(settingsMap).forEach(([elementId, settingKey]) => {
+    const element = document.getElementById(elementId);
+    if (element) {
+      element.checked = settings[settingKey] || false;
+    }
+  });
 }
 
-// Initialize tab switching
-function initializeTabs() {
+// Initialize tabs
+function initTabs() {
   const tabButtons = document.querySelectorAll('.tab-button');
   const tabPanels = document.querySelectorAll('.tab-panel');
   
   tabButtons.forEach(button => {
-    button.addEventListener('click', () => {
-      const targetId = button.dataset.target;
+    button.addEventListener('click', (e) => {
+      e.preventDefault();
+      const target = button.getAttribute('data-target');
       
       // Update button states
       tabButtons.forEach(btn => {
-        btn.classList.remove('active');
         btn.setAttribute('aria-selected', 'false');
+        btn.classList.remove('active');
       });
-      button.classList.add('active');
       button.setAttribute('aria-selected', 'true');
+      button.classList.add('active');
       
-      // Update panel visibility
+      // Show target panel
       tabPanels.forEach(panel => {
-        panel.classList.remove('active');
         panel.setAttribute('aria-hidden', 'true');
+        panel.style.display = 'none';
       });
       
-      const targetPanel = document.getElementById(targetId);
+      const targetPanel = document.getElementById(target);
       if (targetPanel) {
-        targetPanel.classList.add('active');
         targetPanel.setAttribute('aria-hidden', 'false');
+        targetPanel.style.display = 'block';
       }
     });
   });
 }
 
-// Bind all event listeners
+// Bind all events
 function bindAllEvents() {
   // Smart Fill button
   const smartFillBtn = document.getElementById('smart-fill-btn');
@@ -138,61 +188,76 @@ function bindAllEvents() {
     cvFileInput.addEventListener('change', handleCVUpload);
   }
   
-  // CV Actions
-  const previewBtn = document.getElementById('preview-cv-btn');
-  if (previewBtn) {
-    previewBtn.addEventListener('click', previewCV);
+  // Preview CV button
+  const previewCvBtn = document.getElementById('preview-cv-btn');
+  if (previewCvBtn) {
+    previewCvBtn.addEventListener('click', previewCV);
   }
   
-  const extractBtn = document.getElementById('extract-cv-btn');
-  if (extractBtn) {
-    extractBtn.addEventListener('click', extractCVData);
+  // Extract CV button
+  const extractCvBtn = document.getElementById('extract-cv-btn');
+  if (extractCvBtn) {
+    extractCvBtn.addEventListener('click', extractCVData);
   }
   
-  // Browser extraction
+  // Extract from Browser button
   const extractBrowserBtn = document.getElementById('extract-browser-btn');
   if (extractBrowserBtn) {
     extractBrowserBtn.addEventListener('click', extractFromBrowser);
   }
   
-  // Reset button
-  const resetBtn = document.getElementById('reset-all-btn');
-  if (resetBtn) {
-    resetBtn.addEventListener('click', resetAllData);
+  // Reset All button
+  const resetAllBtn = document.getElementById('reset-all-btn');
+  if (resetAllBtn) {
+    resetAllBtn.addEventListener('click', resetAllData);
   }
   
-  // Save settings
+  // Save Settings button
   const saveSettingsBtn = document.getElementById('save-settings-btn');
   if (saveSettingsBtn) {
     saveSettingsBtn.addEventListener('click', saveSettings);
   }
   
-  // Auto-save indicators
-  const profileInputs = document.querySelectorAll('#profile-panel .form-input');
-  profileInputs.forEach(input => {
-    input.addEventListener('input', () => {
+  // Profile form auto-save indicator
+  const formElements = document.querySelectorAll('#profile-form input, #profile-form textarea, #profile-form select');
+  formElements.forEach(element => {
+    element.addEventListener('input', () => {
       const saveBtn = document.getElementById('save-profile-btn');
       if (saveBtn) {
         saveBtn.classList.add('btn--pulse');
-        saveBtn.textContent = '💾 Save Profile (Unsaved Changes)';
+        saveBtn.innerHTML = '💾 Save Profile (Unsaved Changes)';
+      }
+    });
+  });
+  
+  // Settings toggle changes
+  const settingToggles = document.querySelectorAll('input[type="checkbox"]');
+  settingToggles.forEach(toggle => {
+    toggle.addEventListener('change', () => {
+      const saveBtn = document.getElementById('save-settings-btn');
+      if (saveBtn) {
+        saveBtn.classList.add('btn--pulse');
+        saveBtn.innerHTML = '💾 Save Settings (Unsaved Changes)';
       }
     });
   });
 }
 
-// Handle Smart Fill with proper error handling
+// Handle Smart Fill
 async function handleSmartFill() {
-  const button = document.getElementById('smart-fill-btn');
-  const originalText = button.textContent;
+  console.log('🚀 Smart Fill initiated');
   
-  // Disable button and show loading
+  const button = document.getElementById('smart-fill-btn');
+  const originalText = button.innerHTML;
+  
+  button.innerHTML = '⏳ Filling Forms...';
   button.disabled = true;
-  button.textContent = '⏳ Filling Forms...';
-  showStatus('Starting form fill...', 'loading');
+  
+  showStatus('⏳ Starting form fill...', 'loading');
   
   try {
     // Validate tab
-    if (!currentTab) {
+    if (!currentTab || !currentTab.url) {
       throw new Error('No active tab found');
     }
     
@@ -200,130 +265,194 @@ async function handleSmartFill() {
       throw new Error('Cannot fill forms on Chrome internal pages');
     }
     
-    // Validate profile has data
-    const hasData = Object.values(profile).some(v => v && v.trim());
-    if (!hasData) {
-      throw new Error('Profile is empty! Please add your information.');
+    // Check profile data
+    if (!currentProfile || Object.keys(currentProfile).length === 0) {
+      showStatus('❌ Please save your profile first!', 'error');
+      resetButton(button, originalText);
+      return;
     }
     
-    // Inject content script if needed
-    showStatus('Connecting to page...', 'loading');
-    await injectContentScriptIfNeeded(currentTab.id);
+    const hasData = Object.values(currentProfile).some(value => value && value.trim());
+    if (!hasData) {
+      showStatus('❌ Profile is empty! Please add your information.', 'error');
+      resetButton(button, originalText);
+      return;
+    }
     
-    // Send fill command
-    showStatus('Filling forms...', 'loading');
-    const response = await chrome.tabs.sendMessage(currentTab.id, {
-      action: 'smartFill',
-      data: profile,
-      settings: settings
-    });
+    showStatus('🚀 Connecting to page...', 'loading');
     
-    if (response.error) {
+    // Robust injection with retry logic
+    let response;
+    let retryCount = 0;
+    const maxRetries = 3;
+    let isScriptInjected = false;
+    
+    // First, try to ping existing content script
+    try {
+      const pingResponse = await chrome.tabs.sendMessage(currentTab.id, { action: 'ping' });
+      if (pingResponse?.status === 'ready') {
+        isScriptInjected = true;
+        console.log('✅ Content script already active');
+      }
+    } catch (pingError) {
+      console.log('🔄 Content script not found, will inject');
+    }
+    
+    // Inject if needed
+    if (!isScriptInjected) {
+      showStatus('🔄 Injecting content script...', 'loading');
+      await injectContentScript();
+      await new Promise(resolve => setTimeout(resolve, 800));
+    }
+    
+    // Send fill command with retries
+    while (retryCount < maxRetries) {
+      try {
+        response = await chrome.tabs.sendMessage(currentTab.id, {
+          action: 'smartFill',
+          data: currentProfile,
+          settings: settings,
+          source: 'popup'
+        });
+        break;
+      } catch (error) {
+        retryCount++;
+        if (error.message.includes('receiving end does not exist') && retryCount < maxRetries) {
+          showStatus(`🔄 Retrying connection (attempt ${retryCount})...`, 'loading');
+          await new Promise(resolve => setTimeout(resolve, 500 * retryCount));
+        } else {
+          throw new Error(`Failed to communicate with page: ${error.message}`);
+        }
+      }
+    }
+    
+    // Handle response
+    if (response?.error) {
       throw new Error(response.error);
     }
     
-    if (response.filled > 0) {
-      // Update stats
-      await updateStatsAfterFill(response.filled, response.formsProcessed || 1);
-      showStatus(`✅ Filled ${response.filled} field${response.filled !== 1 ? 's' : ''}`, 'success');
+    if (response?.filled > 0) {
+      await updateUsageStatsAfterFill(response.filled, response.formsProcessed || 1);
+      
+      const message = `✅ Filled ${response.filled} field${response.filled !== 1 ? 's' : ''} in ${response.formsProcessed || 1} form${(response.formsProcessed || 1) !== 1 ? 's' : ''}`;
+      showStatus(message, 'success');
+      
+      if (settings.autoSubmit && response.filled > 0) {
+        setTimeout(() => {
+          showStatus('⚡ Auto-submitting form...', 'loading');
+          autoSubmitForm();
+        }, 1000);
+      }
     } else {
-      showStatus('⚠️ No fields were filled', 'warning');
+      showStatus('⚠️ No form fields were filled', 'warning');
     }
     
   } catch (error) {
     console.error('❌ Smart fill failed:', error);
-    showStatus(`Error: ${error.message}`, 'error');
+    showStatus(`❌ Error: ${error.message}`, 'error');
   } finally {
-    // Restore button
-    button.disabled = false;
-    button.textContent = originalText;
+    resetButton(button, originalText);
   }
 }
 
-// Inject content script with retry logic
-async function injectContentScriptIfNeeded(tabId) {
+// Inject content script
+async function injectContentScript() {
   try {
-    // Test if already injected
-    await chrome.tabs.sendMessage(tabId, { action: 'ping' });
-  } catch (error) {
-    // Inject if not found
-    console.log('🔄 Injecting content script...');
     await chrome.scripting.executeScript({
-      target: { tabId: tabId },
+      target: { tabId: currentTab.id },
       files: ['content.js']
     });
+    
     await chrome.scripting.insertCSS({
-      target: { tabId: tabId },
+      target: { tabId: currentTab.id },
       files: ['content.css']
     });
-    // Wait for initialization
-    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    console.log('✅ Content script injected successfully');
+  } catch (error) {
+    console.error('❌ Failed to inject content script:', error);
+    throw new Error('Could not inject content script. Please refresh the page and try again.');
   }
 }
 
-// Save profile data
+// Save profile
 async function saveProfile() {
   const button = document.getElementById('save-profile-btn');
-  const originalText = button.textContent;
+  const originalText = button.innerHTML;
   
+  button.innerHTML = '💾 Saving...';
   button.disabled = true;
-  button.textContent = '💾 Saving...';
   
-  // Collect all profile fields
-  const fields = [
-    'firstName', 'lastName', 'email', 'phone', 'address', 'city', 'state', 'zipCode', 'country',
-    'company', 'jobTitle', 'website', 'linkedin', 'github', 'experience', 'education', 'skills',
-    'salary', 'notice', 'gender', 'newsletter', 'remoteWork', 'terms'
-  ];
+  showStatus('💾 Saving profile...', 'loading');
   
-  const newProfile = {};
-  fields.forEach(fieldName => {
-    const element = document.getElementById(fieldName);
-    newProfile[fieldName] = element ? element.value.trim() : '';
-  });
-  
-  // Validate email
-  if (newProfile.email && !newProfile.email.includes('@')) {
-    showStatus('Please enter a valid email', 'error');
+  try {
+    const profile = {};
+    const fields = [
+      'firstName', 'lastName', 'email', 'phone', 'address', 'city', 'state',
+      'zipCode', 'country', 'company', 'jobTitle', 'website', 'linkedin',
+      'github', 'experience', 'education', 'skills', 'salary', 'notice',
+      'gender', 'newsletter', 'remoteWork', 'terms'
+    ];
+    
+    fields.forEach(field => {
+      const element = document.getElementById(field);
+      if (element) {
+        profile[field] = element.value.trim();
+      }
+    });
+    
+    const errors = validateProfile(profile);
+    if (errors.length > 0) {
+      showStatus(`❌ ${errors.join(', ')}`, 'error');
+      button.innerHTML = originalText;
+      button.disabled = false;
+      return;
+    }
+    
+    await chrome.storage.local.set({ profile });
+    currentProfile = profile;
+    
+    updateStatusIndicator();
+    showStatus('✅ Profile saved successfully!', 'success');
+    
+    button.innerHTML = '💾 Profile Saved!';
+    button.classList.remove('btn--pulse');
+    
+    setTimeout(() => {
+      button.innerHTML = originalText.replace('(Unsaved Changes)', '').trim();
+      button.disabled = false;
+    }, 2000);
+    
+  } catch (error) {
+    console.error('❌ Failed to save profile:', error);
+    showStatus('❌ Failed to save profile', 'error');
+    button.innerHTML = originalText;
     button.disabled = false;
-    button.textContent = originalText;
-    return;
   }
-  
-  // Save to storage
-  await chrome.storage.local.set({ profile: newProfile });
-  profile = newProfile;
-  
-  // Update UI
-  updateStatus();
-  showStatus('✅ Profile saved successfully!', 'success');
-  
-  // Restore button with success
-  button.textContent = '💾 Profile Saved!';
-  button.classList.remove('btn--pulse');
-  
-  setTimeout(() => {
-    button.textContent = originalText;
-    button.disabled = false;
-  }, 2000);
 }
 
-// Handle CV file upload
+// Handle CV upload
 async function handleCVUpload(event) {
   const file = event.target.files[0];
   if (!file) return;
   
-  // Validate file size
-  if (file.size > 10 * 1024 * 1024) {
-    showStatus('❌ File too large. Maximum size is 10MB.', 'error');
+  const validTypes = [
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'image/jpeg',
+    'image/png',
+    'text/plain',
+    'text/rtf'
+  ];
+  
+  if (!validTypes.includes(file.type) && !file.name.match(/\.(pdf|doc|docx|jpg|jpeg|png|txt|rtf)$/i)) {
+    showStatus('❌ Invalid file type. Please upload PDF, DOC, DOCX, JPG, PNG, or TXT files.', 'error');
     return;
   }
   
-  // Validate file type
-  const validTypes = ['application/pdf', 'application/msword', 
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'];
-  if (!validTypes.includes(file.type) && !file.name.match(/\.(pdf|doc|docx|txt)$/i)) {
-    showStatus('❌ Invalid file type. Use PDF, DOC, DOCX, or TXT.', 'error');
+  if (file.size > 10 * 1024 * 1024) {
+    showStatus('❌ File too large. Maximum size is 10MB.', 'error');
     return;
   }
   
@@ -337,6 +466,7 @@ async function handleCVUpload(event) {
       type: file.type,
       size: file.size,
       data: base64Data,
+      lastModified: file.lastModified,
       uploadedAt: new Date().toISOString()
     };
     
@@ -354,98 +484,129 @@ async function handleCVUpload(event) {
 function readFileAsBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = e => resolve(e.target.result);
-    reader.onerror = e => reject(new Error('Failed to read file'));
+    reader.onload = (e) => resolve(e.target.result);
+    reader.onerror = (e) => reject(new Error('Failed to read file'));
     reader.readAsDataURL(file);
   });
 }
 
-// Preview CV in new tab
-function previewCV() {
-  if (!cvFile) {
-    showStatus('❌ No CV uploaded', 'error');
-    return;
+// Preview CV
+async function previewCV() {
+  try {
+    if (!cvFile) {
+      showStatus('❌ No CV uploaded', 'error');
+      return;
+    }
+    
+    showStatus('👁️ Opening CV preview...', 'loading');
+    
+    const previewWindow = window.open('', '_blank');
+    
+    const previewHTML = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>CV Preview - ${cvFile.name}</title>
+          <style>
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              margin: 0;
+              padding: 20px;
+              background: #f5f5f5;
+            }
+            .header {
+              background: white;
+              padding: 20px;
+              border-radius: 10px;
+              box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+              margin-bottom: 20px;
+            }
+            .file-info {
+              margin-top: 10px;
+              color: #666;
+              font-size: 14px;
+            }
+            .preview-container {
+              background: white;
+              padding: 20px;
+              border-radius: 10px;
+              box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+              min-height: 500px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>📄 CV Preview</h1>
+            <div class="file-info">
+              <strong>File:</strong> ${cvFile.name}<br>
+              <strong>Type:</strong> ${cvFile.type}<br>
+              <strong>Size:</strong> ${(cvFile.size / 1024).toFixed(2)} KB<br>
+              <strong>Uploaded:</strong> ${new Date(cvFile.uploadedAt).toLocaleString()}
+            </div>
+          </div>
+          <div class="preview-container">
+            ${cvFile.type.includes('image') 
+              ? `<img src="${cvFile.data}" style="max-width: 100%; border-radius: 5px;" />`
+              : cvFile.type.includes('pdf')
+              ? `<embed src="${cvFile.data}" width="100%" height="600px" type="application/pdf" />`
+              : cvFile.type.includes('text')
+              ? `<pre style="white-space: pre-wrap; font-family: monospace;">${atob(cvFile.data.split(',')[1]).substring(0, 5000)}...</pre>`
+              : `<p>Preview not available for this file type. Download the file to view it.</p>
+                 <a href="${cvFile.data}" download="${cvFile.name}" style="display: inline-block; padding: 10px 20px; background: #4361ee; color: white; text-decoration: none; border-radius: 5px; margin-top: 10px;">
+                   Download CV
+                 </a>`
+            }
+          </div>
+        </body>
+      </html>
+    `;
+    
+    previewWindow.document.write(previewHTML);
+    previewWindow.document.close();
+    
+    showStatus('✅ CV preview opened in new tab', 'success');
+    
+  } catch (error) {
+    console.error('❌ CV preview failed:', error);
+    showStatus('❌ Failed to preview CV', 'error');
   }
-  
-  const preview = window.open('', '_blank');
-  const isImage = cvFile.type.startsWith('image/');
-  const isPDF = cvFile.type === 'application/pdf';
-  const isText = cvFile.type === 'text/plain';
-  
-  preview.document.write(`
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>CV Preview - ${cvFile.name}</title>
-        <style>
-          body { font-family: sans-serif; margin: 20px; background: #f5f5f5; }
-          .header { background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
-          .preview-container { background: white; padding: 20px; border-radius: 10px; min-height: 600px; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>📄 CV Preview</h1>
-          <p><strong>File:</strong> ${cvFile.name} | <strong>Size:</strong> ${(cvFile.size / 1024).toFixed(1)} KB</p>
-        </div>
-        <div class="preview-container">
-          ${isImage ? `<img src="${cvFile.data}" style="max-width: 100%;">` : 
-            isPDF ? `<embed src="${cvFile.data}" width="100%" height="600px">` : 
-            isText ? `<pre style="white-space: pre-wrap;">${atob(cvFile.data.split(',')[1])}</pre>` : 
-            '<p>Preview not available for this file type.</p>'}
-        </div>
-      </body>
-    </html>
-  `);
-  preview.document.close();
-  
-  showStatus('✅ CV preview opened', 'success');
 }
 
-// Extract data from CV (text only)
+// Extract data from CV
 async function extractCVData() {
-  if (!cvFile) {
-    showStatus('❌ No CV uploaded', 'error');
-    return;
-  }
-  
-  if (cvFile.type !== 'text/plain') {
-    showStatus('⚠️ Text extraction only works with TXT files', 'warning');
-    return;
-  }
-  
-  showStatus('🔍 Extracting data from CV...', 'loading');
-  
   try {
+    if (!cvFile) {
+      showStatus('❌ No CV uploaded', 'error');
+      return;
+    }
+    
+    if (!cvFile.type.includes('text')) {
+      showStatus('⚠️ Text extraction only works with TXT files. For PDF/DOC files, please use the manual fields.', 'warning');
+      return;
+    }
+    
+    showStatus('🔍 Extracting data from CV...', 'loading');
+    
     const base64Content = cvFile.data.split(',')[1];
     const textContent = atob(base64Content);
     
-    const extracted = {};
+    const extractedData = extractDataFromText(textContent);
+    updateFormWithExtractedData(extractedData);
     
-    // Email
-    const emailMatch = textContent.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/);
-    if (emailMatch) extracted.email = emailMatch[0];
-    
-    // Phone
-    const phoneMatch = textContent.match(/\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b/);
-    if (phoneMatch) extracted.phone = phoneMatch[0];
-    
-    // Name (simple pattern)
-    const nameMatch = textContent.match(/^([A-Z][a-z]+)\s+([A-Z][a-z]+)/m);
-    if (nameMatch) {
-      extracted.firstName = nameMatch[1];
-      extracted.lastName = nameMatch[2];
+    const container = document.getElementById('extracted-data-container');
+    if (container) {
+      let html = '<h3 style="margin-bottom: 10px;">Extracted Data:</h3>';
+      
+      Object.entries(extractedData).forEach(([key, value]) => {
+        if (value) {
+          html += `<div style="margin-bottom: 5px;"><strong>${formatKey(key)}:</strong> ${value}</div>`;
+        }
+      });
+      
+      container.innerHTML = html;
     }
     
-    // LinkedIn/GitHub
-    const linkedinMatch = textContent.match(/linkedin\.com\/in\/[A-Za-z0-9-]+/i);
-    if (linkedinMatch) extracted.linkedin = `https://${linkedinMatch[0]}`;
-    
-    const githubMatch = textContent.match(/github\.com\/[A-Za-z0-9-]+/i);
-    if (githubMatch) extracted.github = `https://${githubMatch[0]}`;
-    
-    // Update form
-    updateFormWithExtractedData(extracted);
     showStatus('✅ Data extracted from CV', 'success');
     
   } catch (error) {
@@ -454,12 +615,45 @@ async function extractCVData() {
   }
 }
 
-// Extract data from current page
+// Extract data from text
+function extractDataFromText(text) {
+  const extracted = {};
+  
+  const emailMatch = text.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/);
+  if (emailMatch) extracted.email = emailMatch[0];
+  
+  const phoneRegex = /(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b/g;
+  const phoneMatches = text.match(phoneRegex);
+  if (phoneMatches) extracted.phone = phoneMatches[0];
+  
+  const nameRegex = /^([A-Z][a-z]+)\s+([A-Z][a-z]+)/m;
+  const nameMatch = text.match(nameRegex);
+  if (nameMatch) {
+    extracted.firstName = nameMatch[1];
+    extracted.lastName = nameMatch[2];
+  }
+  
+  const linkedinMatch = text.match(/linkedin\.com\/in\/[A-Za-z0-9-]+/i);
+  if (linkedinMatch) extracted.linkedin = `https://${linkedinMatch[0]}`;
+  
+  const githubMatch = text.match(/github\.com\/[A-Za-z0-9-]+/i);
+  if (githubMatch) extracted.github = `https://${githubMatch[0]}`;
+  
+  const skillKeywords = ['JavaScript', 'Python', 'React', 'Node.js', 'Java', 'C++', 'HTML', 'CSS', 'SQL', 'AWS'];
+  const foundSkills = skillKeywords.filter(skill => text.includes(skill));
+  if (foundSkills.length > 0) {
+    extracted.skills = foundSkills.join(', ');
+  }
+  
+  return extracted;
+}
+
+// Extract data from browser
 async function extractFromBrowser() {
   const button = document.getElementById('extract-browser-btn');
-  const originalText = button.textContent;
+  const originalText = button.innerHTML;
   
-  button.textContent = '🌐 Extracting...';
+  button.innerHTML = '🌐 Extracting...';
   button.disabled = true;
   
   showStatus('🌐 Extracting data from page...', 'loading');
@@ -469,133 +663,100 @@ async function extractFromBrowser() {
       throw new Error('Cannot extract from this page');
     }
     
-    // Ensure content script is loaded
-    await injectContentScriptIfNeeded(currentTab.id);
+    let response;
+    try {
+      response = await chrome.tabs.sendMessage(currentTab.id, {
+        action: 'extractFromBrowser'
+      });
+    } catch (error) {
+      if (error.message.includes('receiving end does not exist')) {
+        await injectContentScript();
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        response = await chrome.tabs.sendMessage(currentTab.id, {
+          action: 'extractFromBrowser'
+        });
+      } else {
+        throw error;
+      }
+    }
     
-    // Send extract command
-    const response = await chrome.tabs.sendMessage(currentTab.id, {
-      action: 'extractFromBrowser'
-    });
-    
-    if (response.data && Object.keys(response.data).length > 0) {
+    if (response?.data) {
       updateFormWithExtractedData(response.data);
+      
+      const container = document.getElementById('extracted-data-container');
+      if (container) {
+        let html = '<h3 style="margin-bottom: 10px;">Data Extracted from Page:</h3>';
+        
+        Object.entries(response.data).forEach(([key, value]) => {
+          if (value) {
+            html += `<div style="margin-bottom: 5px;"><strong>${formatKey(key)}:</strong> ${value}</div>`;
+          }
+        });
+        
+        container.innerHTML = html;
+      }
+      
       showStatus('✅ Data extracted from page', 'success');
     } else {
-      showStatus('⚠️ No extractable data found', 'warning');
+      showStatus('⚠️ No extractable data found on this page', 'warning');
     }
     
   } catch (error) {
     console.error('❌ Browser extraction failed:', error);
-    showStatus('❌ Failed to extract data', 'error');
+    showStatus('❌ Failed to extract data from page', 'error');
   } finally {
-    button.textContent = originalText;
-    button.disabled = false;
-  }
-}
-
-// Update form fields with extracted data
-function updateFormWithExtractedData(data) {
-  let updatedCount = 0;
-  
-  Object.entries(data).forEach(([key, value]) => {
-    const element = document.getElementById(key);
-    if (element && value && !element.value.trim()) {
-      element.value = value;
-      
-      // Visual feedback
-      element.style.borderColor = '#4CAF50';
-      element.style.boxShadow = '0 0 0 2px rgba(76, 175, 80, 0.2)';
-      
-      setTimeout(() => {
-        element.style.borderColor = '';
-        element.style.boxShadow = '';
-      }, 2000);
-      
-      updatedCount++;
-    }
-  });
-  
-  if (updatedCount > 0) {
-    const saveBtn = document.getElementById('save-profile-btn');
-    if (saveBtn) {
-      saveBtn.classList.add('btn--pulse');
-      saveBtn.textContent = '💾 Save Profile (Unsaved Changes)';
-    }
-  }
-}
-
-// Save settings
-async function saveSettings() {
-  const button = document.getElementById('save-settings-btn');
-  const originalText = button.textContent;
-  
-  button.textContent = '💾 Saving...';
-  button.disabled = true;
-  
-  const newSettings = {
-    highlightFields: document.getElementById('highlight-fields-toggle').checked,
-    showNotifications: document.getElementById('show-notifications-toggle').checked,
-    autoSubmit: document.getElementById('auto-submit-toggle').checked
-  };
-  
-  try {
-    await chrome.storage.local.set({ settings: newSettings });
-    settings = newSettings;
-    
-    showStatus('✅ Settings saved!', 'success');
-    button.textContent = '💾 Settings Saved!';
-    
-    setTimeout(() => {
-      button.textContent = originalText;
-      button.disabled = false;
-    }, 1500);
-    
-  } catch (error) {
-    console.error('❌ Settings save failed:', error);
-    showStatus('❌ Failed to save settings', 'error');
-    button.textContent = originalText;
+    button.innerHTML = originalText;
     button.disabled = false;
   }
 }
 
 // Reset all data
 async function resetAllData() {
-  const confirmed = confirm('⚠️ WARNING: This will delete ALL your data!\n\n' +
-    '• Profile information\n' +
-    '• Uploaded CV\n' +
-    '• Settings\n' +
-    '• Usage statistics\n\n' +
-    'This action cannot be undone. Are you sure?');
-  
-  if (!confirmed) return;
+  if (!confirm('⚠️ Are you sure you want to reset ALL data?\n\nThis will:\n• Clear your profile\n• Remove uploaded CV\n• Reset settings\n• Clear usage statistics\n\nThis action cannot be undone!')) {
+    return;
+  }
   
   const button = document.getElementById('reset-all-btn');
-  button.textContent = '🗑️ Resetting...';
+  const originalText = button.innerHTML;
+  
+  button.innerHTML = '🗑️ Resetting...';
   button.disabled = true;
   
   showStatus('🔄 Resetting all data...', 'loading');
   
   try {
-    // Clear all storage
     await chrome.storage.local.clear();
     
-    // Reset local state
-    profile = {};
-    settings = {};
-    stats = {};
+    currentProfile = createDefaultProfile();
+    settings = createDefaultSettings();
+    usageStats = createDefaultStats();
     cvFile = null;
     
-    // Clear form fields
-    document.querySelectorAll('#profile-panel .form-input').forEach(input => {
-      input.value = '';
+    const formElements = document.querySelectorAll('input, textarea, select');
+    formElements.forEach(element => {
+      if (element.type !== 'button' && element.type !== 'submit') {
+        element.value = '';
+      }
     });
     
-    // Reset settings toggles
-    document.getElementById('highlight-fields-toggle').checked = true;
-    document.getElementById('show-notifications-toggle').checked = true;
-    document.getElementById('auto-submit-toggle').checked = false;
+    const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+    checkboxes.forEach(checkbox => {
+      checkbox.checked = true;
+    });
+    
+    const container = document.getElementById('extracted-data-container');
+    if (container) {
+      container.innerHTML = 'Extracted data will appear here...';
+    }
     
     updateAllUI();
+    
+    await chrome.storage.local.set({
+      profile: currentProfile,
+      settings: settings,
+      usageStats: usageStats
+    });
     
     showStatus('✅ All data reset successfully', 'success');
     
@@ -603,71 +764,177 @@ async function resetAllData() {
     console.error('❌ Reset failed:', error);
     showStatus('❌ Failed to reset data', 'error');
   } finally {
-    button.textContent = '🗑️ Reset All Data & Settings';
+    button.innerHTML = originalText;
     button.disabled = false;
   }
 }
 
-// Update all UI elements
+// Save settings
+async function saveSettings() {
+  const button = document.getElementById('save-settings-btn');
+  const originalText = button.innerHTML;
+  
+  button.innerHTML = '💾 Saving...';
+  button.disabled = true;
+  
+  showStatus('💾 Saving settings...', 'loading');
+  
+  try {
+    settings = {
+      autoFill: document.getElementById('auto-fill-toggle').checked,
+      highlightFields: document.getElementById('highlight-fields-toggle').checked,
+      showNotifications: document.getElementById('show-notifications-toggle').checked,
+      autoSubmit: document.getElementById('auto-submit-toggle')?.checked || false,
+      keyboardShortcut: true
+    };
+    
+    await chrome.storage.local.set({ settings });
+    
+    button.innerHTML = '💾 Settings Saved!';
+    button.classList.remove('btn--pulse');
+    
+    showStatus('✅ Settings saved successfully', 'success');
+    
+    setTimeout(() => {
+      button.innerHTML = '💾 Save Settings';
+      button.disabled = false;
+    }, 2000);
+    
+  } catch (error) {
+    console.error('❌ Failed to save settings:', error);
+    showStatus('❌ Failed to save settings', 'error');
+    button.innerHTML = originalText;
+    button.disabled = false;
+  }
+}
+
+// Auto-submit form
+async function autoSubmitForm() {
+  try {
+    await chrome.tabs.sendMessage(currentTab.id, {
+      action: 'autoSubmit'
+    });
+    
+    showStatus('✅ Form submitted successfully', 'success');
+  } catch (error) {
+    console.warn('⚠️ Auto-submit failed:', error);
+  }
+}
+
+// Update form with extracted data
+function updateFormWithExtractedData(data) {
+  Object.entries(data).forEach(([key, value]) => {
+    const element = document.getElementById(key);
+    if (element && value && !element.value.trim()) {
+      element.value = value;
+      
+      element.style.borderColor = '#4CAF50';
+      element.style.boxShadow = '0 0 0 2px rgba(76, 175, 80, 0.2)';
+      
+      setTimeout(() => {
+        element.style.borderColor = '';
+        element.style.boxShadow = '';
+      }, 2000);
+    }
+  });
+  
+  const saveBtn = document.getElementById('save-profile-btn');
+  if (saveBtn) {
+    saveBtn.classList.add('btn--pulse');
+    saveBtn.innerHTML = '💾 Save Profile (Unsaved Changes)';
+  }
+}
+
+// Update usage stats after fill
+async function updateUsageStatsAfterFill(fieldsFilled, formsFilled) {
+  usageStats.fieldsFilled += fieldsFilled;
+  usageStats.formsFilled += (formsFilled || 1);
+  usageStats.lastUsed = new Date().toISOString();
+  
+  if (currentTab?.url) {
+    const domain = new URL(currentTab.url).hostname;
+    const existingSite = usageStats.favoriteSites.find(site => site.domain === domain);
+    
+    if (existingSite) {
+      existingSite.count += 1;
+      existingSite.lastUsed = usageStats.lastUsed;
+    } else {
+      usageStats.favoriteSites.push({
+        domain,
+        count: 1,
+        lastUsed: usageStats.lastUsed
+      });
+    }
+    
+    usageStats.favoriteSites.sort((a, b) => b.count - a.count);
+    usageStats.favoriteSites = usageStats.favoriteSites.slice(0, 5);
+  }
+  
+  await chrome.storage.local.set({ usageStats });
+  updateUsageStats();
+}
+
+// Update all UI
 function updateAllUI() {
-  updateStatus();
+  updateStatusIndicator();
   updateCVStatus();
-  updateStats();
+  updateUsageStats();
+  checkPageForms();
 }
 
 // Update status indicator
-function updateStatus() {
+function updateStatusIndicator() {
   const statusEl = document.getElementById('status-indicator');
   if (!statusEl) return;
   
-  const filledFields = Object.values(profile).filter(v => v && v.trim()).length;
+  const filledFields = Object.values(currentProfile).filter(val => val && val.trim()).length;
+  const totalFields = Object.keys(currentProfile).length;
   
   if (filledFields === 0) {
     statusEl.textContent = '❌ No profile data saved';
-    statusEl.className = 'status error';
-  } else if (filledFields < 5) {
-    statusEl.textContent = `⚠️ Only ${filledFields} fields filled`;
-    statusEl.className = 'status warning';
+    statusEl.className = 'status-indicator status-indicator--error';
+  } else if (filledFields < totalFields / 2) {
+    statusEl.textContent = `⚠️ ${filledFields}/${totalFields} fields filled`;
+    statusEl.className = 'status-indicator status-indicator--warning';
   } else {
-    statusEl.textContent = `✅ ${filledFields} fields ready to fill`;
-    statusEl.className = 'status success';
+    statusEl.textContent = `✅ ${filledFields}/${totalFields} fields filled`;
+    statusEl.className = 'status-indicator status-indicator--success';
   }
 }
 
 // Update CV status
 function updateCVStatus() {
-  const cvStatus = document.getElementById('cv-status');
-  if (!cvStatus) return;
-  
-  if (cvFile) {
-    const sizeKB = (cvFile.size / 1024).toFixed(1);
-    cvStatus.innerHTML = `<strong>${cvFile.name}</strong> (${sizeKB} KB)`;
-  } else {
-    cvStatus.textContent = 'No CV stored';
+  const cvStatusEl = document.getElementById('cv-status');
+  if (cvStatusEl) {
+    if (cvFile) {
+      cvStatusEl.innerHTML = `📎 <strong>${cvFile.name}</strong> (${(cvFile.size / 1024).toFixed(1)} KB)`;
+    } else {
+      cvStatusEl.textContent = 'No CV stored';
+    }
   }
 }
 
 // Update usage stats
-function updateStats() {
-  const formsEl = document.getElementById('forms-filled');
-  const fieldsEl = document.getElementById('fields-filled');
+function updateUsageStats() {
+  const formsFilledEl = document.getElementById('forms-filled');
+  const fieldsFilledEl = document.getElementById('fields-filled');
   const lastUsedEl = document.getElementById('last-used');
   
-  if (formsEl) formsEl.textContent = stats.formsFilled || 0;
-  if (fieldsEl) fieldsEl.textContent = stats.fieldsFilled || 0;
+  if (formsFilledEl) formsFilledEl.textContent = usageStats.formsFilled;
+  if (fieldsFilledEl) fieldsFilledEl.textContent = usageStats.fieldsFilled;
   
   if (lastUsedEl) {
-    if (stats.lastUsed) {
-      const lastDate = new Date(stats.lastUsed);
+    if (usageStats.lastUsed) {
+      const lastUsed = new Date(usageStats.lastUsed);
       const now = new Date();
-      const hours = Math.floor((now - lastDate) / (1000 * 60 * 60));
+      const diffHours = Math.floor((now - lastUsed) / (1000 * 60 * 60));
       
-      if (hours < 1) {
+      if (diffHours < 1) {
         lastUsedEl.textContent = 'Just now';
-      } else if (hours < 24) {
-        lastUsedEl.textContent = `${hours}h ago`;
+      } else if (diffHours < 24) {
+        lastUsedEl.textContent = `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
       } else {
-        lastUsedEl.textContent = lastDate.toLocaleDateString();
+        lastUsedEl.textContent = lastUsed.toLocaleDateString();
       }
     } else {
       lastUsedEl.textContent = 'Never';
@@ -675,28 +942,103 @@ function updateStats() {
   }
 }
 
-// Update stats after successful fill
-async function updateStatsAfterFill(fieldsFilled, formsProcessed) {
-  stats.fieldsFilled = (stats.fieldsFilled || 0) + fieldsFilled;
-  stats.formsFilled = (stats.formsFilled || 0) + (formsProcessed || 1);
-  stats.lastUsed = new Date().toISOString();
-  
-  await chrome.storage.local.set({ stats });
-  updateStats();
+// Check page for forms
+async function checkPageForms() {
+  try {
+    if (!currentTab || currentTab.url.startsWith('chrome://')) {
+      return;
+    }
+    
+    let response;
+    try {
+      response = await chrome.tabs.sendMessage(currentTab.id, { action: 'ping' });
+    } catch (error) {
+      return;
+    }
+    
+    if (response?.status === 'ready') {
+      const formsResponse = await chrome.tabs.sendMessage(currentTab.id, { action: 'detectForms' });
+      
+      const smartFillBtn = document.getElementById('smart-fill-btn');
+      if (smartFillBtn && formsResponse?.formsCount > 0) {
+        smartFillBtn.disabled = false;
+        showStatus(`📋 ${formsResponse.formsCount} form(s) detected`, 'info');
+      } else if (smartFillBtn && formsResponse?.fieldsCount > 0) {
+        smartFillBtn.disabled = false;
+        showStatus(`⌨️ ${formsResponse.fieldsCount} input field(s) found`, 'info');
+      } else if (smartFillBtn) {
+        smartFillBtn.disabled = true;
+        showStatus('❌ No form fields detected', 'error');
+      }
+    }
+  } catch (error) {
+    // Silently fail
+  }
 }
 
 // Show status message
-function showStatus(message, type) {
+function showStatus(message, type = 'info') {
   const statusEl = document.getElementById('status-indicator');
   if (!statusEl) return;
   
   statusEl.textContent = message;
-  statusEl.className = `status ${type}`;
+  statusEl.className = 'status-indicator';
   
-  // Auto-clear success messages
+  switch (type) {
+    case 'success':
+      statusEl.classList.add('status-indicator--success');
+      break;
+    case 'error':
+      statusEl.classList.add('status-indicator--error');
+      break;
+    case 'warning':
+      statusEl.classList.add('status-indicator--warning');
+      break;
+    case 'loading':
+      statusEl.classList.add('status-indicator--loading');
+      break;
+    default:
+      statusEl.classList.add('status-indicator--info');
+  }
+  
   if (type === 'success') {
     setTimeout(() => {
-      updateStatus(); // Reset to default
+      if (statusEl.textContent === message) {
+        updateStatusIndicator();
+      }
     }, 3000);
   }
+}
+
+// Reset button to original state
+function resetButton(button, originalText) {
+  button.innerHTML = originalText;
+  button.disabled = false;
+}
+
+// Format key for display
+function formatKey(key) {
+  return key.replace(/([A-Z])/g, ' $1')
+    .replace(/^./, str => str.toUpperCase())
+    .replace('_', ' ');
+}
+
+// Validate profile before saving
+function validateProfile(profile) {
+  const errors = [];
+  
+  if (profile.firstName && profile.lastName && 
+      profile.firstName.toLowerCase() === profile.lastName.toLowerCase()) {
+    errors.push('First name and last name cannot be the same');
+  }
+  
+  if (profile.email && !profile.email.includes('@')) {
+    errors.push('Please enter a valid email address');
+  }
+  
+  if (profile.phone && !profile.phone.match(/[0-9\-\+\(\)\s]{10,}/)) {
+    errors.push('Please enter a valid phone number');
+  }
+  
+  return errors;
 }

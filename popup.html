@@ -3,84 +3,161 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AutoFill Pro v6.1</title>
+  <title>AutoFill Pro - Smart Form Filler</title>
   <style>
-    /* === CSS RESET & BASE === */
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    /* CSS Reset and Base Styles */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
     
     :root {
+      /* Color Palette */
       --primary: #4361ee;
       --primary-dark: #3a56d4;
+      --primary-light: #4895ef;
+      --secondary: #7209b7;
       --success: #4cc9f0;
       --warning: #f72585;
       --danger: #ef233c;
-      --bg: #0a0a0a;
-      --card: rgba(30, 30, 40, 0.95);
-      --text: #ffffff;
+      --info: #7209b7;
+      
+      /* Background Colors */
+      --bg-dark: #0a0a0a;
+      --bg-card: rgba(30, 30, 40, 0.95);
+      --bg-input: rgba(255, 255, 255, 0.05);
+      
+      /* Text Colors */
+      --text-primary: #ffffff;
+      --text-secondary: rgba(255, 255, 255, 0.7);
       --text-muted: rgba(255, 255, 255, 0.5);
-      --border: rgba(255, 255, 255, 0.1);
-      --radius: 12px;
-      --shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+      
+      /* Borders */
+      --border-color: rgba(255, 255, 255, 0.1);
+      --border-radius: 12px;
+      --border-radius-sm: 8px;
+      
+      /* Spacing */
+      --space-xs: 4px;
+      --space-sm: 8px;
+      --space-md: 16px;
+      --space-lg: 24px;
+      --space-xl: 32px;
+      
+      /* Shadows */
+      --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
+      --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.3);
+      --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.4);
+      
+      /* Transitions */
+      --transition-fast: 0.2s ease;
+      --transition-normal: 0.3s ease;
+      --transition-slow: 0.5s ease;
     }
     
     body {
-      width: 420px;
-      min-height: 650px;
-      background: var(--bg);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      width: 400px;
+      min-height: 600px;
+      background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
       font-size: 14px;
       line-height: 1.5;
+      padding: 0;
+      margin: 0;
       overflow-x: hidden;
     }
     
-    /* === HEADER === */
+    /* Header */
     .header {
-      padding: 24px;
+      padding: var(--space-lg);
       text-align: center;
-      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-      color: white;
-      border-bottom: 1px solid var(--border);
+      background: rgba(0, 0, 0, 0.3);
+      border-bottom: 1px solid var(--border-color);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(10px);
     }
     
     .logo {
-      font-size: 26px;
+      font-size: 24px;
       font-weight: 800;
-      margin-bottom: 4px;
+      background: linear-gradient(135deg, #4361ee, #7209b7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: var(--space-xs);
+    }
+    
+    .tagline {
+      color: var(--text-secondary);
+      font-size: 13px;
+      margin-bottom: var(--space-xs);
     }
     
     .version {
+      color: var(--text-muted);
       font-size: 11px;
-      opacity: 0.8;
+      font-weight: 500;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 2px 8px;
+      border-radius: 10px;
+      display: inline-block;
     }
     
-    /* === STATUS INDICATOR === */
-    .status {
-      margin: 16px;
-      padding: 14px;
-      border-radius: 8px;
-      text-align: center;
-      font-weight: 600;
+    /* Status Indicator */
+    .status-indicator {
+      margin: var(--space-md);
+      padding: var(--space-md);
+      border-radius: var(--border-radius-sm);
       font-size: 13px;
+      font-weight: 500;
+      text-align: center;
       animation: slideIn 0.3s ease;
+      border: 1px solid transparent;
     }
     
-    .status.success {
+    .status-indicator--success {
       background: rgba(76, 201, 240, 0.1);
-      border: 1px solid rgba(76, 201, 240, 0.3);
+      border-color: rgba(76, 201, 240, 0.3);
       color: #4cc9f0;
     }
     
-    .status.error {
+    .status-indicator--error {
       background: rgba(239, 35, 60, 0.1);
-      border: 1px solid rgba(239, 35, 60, 0.3);
+      border-color: rgba(239, 35, 60, 0.3);
       color: #ef233c;
     }
     
-    .status.warning {
+    .status-indicator--warning {
       background: rgba(247, 37, 133, 0.1);
-      border: 1px solid rgba(247, 37, 133, 0.3);
+      border-color: rgba(247, 37, 133, 0.3);
       color: #f72585;
+    }
+    
+    .status-indicator--loading {
+      background: rgba(67, 97, 238, 0.1);
+      border-color: rgba(67, 97, 238, 0.3);
+      color: #4361ee;
+      position: relative;
+    }
+    
+    .status-indicator--loading::after {
+      content: '';
+      position: absolute;
+      right: 16px;
+      width: 12px;
+      height: 12px;
+      border: 2px solid transparent;
+      border-top-color: #4361ee;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
     }
     
     @keyframes slideIn {
@@ -88,27 +165,34 @@
       to { opacity: 1; transform: translateY(0); }
     }
     
-    /* === SMART FILL BUTTON === */
+    /* Main Smart Fill Button */
     .smart-fill-container {
-      padding: 0 16px 16px;
+      padding: var(--space-md);
+      padding-bottom: var(--space-lg);
+      border-bottom: 1px solid var(--border-color);
     }
     
     .smart-fill-btn {
       width: 100%;
-      padding: 18px;
-      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      padding: 16px;
+      background: linear-gradient(135deg, #4361ee 0%, #7209b7 100%);
       color: white;
       border: none;
-      border-radius: var(--radius);
+      border-radius: var(--border-radius);
       font-size: 16px;
       font-weight: 700;
       cursor: pointer;
-      box-shadow: var(--shadow);
-      transition: all 0.2s ease;
+      transition: all var(--transition-normal);
+      box-shadow: var(--shadow-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
     }
     
     .smart-fill-btn:hover:not(:disabled) {
       transform: translateY(-2px);
+      box-shadow: var(--shadow-lg);
     }
     
     .smart-fill-btn:active:not(:disabled) {
@@ -121,27 +205,27 @@
       transform: none !important;
     }
     
-    /* === TABS === */
+    /* Tab Navigation */
     .tab-navigation {
       display: flex;
-      margin: 0 16px 16px;
       background: rgba(0, 0, 0, 0.2);
-      border-radius: 8px;
+      margin: 0 var(--space-md);
+      border-radius: var(--border-radius-sm);
       padding: 4px;
       gap: 2px;
     }
     
     .tab-button {
       flex: 1;
-      padding: 12px;
+      padding: 12px 16px;
       background: transparent;
       border: none;
-      border-radius: 6px;
-      color: var(--text-muted);
+      border-radius: var(--border-radius-sm);
+      color: var(--text-secondary);
       font-weight: 600;
       font-size: 13px;
       cursor: pointer;
-      transition: all 0.2s ease;
+      transition: all var(--transition-fast);
       text-align: center;
     }
     
@@ -149,50 +233,51 @@
       background: rgba(255, 255, 255, 0.05);
     }
     
+    .tab-button[aria-selected="true"],
     .tab-button.active {
-      background: var(--primary);
-      color: white;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+      background: linear-gradient(135deg, rgba(67, 97, 238, 0.2), rgba(114, 9, 183, 0.2));
+      color: var(--text-primary);
+      box-shadow: var(--shadow-sm);
     }
     
-    /* === PANELS === */
+    /* Tab Panels */
     .tab-panel {
+      padding: var(--space-md);
       display: none;
-      padding: 0 16px 16px;
     }
     
-    .tab-panel.active {
+    .tab-panel[aria-hidden="false"] {
       display: block;
-      animation: fadeIn 0.3s ease;
     }
     
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-    
-    /* === CARDS === */
+    /* Cards */
     .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 20px;
-      margin-bottom: 16px;
+      background: var(--bg-card);
+      border-radius: var(--border-radius);
+      padding: var(--space-lg);
+      margin-bottom: var(--space-md);
+      border: 1px solid var(--border-color);
+      transition: all var(--transition-normal);
+    }
+    
+    .card:hover {
+      border-color: rgba(67, 97, 238, 0.3);
+      box-shadow: var(--shadow-md);
     }
     
     .card__title {
       font-size: 16px;
       font-weight: 700;
-      margin-bottom: 16px;
-      color: var(--primary);
+      margin-bottom: var(--space-lg);
+      color: var(--text-primary);
       display: flex;
       align-items: center;
       gap: 8px;
     }
     
-    /* === FORM ELEMENTS === */
+    /* Form Elements */
     .form-group {
-      margin-bottom: 14px;
+      margin-bottom: var(--space-md);
     }
     
     .form-label {
@@ -200,23 +285,24 @@
       font-size: 13px;
       font-weight: 600;
       margin-bottom: 6px;
-      color: var(--text-muted);
+      color: var(--text-secondary);
     }
     
     .form-input {
       width: 100%;
-      padding: 12px;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--text);
+      padding: 12px 16px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: var(--border-radius-sm);
+      color: var(--text-primary);
       font-size: 14px;
-      transition: border-color 0.2s;
+      transition: all var(--transition-fast);
     }
     
     .form-input:focus {
       outline: none;
       border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
       background: rgba(255, 255, 255, 0.08);
     }
     
@@ -224,17 +310,21 @@
       color: var(--text-muted);
     }
     
-    /* === BUTTONS === */
+    /* Buttons */
     .btn {
-      width: 100%;
-      padding: 14px;
+      padding: 12px 24px;
       border: none;
-      border-radius: 8px;
+      border-radius: var(--border-radius-sm);
       font-weight: 600;
       font-size: 14px;
       cursor: pointer;
-      transition: all 0.2s ease;
-      margin-top: 12px;
+      transition: all var(--transition-normal);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      margin-top: var(--space-md);
     }
     
     .btn--primary {
@@ -243,26 +333,27 @@
     }
     
     .btn--primary:hover {
-      transform: translateY(-1px);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
     }
     
     .btn--success {
-      background: linear-gradient(135deg, #4cc9f0, var(--primary));
+      background: linear-gradient(135deg, #4cc9f0, #4361ee);
       color: white;
     }
     
     .btn--secondary {
-      background: rgba(255, 255, 255, 0.05);
-      color: var(--text);
-      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
     }
     
     .btn--secondary:hover {
-      background: rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.15);
     }
     
     .btn--danger {
-      background: linear-gradient(135deg, var(--danger), #b5179e);
+      background: linear-gradient(135deg, #f72585, #b5179e);
       color: white;
     }
     
@@ -276,64 +367,107 @@
       100% { box-shadow: 0 0 0 0 rgba(76, 201, 240, 0); }
     }
     
-    /* === FILE UPLOAD === */
+    /* File Upload */
     .file-upload {
-      border: 2px dashed var(--border);
-      padding: 20px;
-      text-align: center;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: border-color 0.2s;
-      margin-bottom: 12px;
+      position: relative;
+      margin-bottom: var(--space-md);
     }
     
-    .file-upload:hover {
+    .file-upload__input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      border: 0;
+    }
+    
+    .file-upload__button {
+      display: block;
+      padding: 16px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 2px dashed var(--border-color);
+      border-radius: var(--border-radius-sm);
+      text-align: center;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    
+    .file-upload__button:hover {
       border-color: var(--primary);
+      color: var(--text-primary);
+      background: rgba(67, 97, 238, 0.1);
     }
     
     .file-status {
       font-size: 13px;
       color: var(--text-muted);
+      margin-bottom: var(--space-md);
       text-align: center;
-      margin-bottom: 12px;
     }
     
-    /* === INFO BOX === */
+    /* Extracted Data */
+    .extracted-data {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      border-radius: var(--border-radius-sm);
+      padding: var(--space-md);
+      margin-top: var(--space-md);
+      font-size: 13px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    
+    /* Info Box */
     .info-box {
       background: rgba(67, 97, 238, 0.1);
       border: 1px solid rgba(67, 97, 238, 0.3);
-      padding: 14px;
-      border-radius: 8px;
-      margin-bottom: 16px;
+      border-radius: var(--border-radius-sm);
+      padding: var(--space-md);
+      margin-bottom: var(--space-lg);
       font-size: 13px;
-      line-height: 1.5;
     }
     
     .info-box__title {
       font-weight: 700;
       color: var(--primary);
-      margin-bottom: 8px;
+      margin-bottom: var(--space-sm);
     }
     
-    /* === USAGE STATS === */
-    .usage-stats {
-      display: grid;
-      gap: 8px;
-      font-size: 13px;
+    /* Button Group */
+    .button-group {
+      display: flex;
+      gap: var(--space-sm);
+      margin-top: var(--space-md);
+    }
+    
+    .button-group .btn {
+      flex: 1;
+      margin: 0;
+    }
+    
+    /* Shortcut Hint */
+    .shortcut-hint {
+      text-align: center;
+      margin-top: var(--space-lg);
+      padding: var(--space-md);
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: var(--border-radius-sm);
+      font-size: 12px;
       color: var(--text-muted);
     }
     
-    .usage-stats strong {
-      color: var(--text);
-    }
-    
-    /* === SCROLLBAR === */
+    /* Scrollbar Styling */
     ::-webkit-scrollbar {
       width: 8px;
     }
     
     ::-webkit-scrollbar-track {
       background: rgba(255, 255, 255, 0.05);
+      border-radius: 4px;
     }
     
     ::-webkit-scrollbar-thumb {
@@ -350,11 +484,14 @@
   <!-- Header -->
   <header class="header">
     <h1 class="logo">🎯 AutoFill Pro</h1>
-    <div class="version">v6.1 - Required Field Intelligence</div>
+    <p class="tagline">AI-Powered Universal Form Filler</p>
+    <p class="version">v5.2</p>
   </header>
 
   <!-- Status Indicator -->
-  <div id="status-indicator" class="status">Loading extension...</div>
+  <div id="status-indicator" class="status-indicator">
+    Loading...
+  </div>
 
   <!-- Smart Fill Button -->
   <div class="smart-fill-container">
@@ -377,77 +514,81 @@
   </nav>
 
   <!-- Main Content -->
-  <main id="main-content">
+  <main>
     <!-- Profile Panel -->
-    <section id="profile-panel" class="tab-panel active">
-      <!-- Personal Info -->
+    <section id="profile-panel" class="tab-panel" aria-hidden="false">
+      <!-- Personal Information -->
       <article class="card">
         <h2 class="card__title">👤 Personal Information</h2>
-        <div class="form-group">
-          <label class="form-label" for="firstName">First Name</label>
-          <input type="text" id="firstName" class="form-input" placeholder="John">
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="lastName">Last Name</label>
-          <input type="text" id="lastName" class="form-input" placeholder="Doe">
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="email">Email Address</label>
-          <input type="email" id="email" class="form-input" placeholder="john@example.com">
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="phone">Phone Number</label>
-          <input type="tel" id="phone" class="form-input" placeholder="+1 (555) 123-4567">
-        </div>
+        <form id="profile-form">
+          <div class="form-group">
+            <label for="firstName" class="form-label">First Name</label>
+            <input type="text" id="firstName" class="form-input" placeholder="e.g. John" autocomplete="given-name">
+          </div>
+          <div class="form-group">
+            <label for="lastName" class="form-label">Last Name</label>
+            <input type="text" id="lastName" class="form-input" placeholder="e.g. Doe" autocomplete="family-name">
+          </div>
+          <div class="form-group">
+            <label for="email" class="form-label">Email Address</label>
+            <input type="email" id="email" class="form-input" placeholder="e.g. john@example.com" autocomplete="email">
+          </div>
+          <div class="form-group">
+            <label for="phone" class="form-label">Phone Number</label>
+            <input type="tel" id="phone" class="form-input" placeholder="e.g. +1 (555) 123-4567" autocomplete="tel">
+          </div>
+        </form>
       </article>
 
-      <!-- Address -->
+      <!-- Address Information -->
       <article class="card">
         <h2 class="card__title">📍 Address</h2>
-        <div class="form-group">
-          <label class="form-label" for="address">Street Address</label>
-          <input type="text" id="address" class="form-input" placeholder="123 Main St">
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="city">City</label>
-          <input type="text" id="city" class="form-input" placeholder="New York">
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="state">State/Province</label>
-          <input type="text" id="state" class="form-input" placeholder="NY">
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="zipCode">ZIP/Postal Code</label>
-          <input type="text" id="zipCode" class="form-input" placeholder="10001">
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="country">Country</label>
-          <input type="text" id="country" class="form-input" placeholder="United States">
-        </div>
+        <form id="address-form">
+          <div class="form-group">
+            <label for="address" class="form-label">Street Address</label>
+            <input type="text" id="address" class="form-input" placeholder="e.g. 123 Main St" autocomplete="street-address">
+          </div>
+          <div class="form-group">
+            <label for="city" class="form-label">City</label>
+            <input type="text" id="city" class="form-input" placeholder="e.g. New York" autocomplete="address-level2">
+          </div>
+          <div class="form-group">
+            <label for="state" class="form-label">State/Province</label>
+            <input type="text" id="state" class="form-input" placeholder="e.g. NY" autocomplete="address-level1">
+          </div>
+          <div class="form-group">
+            <label for="zipCode" class="form-label">ZIP / Postal Code</label>
+            <input type="text" id="zipCode" class="form-input" placeholder="e.g. 10001" autocomplete="postal-code">
+          </div>
+          <div class="form-group">
+            <label for="country" class="form-label">Country</label>
+            <input type="text" id="country" class="form-input" placeholder="e.g. United States" autocomplete="country-name">
+          </div>
+        </form>
       </article>
 
-      <!-- Professional -->
+      <!-- Professional Information -->
       <article class="card">
-        <h2 class="card__title">💼 Professional Information</h2>
+        <h2 class="card__title">💼 Professional</h2>
         <div class="form-group">
-          <label class="form-label" for="company">Current Company</label>
-          <input type="text" id="company" class="form-input" placeholder="Tech Corp Inc.">
+          <label for="company" class="form-label">Current Company</label>
+          <input type="text" id="company" class="form-input" placeholder="e.g. Tech Corp Inc." autocomplete="organization">
         </div>
         <div class="form-group">
-          <label class="form-label" for="jobTitle">Job Title</label>
-          <input type="text" id="jobTitle" class="form-input" placeholder="Senior Developer">
+          <label for="jobTitle" class="form-label">Job Title</label>
+          <input type="text" id="jobTitle" class="form-input" placeholder="e.g. Senior Developer">
         </div>
         <div class="form-group">
-          <label class="form-label" for="website">Website</label>
-          <input type="url" id="website" class="form-input" placeholder="https://example.com">
+          <label for="website" class="form-label">Website</label>
+          <input type="url" id="website" class="form-input" placeholder="e.g. https://example.com">
         </div>
         <div class="form-group">
-          <label class="form-label" for="linkedin">LinkedIn Profile</label>
-          <input type="url" id="linkedin" class="form-input" placeholder="https://linkedin.com/in/username">
+          <label for="linkedin" class="form-label">LinkedIn Profile</label>
+          <input type="url" id="linkedin" class="form-input" placeholder="e.g. https://linkedin.com/in/username">
         </div>
         <div class="form-group">
-          <label class="form-label" for="github">GitHub Profile</label>
-          <input type="url" id="github" class="form-input" placeholder="https://github.com/username">
+          <label for="github" class="form-label">GitHub Profile</label>
+          <input type="url" id="github" class="form-input" placeholder="e.g. https://github.com/username">
         </div>
       </article>
 
@@ -455,24 +596,24 @@
       <article class="card">
         <h2 class="card__title">📋 Employment Details</h2>
         <div class="form-group">
-          <label class="form-label" for="experience">Years of Experience</label>
-          <input type="text" id="experience" class="form-input" placeholder="5">
+          <label for="experience" class="form-label">Years of Experience</label>
+          <input type="text" id="experience" class="form-input" placeholder="e.g. 5">
         </div>
         <div class="form-group">
-          <label class="form-label" for="education">Highest Education</label>
-          <input type="text" id="education" class="form-input" placeholder="Bachelor's Degree">
+          <label for="education" class="form-label">Highest Education</label>
+          <input type="text" id="education" class="form-input" placeholder="e.g. Bachelor's Degree">
         </div>
         <div class="form-group">
-          <label class="form-label" for="skills">Key Skills</label>
-          <input type="text" id="skills" class="form-input" placeholder="JavaScript, React, Node.js">
+          <label for="skills" class="form-label">Key Skills</label>
+          <input type="text" id="skills" class="form-input" placeholder="e.g. JavaScript, React, Node.js">
         </div>
         <div class="form-group">
-          <label class="form-label" for="salary">Salary Expectation</label>
-          <input type="text" id="salary" class="form-input" placeholder="$100,000">
+          <label for="salary" class="form-label">Salary Expectation</label>
+          <input type="text" id="salary" class="form-input" placeholder="e.g. $100,000">
         </div>
         <div class="form-group">
-          <label class="form-label" for="notice">Notice Period</label>
-          <input type="text" id="notice" class="form-input" placeholder="30 days">
+          <label for="notice" class="form-label">Notice Period</label>
+          <input type="text" id="notice" class="form-input" placeholder="e.g. 30 days">
         </div>
       </article>
 
@@ -481,24 +622,24 @@
         <h2 class="card__title">🔧 Selection & Boolean Fields</h2>
         <div class="info-box">
           <div class="info-box__title">💡 Pro Tips</div>
-          <div>• For required yes/no fields, leave blank to auto-select "yes"</div>
-          <div>• Terms checkboxes marked with * will auto-check</div>
-          <div>• Enter exact dropdown text or true/false for checkboxes</div>
+          <div>• For checkboxes: Enter "true" to check, "false" to leave unchecked</div>
+          <div>• For dropdowns: Enter exact option text</div>
+          <div>• For radio buttons: Enter button value</div>
         </div>
         <div class="form-group">
-          <label class="form-label" for="gender">Gender (for radio buttons)</label>
+          <label for="gender" class="form-label">Gender (for radio buttons)</label>
           <input type="text" id="gender" class="form-input" placeholder="e.g. male, female, or other">
         </div>
         <div class="form-group">
-          <label class="form-label" for="newsletter">Subscribe to Newsletter</label>
+          <label for="newsletter" class="form-label">Subscribe to Newsletter</label>
           <input type="text" id="newsletter" class="form-input" placeholder="Enter: true or false">
         </div>
         <div class="form-group">
-          <label class="form-label" for="remoteWork">Remote Work Preference</label>
+          <label for="remoteWork" class="form-label">Remote Work Preference</label>
           <input type="text" id="remoteWork" class="form-input" placeholder="e.g. remote, hybrid, or onsite">
         </div>
         <div class="form-group">
-          <label class="form-label" for="terms">Agree to Terms & Conditions</label>
+          <label for="terms" class="form-label">Agree to Terms & Conditions</label>
           <input type="text" id="terms" class="form-input" placeholder="Enter: true to auto-check">
         </div>
         <button type="button" id="save-profile-btn" class="btn btn--success">
@@ -508,60 +649,87 @@
     </section>
 
     <!-- CV Tools Panel -->
-    <section id="cv-panel" class="tab-panel">
+    <section id="cv-panel" class="tab-panel" aria-hidden="true">
       <article class="card">
         <h2 class="card__title">📄 CV Upload & Management</h2>
-        <div class="form-group">
-          <label class="file-upload" for="cv-file-input">
-            📤 Click to Upload CV (PDF/DOC/DOCX/TXT)
+        
+        <div class="file-upload">
+          <label for="cv-file-input" class="file-upload__button">
+            📤 Upload CV (PDF/DOC/PNG/TXT)
           </label>
-          <input type="file" id="cv-file-input" class="form-input" accept=".pdf,.doc,.docx,.txt" style="display: none;">
+          <input type="file" id="cv-file-input" class="file-upload__input" 
+                 accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt,.rtf">
         </div>
+        
         <p id="cv-status" class="file-status">No CV stored</p>
-        <button type="button" id="preview-cv-btn" class="btn btn--secondary">
-          👁️ Preview CV
-        </button>
-        <button type="button" id="extract-cv-btn" class="btn btn--primary">
-          🔍 Extract Data from CV
-        </button>
+        
+        <div class="button-group">
+          <button type="button" id="preview-cv-btn" class="btn btn--secondary">
+            👁️ Preview CV
+          </button>
+          <button type="button" id="extract-cv-btn" class="btn btn--primary">
+            🔍 Extract Data from CV
+          </button>
+        </div>
+        
+        <div id="extracted-data-container" class="extracted-data" 
+             tabindex="0" aria-label="Extracted CV data">
+          Extracted data will appear here...
+        </div>
       </article>
 
       <article class="card">
         <h2 class="card__title">🛠️ Advanced Tools</h2>
+        
         <button type="button" id="extract-browser-btn" class="btn btn--secondary">
           🌐 Extract Data from Current Page
         </button>
+        
         <button type="button" id="reset-all-btn" class="btn btn--danger">
           🗑️ Reset All Data & Settings
         </button>
-        <div class="info-box" style="margin-top: 16px;">
-          <strong>⌨️ Quick Fill:</strong> Ctrl+Shift+F (Windows) / Cmd+Shift+F (Mac)
-        </div>
+        
+        <p class="shortcut-hint">
+          ⌨️ Quick Fill: <strong>Ctrl+Shift+F</strong> (Windows) or <strong>Cmd+Shift+F</strong> (Mac)
+        </p>
       </article>
     </section>
 
     <!-- Settings Panel -->
-    <section id="settings-panel" class="tab-panel">
+    <section id="settings-panel" class="tab-panel" aria-hidden="true">
       <article class="card">
         <h2 class="card__title">⚙️ Extension Settings</h2>
+        
         <div class="form-group">
-          <label style="display: flex; align-items: center; gap: 10px;">
+          <label class="form-label" style="display: flex; align-items: center; gap: 10px;">
+            <input type="checkbox" id="auto-fill-toggle" checked>
+            <span>Enable Auto-Fill Detection</span>
+          </label>
+          <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+            Automatically detect and highlight fillable fields on page load
+          </p>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label" style="display: flex; align-items: center; gap: 10px;">
             <input type="checkbox" id="highlight-fields-toggle" checked>
             <span>Highlight Filled Fields</span>
           </label>
+          <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+            Show visual feedback on fields that have been filled
+          </p>
         </div>
+        
         <div class="form-group">
-          <label style="display: flex; align-items: center; gap: 10px;">
+          <label class="form-label" style="display: flex; align-items: center; gap: 10px;">
             <input type="checkbox" id="show-notifications-toggle" checked>
             <span>Show Notifications</span>
           </label>
+          <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+            Display success/error notifications after filling forms
+          </p>
         </div>
-        <div class="form-group">
-          <label style="display: flex; align-items: center; gap: 10px;">
-            <input type="checkbox" id="auto-submit-toggle">
-            <span>Auto-Submit Forms</span>
-          </label>
-        </div>
+        
         <button type="button" id="save-settings-btn" class="btn btn--primary">
           💾 Save Settings
         </button>
@@ -569,16 +737,17 @@
 
       <article class="card">
         <h2 class="card__title">📊 Usage Statistics</h2>
-      <div class="usage-stats">
-        <div>Forms Filled: <strong id="forms-filled">0</strong></div>
-        <div>Fields Filled: <strong id="fields-filled">0</strong></div>
-        <div>Last Used: <strong id="last-used">Never</strong></div>
-      </div>
+        <div id="usage-stats">
+          <p>Total Forms Filled: <span id="forms-filled">0</span></p>
+          <p>Total Fields Filled: <span id="fields-filled">0</span></p>
+          <p>Last Used: <span id="last-used">Never</span></p>
+        </div>
       </article>
     </section>
   </main>
 
-  <!-- Load Scripts -->
+  <!-- Scripts -->
+  <script src="config.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>
